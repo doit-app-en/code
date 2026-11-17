@@ -38,6 +38,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Escape user text with `esc()` before putting it in `innerHTML`.
 - Before finishing a change: `node --check` each edited JS file, run `npm run dev`, open the pages you touched and check the browser console.
 - Work on a branch and open a pull request; Vercel builds a preview for it. `main` is production.
+- `.github/workflows/check.yml` must pass on the pull request. `migrate.yml` applies new `supabase/migrations/` files when they reach `main` (only if the Supabase secrets are set in the repository).
 - The file `public/course.json` is optional (a teacher's exported course, auto-loaded by every student). A 404 for it is normal.
 
 ## Known limits / next ideas

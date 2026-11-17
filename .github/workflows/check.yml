@@ -1,0 +1,30 @@
+# Runs on every pull request and on main: makes sure no JavaScript file is broken before it is merged or deployed.
+name: Check
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Syntax check (site, server, scripts)
+        run: |
+          fail=0
+          for f in public/js/*.js api/*.js api/_lib/*.js scripts/*.mjs; do
+            node --check "$f" || fail=1
+          done
+          exit $fail
+      - name: Every script in index.html exists
+        run: |
+          fail=0
+          for f in $(grep -o 'src="js/[^"]*"' public/index.html | cut -d'"' -f2); do
+            [ -f "public/$f" ] || { echo "missing: public/$f"; fail=1; }
+          done
+          exit $fail
