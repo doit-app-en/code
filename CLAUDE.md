@@ -12,6 +12,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `public/index.html` | Markup + the ordered `<script>` tags |
 | `public/styles.css` | All styles. Kept next to `index.html` on purpose: `url(photos/…)` must resolve the same from CSS and from inline styles. |
 | `public/js/NN-*.js` | The app, split by section. **Classic scripts, not modules**: they share one global scope and must load in the numbered order. |
+| `public/js/legacy-apps-script.js` | The old Apps Script text a teacher can copy from the Students page (`GS_CODE`). Not numbered; loads between `08` and `09`. |
 | `public/photos/` | Site photos (Unsplash) |
 | `api/class.js` | Class server: progress, students list, speaking AI feedback |
 | `api/voice.js` | Voice level test: speech-to-text + pronunciation scores (Azure AI Speech), AI summary (Claude), saved results |
