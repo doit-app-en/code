@@ -21,7 +21,9 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `legacy/` | The old Google Apps Script server, kept for reference |
 | `scripts/dev-server.mjs` | `npm run dev` — local preview of `public/` + `api/` |
 | `scripts/smoke-test.mjs` | `npm run smoke` — every page on phone/tablet/desktop in headless Chrome + the whole voice test; screenshots in `/tmp/smoke/` |
-| `AGENT.md`, `BACKLOG.md`, `CHANGELOG.md` | The scheduled improvement agent's rules, its to-do list, and the Arabic log the owner reads |
+| `AGENT.md`, `BACKLOG.md` | The scheduled improvement agents (developer, designer, content, researcher, organizer): their rules and their to-do lists |
+| `CHANGELOG.md`, `REPORT.md` | In Arabic, for the owner: every visible change, and the organizer's daily report |
+| `docs/research.md` | The researcher agent's notes on other English-learning sites |
 
 ## How it works
 
