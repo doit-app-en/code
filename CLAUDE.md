@@ -36,6 +36,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Voice level test (`public/js/10b-voice-test.js`, route `#/voicetest`): 45 s answer + 45 s picture description + 4 listen-and-repeat sentences.
   The browser records WAV (16 kHz mono). With `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` set, `/api/voice` transcribes and scores pronunciation;
   without them the page falls back to the browser's speech recognition ("basic check"). `GET /api/voice` tells the page what is switched on.
+  The teacher's Students page asks `POST /api/voice {action:'latest', key}` (teacher key) for each student's newest test and shows it in a "Voice test" column.
   Paid calls need a registered student and are limited per day by `usage_take()` in the database. The owner has set the Azure keys in production; nobody has confirmed a real spoken test yet.
 - Database tables have Row Level Security on and **no policies**: only `api/` (service-role key) can reach them.
   The browser never talks to Supabase directly and no Supabase key is in `public/`.
@@ -58,4 +59,3 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
   old server. Supabase Auth for students would fix it.
 - Reminder emails need a Resend account with a verified sending domain.
 - No Arabic interface yet; the Pronounce section still uses the browser's speech recognition (only the Voice level test can use Azure).
-- The teacher's Students page does not show voice-test results yet (they are saved in the `voice_tests` table).

@@ -109,15 +109,31 @@ function renderProgress() {
 }
 
 /* ---- teacher: Students ---- */
-let classList = null, classErr = '';
+let classList = null, classErr = '', voiceLatest = null;   // voiceLatest: email → that student's newest voice level test (null = not loaded)
 async function loadClass() {
-  const url = syncUrl(); classErr = '';
+  const url = syncUrl(); classErr = ''; voiceLatest = null;
   if (!url) { classList = null; return; }
   if (!tkey) { classErr = 'Write your teacher key to see the students.'; classList = null; return; }
   try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(tkey)); const d = await r.json();
     if (!d.ok) { classErr = d.error === 'wrong key' ? 'The teacher key is not correct.' : d.error === 'server not configured' ? 'The class server is not set up yet: add the Supabase keys in Vercel (see README).' : 'The class server did not answer correctly.'; classList = null; return; }
     classList = d.students || [];
+    if (url === BUILT_IN_SERVER) await loadVoiceLatest();
   } catch (e) { classErr = 'Could not reach the class server. Check the internet connection and the web app address.'; classList = null; }
+}
+// Voice level test results are extra: if they cannot be loaded, the Students table simply has no "Voice test" column.
+async function loadVoiceLatest() {
+  try { const r = await fetch(VT_API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({action: 'latest', key: tkey})}), d = await r.json();
+    if (!d.ok || !Array.isArray(d.tests)) return;
+    voiceLatest = {}; d.tests.forEach(t => { if (t && t.email) voiceLatest[String(t.email).toLowerCase()] = t; });
+  } catch (e) { /* the table still shows the progress */ }
+}
+function voiceCell(r) {
+  const v = voiceLatest && voiceLatest[String(r.email || '').toLowerCase()], n = x => Math.max(0, Math.min(100, Math.round(+x || 0)));
+  if (!v) return '<span class="lbl">Not taken</span>';
+  const badge = `<span class="chip" style="background:${pcol(n(v.overall))}">${esc(v.level || '?')} · ${n(v.overall)}%</span>`, d = Date.parse(v.date);
+  return `${/^[a-z0-9]{10,40}$/.test(v.id || '') ? `<a class="vlink" href="#/voicetest/result/${v.id}" title="Open the full result">${badge} <span class="lbl">View →</span></a>` : badge}
+    <div class="lbl">Speaking ${n(v.speaking)}% · Pronunciation ${n(v.pronunciation)}% · Repeating ${n(v.repeating)}%</div>
+    <div class="lbl">${d ? new Date(d).toLocaleDateString() : ''}${v.count > 1 ? ` · ${n(v.count)} tests` : ''}</div>`;
 }
 function renderStudents() {
   if (mode !== 'teacher') { app.innerHTML = `<div class="panel empty"><div class="e">🧑‍🏫</div>This page is for teachers. Switch to Teacher mode at the top.</div>`; return; }
@@ -136,13 +152,13 @@ function renderStudents() {
       ${syncUrl() ? '<button class="btn sm" id="refresh">↻ Refresh</button>' : ''}</div>
     ${classErr ? `<div class="warn">⚠️ ${esc(classErr)}</div>` : ''}
     ${!rows.length ? `<div class="empty"><div class="e">👥</div>${syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>` : `
-    <div class="tablewrap"><table class="rtable"><thead><tr><th>Student</th><th>Class</th><th>Progress</th><th>Listening</th><th>Pronounce</th><th>Lessons</th><th>Last practised</th><th></th></tr></thead><tbody>
+    <div class="tablewrap"><table class="rtable"><thead><tr><th>Student</th><th>Class</th><th>Progress</th><th>Listening</th><th>Pronounce</th><th>Lessons</th>${voiceLatest ? '<th>Voice test</th>' : ''}<th>Last practised</th><th></th></tr></thead><tbody>
       ${rows.map(r => `<tr><td><b>${esc(r.name)}</b>${r.here ? ' <span class="lbl">(this device)</span>' : ''}<div class="lbl">${esc(r.email || '')}</div></td><td>${esc(r.cls || '')}</td>
         <td><div class="minibar"><i style="width:${r.overall}%;background:${pcol(r.overall)}"></i></div><b style="color:${pcol(r.overall)}">${r.overall}%</b></td>
-        <td>${r.listening}%</td><td>${r.pronounce}%</td><td>${r.lessons}%</td><td>${st(r)}${r.lastReminder ? `<div class="lbl">reminder sent ${new Date(r.lastReminder).toLocaleDateString()}</div>` : ''}</td>
+        <td>${r.listening}%</td><td>${r.pronounce}%</td><td>${r.lessons}%</td>${voiceLatest ? `<td class="vcell">${voiceCell(r)}</td>` : ''}<td>${st(r)}${r.lastReminder ? `<div class="lbl">reminder sent ${new Date(r.lastReminder).toLocaleDateString()}</div>` : ''}</td>
         <td>${r.email ? `<a class="btn sm ghost" href="${mail(r)}" title="Write a reminder email">✉️</a>` : ''}</td></tr>`).join('')}
     </tbody></table></div>`}
-    <p class="lbl" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.</p>
+    <p class="lbl" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.${voiceLatest ? ' Voice test = the student\'s newest voice level test; “View” opens the full result.' : ''}</p>
   </div>
   <div class="panel" style="margin-top:16px">
     <h3 class="sec-t" style="font-size:24px">🔌 Class server & reminder emails</h3>

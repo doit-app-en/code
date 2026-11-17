@@ -4,9 +4,10 @@
 //   POST {action: 'transcribe', student, audio}        free speech → text            (Azure Speech)
 //   POST {action: 'assess', student, text, audio}      a repeated sentence → scores  (Azure Speech)
 //   POST {action: 'finish', student, result}           AI summary (Claude) + save the result
+//   POST {action: 'latest', key}                       the teacher's Students page: each student's newest test (needs TEACHER_KEY)
 // audio = base64 of a WAV file (PCM 16-bit, 16 kHz, mono). Only registered students (My progress page) can use the paid parts.
 import { randomBytes } from 'node:crypto';
-import { db, env, num, readJson, cleanEmail, pct, text } from './_lib/server.js';
+import { db, env, num, isTeacher, readJson, cleanEmail, pct, text } from './_lib/server.js';
 import { azureOn, transcribe, assess } from './_lib/azure.js';
 import { voiceSummary } from './_lib/claude.js';
 
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method' });
     if (!supabase) return res.status(200).json({ ok: false, error: 'server not configured' });
     const d = readJson(req), s = d.student || {}, email = cleanEmail(s.email);
+    if (d.action === 'latest') return res.status(200).json(await latestTests(supabase, d.key));
     if (!email) return res.status(200).json({ ok: false, error: 'not registered' });
     const reg = await supabase.from('students').select('email').eq('email', email).maybeSingle();
     if (reg.error) throw reg.error;
@@ -52,6 +54,21 @@ export default async function handler(req, res) {
     console.error('api/voice', e);
     return res.status(200).json({ ok: false, error: 'server error' });
   }
+}
+
+// For the teacher: the newest test of every student (scores only, no recordings or transcripts) and how many tests each one took.
+async function latestTests(supabase, key) {
+  if (!isTeacher(key)) return { ok: false, error: 'wrong key' };
+  const { data, error } = await supabase.from('voice_tests').select('id,created_at,email,level,overall,speaking,pronunciation,repeating')
+    .order('created_at', { ascending: false }).limit(5000);
+  if (error) throw error;
+  const byEmail = new Map();
+  for (const r of data || []) {
+    const t = byEmail.get(r.email);
+    if (t) t.count++;
+    else byEmail.set(r.email, { email: r.email, id: r.id, date: r.created_at, level: r.level, overall: r.overall, speaking: r.speaking, pronunciation: r.pronunciation, repeating: r.repeating, count: 1 });
+  }
+  return { ok: true, tests: [...byEmail.values()] };
 }
 
 // Keeps only the known fields, with safe sizes, so nothing unexpected is saved or sent to the AI.

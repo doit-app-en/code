@@ -75,6 +75,26 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// The teacher's Students page with a pretend server answer: every student's newest voice level test must be in the table.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage(), now = new Date().toISOString();
+  watch(page, 'students voice column');
+  try {
+    await page.route('**/api/class?key=*', r => r.fulfill({ json: { ok: true, students: [{ name: 'Sara <Test>', cls: '9A', email: 'sara@example.com', overall: 62, listening: 70, pronounce: 55, lessons: 60, lastActive: now },
+      { name: 'Omar Test', cls: '9B', email: 'omar@example.com', overall: 31, listening: 40, pronounce: 20, lessons: 30, lastActive: now }] } }));
+    await page.route('**/api/voice', r => r.request().method() === 'POST' ? r.fulfill({ json: { ok: true, tests: [{ email: 'sara@example.com', id: 'abcdef0123456789abcdef01', date: now, level: 'A2', overall: 64, speaking: 60, pronunciation: 71, repeating: 62, count: 2 }] } }) : r.continue());
+    await page.goto(base + '/', { waitUntil: 'load' }); await page.waitForFunction(() => document.querySelector('#app').innerText.trim().length > 20, null, { timeout: 10000 });
+    await page.evaluate(() => { mode = 'teacher'; setModeButtons(); tkey = 'smoke'; location.hash = '#/students'; });
+    await page.waitForSelector('td.vcell', { timeout: 10000 });
+    const r = await page.evaluate(() => ({ cells: [...document.querySelectorAll('td.vcell')].map(td => td.innerText.replace(/\s+/g, ' ').trim()), link: (document.querySelector('td.vcell a') || {}).hash, over: document.documentElement.scrollWidth - innerWidth }));
+    if (r.cells.length !== 2 || !/A2 · 64%.*Speaking 60%.*Pronunciation 71%.*Repeating 62%.*2 tests/.test(r.cells[0]) || !/Not taken/.test(r.cells[1]) || r.link !== '#/voicetest/result/abcdef0123456789abcdef01') problems.push('students voice column: wrong content ' + JSON.stringify(r));
+    if (r.over > 1) problems.push(`students voice column: ${r.over}px wider than the phone screen`);
+    await page.evaluate(() => { const w = document.querySelector('.tablewrap'); w.scrollIntoView(); w.scrollLeft = 480; scrollBy(0, -110); });
+    await page.screenshot({ path: path.join(shots, 'phone-teacher-students-voice.png') });
+  } catch (e) { problems.push('students voice column: could not check — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, voice test finished. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, voice test finished, students voice column checked. Screenshots: ${shots}`);
