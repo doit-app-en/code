@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Do it English</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#/"><span class="logo">💬</span>Do it <span class="it">English</span></a>
+  <div class="navlinks">
+    <a href="#/" class="hide-sm">🏠 Home</a>
+    <a href="#/placement" class="hide-sm">📝 Placement Test</a>
+    <a href="#/pronounce" class="hide-sm">🗣️ Pronounce</a>
+    <a href="#/listening" class="hide-sm">🎧 Listening</a>
+    <a href="#/speaking" class="hide-sm">🎤 Speaking</a>
+    <a href="#/progress" class="hide-sm">📈 My progress</a>
+    <a href="#/students" class="hide-sm tonly">🧑‍🏫 Students</a>
+    <div class="vwrapx"><button class="btn ghost sm" id="voiceBtn" title="Choose the English voice">🔊</button>
+      <div class="vpop" id="vpop" hidden><b>English voice</b><select class="in" id="voiceSel"></select>
+        <div class="row" style="gap:6px"><button class="btn sm teal" id="voiceTest">▶ Test</button><button class="btn sm ghost" id="voiceAuto">Automatic</button></div>
+        <small class="lbl">Saved on this device. British (en-GB) voices are listed first.</small></div></div>
+    <div class="seg" title="Teacher mode lets you add videos, voice tracks, pictures and questions">
+      <button data-mode="student">🎒 Student</button>
+      <button data-mode="teacher">🧑‍🏫 Teacher</button>
+    </div>
+  </div>
+</header>
+<main id="app"></main>
+<footer>Do it English · Learn • Listen • Match • Speak<br><small>Photos: <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a> photographers</small></footer>
+<div class="toast" id="toast"></div>
+
+<script src="js/01-core.js"></script>
+<script src="js/02-speech.js"></script>
+<script src="js/03-ui-routing.js"></script>
+<script src="js/04-home.js"></script>
+<script src="js/05-placement.js"></script>
+<script src="js/06-lessons.js"></script>
+<script src="js/07-pronounce.js"></script>
+<script src="js/08-listening.js"></script>
+<script src="js/legacy-apps-script.js"></script>
+<script src="js/09-progress.js"></script>
+<script src="js/10-speaking.js"></script>
+<script src="js/11-course-file.js"></script>
+<script src="js/12-start.js"></script>
+</body>
+</html>
