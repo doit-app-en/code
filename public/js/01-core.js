@@ -53,5 +53,25 @@ function newLesson(title, s) {
     matching: s.items.map(it => ({id: uid(), word: it[0], img: {e: it[1]}})),
     speaking: (s.speak || s.items.map(i => i[2])).map(t => ({id: uid(), text: t})) };
 }
-function seedState() { const st = {levels: {}}; LEVELS.forEach(l => st.levels[l.id] = {lessons: [newLesson(SEED[l.id].title, SEED[l.id])]}); return st; }
+// Lessons added to the default course after version 1. Default lessons are copied into each device once, so bump LESSON_V when
+// you add one here (with {v: N} and a fixed id, the same on every device): upgradeLessons() gives it to devices that already have a course.
+const LESSON_V = 2;
+const SEED_MORE = [
+  {v:2, level:'a1', id:'a1-after-school', title:'After School', items:[['have lunch','🍽️','I have lunch at one o\'clock.'],['do my homework','📝','I do my homework in the afternoon.'],['play football','⚽','I play football with my friends.'],['go to bed','🛏️','I go to bed at nine o\'clock.']]},
+  {v:2, level:'a1', id:'a1-things-i-like', title:'Things I Like', items:[['reading','📖','I like reading books.'],['swimming','🏊','My sister likes swimming.'],['pizza','🍕','Do you like pizza? Yes, I do.'],['spiders','🕷️','I don\'t like spiders.']]},
+];
+function seedLesson(m) { const s = newLesson(m.title, m); s.id = m.id; return s; }
+function seedState() {
+  const st = {levels: {}, lessonsV: LESSON_V};
+  LEVELS.forEach(l => st.levels[l.id] = {lessons: [newLesson(SEED[l.id].title, SEED[l.id]), ...SEED_MORE.filter(m => m.level === l.id).map(seedLesson)]});
+  return st;
+}
+// A new default lesson is added only where the level still has its first default lesson (so a teacher who replaced the default
+// course with their own lessons is left alone) and no lesson with that id or title is there yet.
+function upgradeLessons() {
+  const v = state.lessonsV || 1; if (v >= LESSON_V) return false;
+  SEED_MORE.filter(m => m.v > v).forEach(m => { const ls = state.levels[m.level].lessons;
+    if (ls.some(s => s.title === SEED[m.level].title) && !ls.some(s => s.id === m.id || s.title === m.title)) ls.push(seedLesson(m)); });
+  state.lessonsV = LESSON_V; return true;
+}
 

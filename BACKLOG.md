@@ -26,7 +26,7 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 ## Content
 <!-- content: one section per run, in this order, then start again. Write the date next to a section when you finish it. -->
 - [x] Placement test questions — 2026-11-17: default set + the "Generate" templates checked; 4 items with two correct answers fixed, 6 new questions (now 48). Reaches existing devices through `PLACE_V` / `upgradePlacement` in `05-placement.js`.
-- [ ] Level A1 lessons
+- [x] Level A1 lessons — 2026-11-17: the one default lesson ("My Daily Routine") checked, nothing wrong; 2 new lessons of the same kind added ("After School", "Things I Like", 4 phrases each) so the level covers what its card promises (routines, likes, simple questions). Reaches existing devices through `LESSON_V` / `upgradeLessons` in `01-core.js` (new lessons have fixed ids).
 - [ ] Level A2 lessons
 - [ ] Level B1 lessons
 - [ ] Level B2 lessons
@@ -54,6 +54,9 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 - Placement test (content, 2026-11-17): "We ___ hungry. We had a big lunch." uses the past tense ("had") in an A1 test — left as it is; say if you want it changed to the present.
 - Placement test (content, 2026-11-17): the generated question "You watch TV in the ___." counts only "living room" as right, though "bedroom" can be offered as a wrong answer and some students do have a TV there — left as it is.
 - Placement test (content, 2026-11-17): a teacher who deleted default questions on purpose will still receive the 6 new ones on that device (same behaviour as new listening exercises); they can be deleted again in the Questions tab.
+- Level A1 lessons (content, 2026-11-17): the two new lessons are added only on devices where the lesson "My Daily Routine" is still there under that name; a teacher who deleted or renamed it gets nothing new. A student's "Lessons" percentage goes down a little when the new lessons arrive (for example 1 of 6 becomes 1 of 8) — say if you would rather new lessons not be added to devices that already have the course.
+- Level A1 lessons (content, 2026-11-17): every default lesson has no video ("No video yet. Your teacher will add one soon!") — only you or a teacher can add videos.
+- Lessons (content, 2026-11-17): every level has only one default lesson with 4 phrases (A1 now has three). Do you want the content agent to keep adding two short lessons per level on its daily run?
 
 ## Done
 - [x] 2026-11-18 Teacher's Students page: "Class" filter and "Order" list above the table (newest/longest ago, name, class, progress high/low, voice test); "Show all N tests" in the Voice test column lists a student's older voice tests with links (new teacher-key-protected `history` action in `api/voice.js`, no database change). Checked with a pretend server and a pretend database only.
