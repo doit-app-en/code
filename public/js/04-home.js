@@ -26,6 +26,10 @@ function renderHome() {
     <div class="row" style="gap:18px"><div class="big">🧭</div><div><h2>Placement Test</h2><p>${state.placement.questions.length} A1 questions — grammar, vocabulary, everyday English and listening — to find the right level for you.</p></div></div>
     <a class="btn sun" href="#/placement">Start the test →</a>
   </section>
+  <section class="ptest" style="--img:url(photos/listening.jpg)">
+    <div class="row" style="gap:18px"><div class="big">🎙</div><div><h2>Voice Level Test</h2><p>Talk for 3 minutes — answer a question, describe a picture and repeat sentences — and see your speaking and pronunciation level.</p></div></div>
+    <a class="btn sun" href="#/voicetest">Start talking →</a>
+  </section>
   <section class="ptest pronb" style="--img:url(photos/pronounce.jpg)">
     <div class="row" style="gap:18px"><div class="big">🗣️</div><div><h2>Pronounce</h2><p>Listen to English words letter by letter, A to Z — then the AI checks your pronunciation and gives you a score.</p></div></div>
     <a class="btn sun" href="#/pronounce">Start pronouncing →</a>

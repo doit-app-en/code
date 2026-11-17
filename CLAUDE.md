@@ -14,6 +14,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `public/js/NN-*.js` | The app, split by section. **Classic scripts, not modules**: they share one global scope and must load in the numbered order. |
 | `public/photos/` | Site photos (Unsplash) |
 | `api/class.js` | Class server: progress, students list, speaking AI feedback |
+| `api/voice.js` | Voice level test: speech-to-text + pronunciation scores (Azure AI Speech), AI summary (Claude), saved results |
 | `api/reminders.js` | Daily reminder emails (Vercel Cron + Resend) |
 | `api/_lib/` | Shared server code (`_` = not a route) |
 | `supabase/migrations/` | Database schema. Add a **new** migration file for every change; never edit an applied one. |
@@ -28,6 +29,10 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Student/teacher mode is only a UI switch. The real protection is `TEACHER_KEY`, checked on the server.
 - The page talks to `/api/class` with the same JSON messages the old Apps Script used (see the top of `api/class.js`).
   `syncUrl()` in `09-progress.js` defaults to `/api/class`; a teacher may still type an Apps Script URL.
+- Voice level test (`public/js/10b-voice-test.js`, route `#/voicetest`): 45 s answer + 45 s picture description + 4 listen-and-repeat sentences.
+  The browser records WAV (16 kHz mono). With `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` set, `/api/voice` transcribes and scores pronunciation;
+  without them the page falls back to the browser's speech recognition ("basic check"). `GET /api/voice` tells the page what is switched on.
+  Paid calls need a registered student and are limited per day by `usage_take()` in the database. The Azure path has not been run against a real key yet.
 - Database tables have Row Level Security on and **no policies**: only `api/` (service-role key) can reach them.
   The browser never talks to Supabase directly and no Supabase key is in `public/`.
 
@@ -46,4 +51,5 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Progress posts are not authenticated (anyone who knows an email could overwrite that student's summary) — same as the
   old server. Supabase Auth for students would fix it.
 - Reminder emails need a Resend account with a verified sending domain.
-- No Arabic interface yet; pronunciation checking uses the browser's speech recognition.
+- No Arabic interface yet; the Pronounce section still uses the browser's speech recognition (only the Voice level test can use Azure).
+- The teacher's Students page does not show voice-test results yet (they are saved in the `voice_tests` table).

@@ -11,7 +11,7 @@
 
 ### 1) Supabase
 1. أنشئ مشروعاً جديداً في supabase.com.
-2. افتح **SQL Editor** والصق محتوى `supabase/migrations/20261117000000_init.sql` ثم **Run**.
+2. افتح **SQL Editor** وشغّل ملفات `supabase/migrations/` **بالترتيب**، كل ملف لوحده: الصق محتواه ثم **Run**.
 3. من **Project Settings → API** انسخ: `Project URL` والمفتاح السري (`service_role` / secret).
 
 ### 2) GitHub
@@ -28,6 +28,7 @@
 | `TEACHER_KEY` | كلمة سر المعلم (تختارها أنت) | نعم |
 | `ANTHROPIC_API_KEY` | مفتاح Claude API لتقييم المحادثة | اختياري |
 | `AI_MODEL` | الافتراضي `claude-opus-5-5`، وللتكلفة الأقل `claude-haiku-5-5` | اختياري |
+| `AZURE_SPEECH_KEY` و `AZURE_SPEECH_REGION` | مفتاح ومنطقة خدمة Speech من Azure (الباقة المجانية F0) لتقييم النطق في اختبار الصوت | اختياري |
 | `CRON_SECRET` | أي نص عشوائي طويل (يحمي رابط التذكيرات) | للتذكيرات |
 | `RESEND_API_KEY` و `REMIND_FROM` | حساب resend.com وعنوان المرسل | للتذكيرات |
 
@@ -58,7 +59,7 @@ npm run dev                  # http://localhost:3000
 
 ```
 public/            الموقع (index.html, styles.css, js/, photos/)
-api/               الخادم: class.js (التقدّم + الطلاب + تقييم المحادثة)، reminders.js (رسائل التذكير)
+api/               الخادم: class.js (التقدّم + الطلاب + تقييم المحادثة)، voice.js (اختبار المستوى الصوتي)، reminders.js (رسائل التذكير)
 supabase/          مخطط قاعدة البيانات
 legacy/            سكربت Google Apps Script القديم (للمرجع)
 scripts/           خادم المعاينة المحلي

@@ -1,0 +1,252 @@
+/* ================= VOICE LEVEL TEST ================= */
+// A 3-minute spoken test: (1) answer a question, (2) describe a picture, (3) listen to sentences in a British voice and repeat them.
+// The browser records the voice as WAV. If the class server has a speech service (Azure Speech, see /api/voice), it writes the words down
+// and scores the pronunciation; otherwise the browser's own speech recognition is used ("basic check"). Claude writes the summary if it is on.
+const VT_TALK = 45, VT_REPEAT = 15, VT_KEEP = 10, VT_API = '/api/voice';
+const VT_QUESTIONS = [
+  'Tell me about yourself. What do you like doing in your free time?',
+  'Tell me about your family or your best friend.',
+  'What do you usually do at the weekend?',
+  'Tell me about your school. What is your favourite subject, and why?',
+  'What did you do yesterday? Tell me about your day.',
+  'Tell me about your town or city. What do you like about it?',
+  'What would you like to do in the future? Why?',
+  'Tell me about a place you would like to visit, and why.',
+];
+const VT_PICTURES = ['photos/students.jpg', 'photos/hero.jpg', 'photos/lessons.jpg', 'photos/level-a2.jpg', 'photos/level-b1.jpg', 'photos/listening.jpg'];
+const VT_PIC_PROMPT = 'Describe this picture. What can you see? What are the people doing? How do they feel?';
+const VT_SENTENCES = {
+  A1: ['My brother is ten years old.', 'I get up at seven every morning.', 'She likes tea, but she does not like coffee.'],
+  A2: ['We visited my grandparents last weekend.', 'I am going to buy a new phone tomorrow.', 'There is a small park near my house.'],
+  B1: ['If it rains tomorrow, we will stay at home and watch a film.', 'I have been learning English for about three years.', 'She told me that she had already finished her homework.'],
+  B2: ['Although the weather was terrible, we thoroughly enjoyed the trip.', 'I would rather work in a team than on my own.', 'The film was much more interesting than I had expected.'],
+};
+const VT_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const VT_ERR = {'not registered': 'Save your name and email on the “My progress” page first.', 'student limit': 'You have reached today\'s limit. Try again tomorrow.', 'daily limit': 'The class has reached today\'s limit. Try again tomorrow.', 'no key': 'The AI teacher is not switched on yet.', 'too short': 'There was not enough speech for the AI teacher.', busy: 'The AI teacher is busy right now.', refusal: 'The AI teacher could not write a summary for this test.'};
+let VT = {mode: 'intro'}, vtHistory = null, vtCaps = null;
+const vtPick = a => a[Math.floor(Math.random() * a.length)];
+const vtAvg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : null;
+const vtRegistered = () => !!student && !!student.email;
+const vtSpeechOn = () => !!vtCaps && vtCaps.speech && vtRegistered();
+
+async function vtLoadCaps() {
+  if (vtCaps) return;
+  vtCaps = {speech: false, ai: false, save: false};
+  if (!/^https?:$/.test(location.protocol)) return;
+  try { const r = await fetch(VT_API, {cache: 'no-store'}), d = await r.json(); if (d && d.ok) vtCaps = {speech: !!d.speech, ai: !!d.ai, save: !!d.save}; } catch (e) {}
+}
+async function vtPost(body, ms = 70000) {
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), ms);
+  try { const r = await fetch(VT_API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, signal: ctl.signal, body: JSON.stringify(body)}); return await r.json(); }
+  catch (e) { return {ok: false, error: 'offline'}; } finally { clearTimeout(to); }
+}
+
+/* ---------- recording (WAV 16 kHz mono + volume measurements + the browser's own speech recognition) ---------- */
+function vtWav(chunks, rate) {
+  let len = 0; chunks.forEach(c => len += c.length);
+  const all = new Float32Array(len); let o = 0; chunks.forEach(c => { all.set(c, o); o += c.length; });
+  const ratio = rate / 16000, n = Math.floor(len / ratio), buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), str = (p, s) => { for (let i = 0; i < s.length; i++) v.setUint8(p + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const a = Math.floor(i * ratio), b = Math.max(a + 1, Math.floor((i + 1) * ratio)); let s = 0; for (let j = a; j < b && j < len; j++) s += all[j]; s = Math.max(-1, Math.min(1, s / (b - a))); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Blob([buf], {type: 'audio/wav'});
+}
+const vtB64 = blob => new Promise(res => { const f = new FileReader(); f.onload = () => res(String(f.result).split(',')[1] || ''); f.onerror = () => res(''); f.readAsDataURL(blob); });
+function vtCleanup(r) {
+  clearInterval(r.timer); try { r.sr && (r.sr.onend = null, r.sr.abort()); } catch (e) {}
+  try { r.proc && (r.proc.onaudioprocess = null, r.proc.disconnect()); } catch (e) {}
+  try { r.stream && r.stream.getTracks().forEach(t => t.stop()); } catch (e) {} try { r.ac && r.ac.close(); } catch (e) {}
+}
+function vtAbort() { const r = VT.rec; if (r && !r.ended) { r.ended = true; vtCleanup(r); } if (VT.mode !== 'intro' && VT.mode !== 'result') VT = {mode: 'intro'}; }
+async function vtBegin(max, onDone) {
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}}); } catch (e) { toast('🚫 Microphone blocked — allow the microphone in your browser, then try again.'); return false; }
+  const r = VT.rec = {max, onDone, stream, chunks: [], rate: 48000, base: '', sess: '', interim: '', counted: 0, confSum: 0, confN: 0, ended: false, ref: 0.02, rms: 0, speechT: 0, silentRun: 0, pauses: [], first: null, last: 0, t0: performance.now(), lastTick: performance.now()};
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; r.ac = new AC(); r.rate = r.ac.sampleRate;
+    const src = r.ac.createMediaStreamSource(stream), mute = r.ac.createGain(); mute.gain.value = 0;
+    r.proc = r.ac.createScriptProcessor(4096, 1, 1);
+    r.proc.onaudioprocess = e => { if (r.ended) return; const d = e.inputBuffer.getChannelData(0); r.chunks.push(new Float32Array(d)); let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; r.rms = Math.sqrt(s / d.length); };
+    src.connect(r.proc); r.proc.connect(mute); mute.connect(r.ac.destination);
+  } catch (e) { r.proc = null; }
+  if (SR) {
+    const startSR = () => {
+      if (r.ended) return; const sr = r.sr = new SR(); sr.lang = LANG; sr.continuous = true; sr.interimResults = true; sr.maxAlternatives = 1; r.sess = ''; r.counted = 0;
+      sr.onresult = e => { let fin = '', interim = ''; for (let i = 0; i < e.results.length; i++) { const res = e.results[i]; if (res.isFinal) { fin += ' ' + res[0].transcript.trim(); if (i >= r.counted) { r.confSum += res[0].confidence || 0; r.confN++; r.counted = i + 1; } } else interim += ' ' + res[0].transcript; } r.sess = fin.trim(); r.interim = interim.trim(); const el = $('#vtLive'); if (el) el.textContent = (r.base + ' ' + r.sess + ' ' + r.interim).trim() || 'Start speaking…'; };
+      sr.onerror = () => {};
+      sr.onend = () => { r.base = (r.base + ' ' + r.sess).trim(); r.sess = ''; if (!r.ended) setTimeout(startSR, 150); };
+      try { sr.start(); } catch (e) { setTimeout(startSR, 400); }
+    };
+    startSR();
+  }
+  r.timer = setInterval(vtTick, 100);
+  return true;
+}
+function vtTick() {
+  const r = VT.rec; if (!r || r.ended) return; const now = performance.now(), dt = Math.min(1, (now - r.lastTick) / 1000), el = (now - r.t0) / 1000; r.lastTick = now;
+  r.ref = Math.max(0.02, r.ref * 0.9997, r.rms); const speaking = r.rms > Math.max(0.012, r.ref * 0.15);
+  if (speaking) { if (r.first === null) r.first = el; else if (r.silentRun >= 0.7) r.pauses.push(r.silentRun); r.silentRun = 0; r.speechT += dt; r.last = el; } else if (r.first !== null) r.silentRun += dt;
+  const ring = $('#vtRing'); if (ring) { ring.style.setProperty('--p', Math.min(100, el / r.max * 100)); ring.style.setProperty('--rc', el >= r.max - 5 ? '#e63946' : '#3a86ff'); $('#vtTime').textContent = Math.max(0, Math.ceil(r.max - el)); }
+  const mt = $('#vtMeter'); if (mt) mt.style.setProperty('--lv', Math.min(1, r.rms * 9).toFixed(2));
+  const stop = $('#vtStop'); if (stop) stop.disabled = el < 2;
+  if (el >= r.max) vtEnd();
+}
+async function vtEnd() {
+  const r = VT.rec; if (!r || r.ended) return; r.ended = true; clearInterval(r.timer);
+  const seconds = Math.min(r.max, (performance.now() - r.t0) / 1000);
+  vtBusy('Listening to your answer…');
+  await new Promise(res => { try { r.sr && (r.sr.onend = null, r.sr.stop()); } catch (e) {} setTimeout(res, r.sr ? 900 : 50); });
+  const heard = (r.base + ' ' + r.sess + ' ' + r.interim).replace(/\s+/g, ' ').trim(), wav = r.chunks.length ? vtWav(r.chunks, r.rate) : null;
+  vtCleanup(r);
+  const span = r.first !== null ? Math.max(3, r.last - r.first) : seconds;
+  r.onDone({wav, heard, confidence: r.confN ? r.confSum / r.confN : null, M: {seconds, span, pauses: r.pauses, speechRatio: r.first !== null ? spClamp(r.speechT / span, 0, 1) : 0.7}});
+}
+
+/* ---------- scoring ---------- */
+// Basic check without the speech service: how many words of the sentence the browser heard.
+function vtMatch(text, heard) {
+  const ref = norm(text).split(' ').filter(Boolean), got = norm(heard).split(' ').filter(Boolean), pool = {}; got.forEach(w => pool[w] = (pool[w] || 0) + 1);
+  const words = ref.map(w => { const ok = pool[w] > 0; if (ok) pool[w]--; return {w, score: ok ? 100 : 0, err: ok ? '' : 'Omission'}; });
+  return {score: ref.length ? Math.round(words.filter(w => !w.err).length / ref.length * 100) : 0, words};
+}
+async function vtScoreTalk(cap, kind, prompt, image) {
+  let transcript = cap.heard, source = 'browser', confidence = cap.confidence;
+  if (vtSpeechOn() && cap.wav) { const d = await vtPost({action: 'transcribe', student, audio: await vtB64(cap.wav)}); if (d && d.ok && d.text) { transcript = d.text; source = 'speech'; confidence = d.confidence; } }
+  const A = spAnalyse(transcript || '', {...cap.M, confidence}, {register: 'any'}), sc = A.scores;
+  const score = Math.round((0.4 * sc.fluency + 0.35 * sc.accuracy + 0.25 * sc.vocab) * spClamp(A.words / 30));   // a few words in 45 seconds is not a good answer
+  return {kind, prompt, image: image || '', transcript: transcript || '', source, seconds: Math.round(cap.M.seconds), words: A.words, wpm: A.words ? A.wpm : 0, pauses: A.pauses, fluency: sc.fluency, accuracy: sc.accuracy, vocab: sc.vocab, score, cefr: A.cefr};
+}
+async function vtScoreSentence(cap, level, text) {
+  const out = {level, text, heard: cap.heard, source: 'browser', score: 0, accuracy: null, fluency: null, completeness: null, prosody: null, words: [], weak: [], audio: cap.wav ? URL.createObjectURL(cap.wav) : null};
+  let done = false;
+  if (vtSpeechOn() && cap.wav) {
+    const d = await vtPost({action: 'assess', student, text, audio: await vtB64(cap.wav)});
+    if (d && d.ok) { done = true; out.source = 'speech'; out.heard = d.heard || '';
+      if (d.scores) { const s = d.scores; Object.assign(out, {score: s.pron != null ? s.pron : (s.accuracy || 0), accuracy: s.accuracy, fluency: s.fluency, completeness: s.completeness, prosody: s.prosody}); out.words = (d.words || []).filter(w => w.err !== 'Insertion'); }
+      else out.completeness = 0; }
+  }
+  if (!done) { const m = vtMatch(text, cap.heard); out.score = m.score; out.completeness = m.score; out.words = m.words; }
+  out.weak = out.words.filter(w => w.err || (w.score != null && w.score < 60)).map(w => w.w);
+  return out;
+}
+function vtTotals(tasks, sentences) {
+  const speaking = vtAvg(tasks.map(t => t.score)), pronunciation = vtAvg(sentences.map(s => s.score)), repeating = vtAvg(sentences.map(s => s.completeness != null ? s.completeness : s.score));
+  const parts = [[speaking, 0.5], [pronunciation, 0.3], [repeating, 0.2]].filter(p => p[0] != null), w = parts.reduce((a, p) => a + p[1], 0);
+  const overall = w ? Math.round(parts.reduce((a, p) => a + p[0] * p[1], 0) / w) : 0;
+  return {scores: {overall, speaking: speaking || 0, pronunciation: pronunciation || 0, repeating: repeating || 0}, level: overall < 30 ? 'A1' : overall < 45 ? 'A2' : overall < 60 ? 'B1' : overall < 78 ? 'B2' : 'C1'};
+}
+
+/* ---------- the test, step by step ---------- */
+function vtStart() {
+  const s = VT_LEVELS.slice(0, 4).map(lv => ({level: lv, text: vtPick(VT_SENTENCES[lv])}));
+  VT = {mode: 'talk', step: 0, question: vtPick(VT_QUESTIONS), picture: vtPick(VT_PICTURES), sentences: s, tasks: [], done: [], si: 0, plays: 0};
+  renderVoiceTest(); window.scrollTo(0, 0);
+}
+const vtHead = (n, title) => `<div class="crumbs"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Step ${n} of 3</div><div class="vtsteps">${[1, 2, 3].map(i => `<span class="${i < n ? 'done' : i === n ? 'on' : ''}">${i < n ? '✓' : i}</span>`).join('<i></i>')}</div><h2 class="baloo vth">${title}</h2>`;
+const vtRecBox = max => `<div class="sprow"><div class="ring" id="vtRing" style="--p:0;--rc:#3a86ff;width:130px;height:130px"><span id="vtTime" style="width:100px;height:100px;font-size:34px">${max}</span></div>
+  <div class="grow"><div class="spmeter" id="vtMeter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="lbl" style="margin:6px 0">🔴 Recording… the bars move when I can hear you.</div><button class="btn red" id="vtStop" disabled>⏹ I have finished</button></div></div>`;
+function vtBusy(msg) { app.innerHTML = `<div class="panel" style="text-align:center;padding:50px 20px"><div class="spin big"></div><h3 class="sec-t" style="margin-top:16px">${esc(msg)}</h3><p class="hint">This takes a few seconds.</p></div>`; }
+function vtTalkPage() {
+  const pic = VT.step === 1, prompt = pic ? VT_PIC_PROMPT : VT.question, rec = VT.recording;
+  app.innerHTML = `${vtHead(pic ? 2 : 1, pic ? 'Describe the picture' : 'Answer the question')}
+  <div class="panel">${pic ? `<img class="vtpic" src="${VT.picture}" alt="The picture to describe">` : ''}
+    <p class="spprompt">${esc(prompt)}</p>
+    ${rec ? vtRecBox(VT_TALK) + `<h4 class="sph">What the computer hears</h4><div class="splive" id="vtLive">Start speaking…</div>`
+      : `<p class="hint">You have <b>${VT_TALK} seconds</b>. There are no right or wrong answers — just keep talking in English. The recording starts when you press the button.</p><div class="row" style="margin-top:14px"><button class="btn red" id="vtGo">🎙 Start recording</button></div>`}</div>`;
+  if (rec) { $('#vtStop').onclick = vtEnd; return; }
+  $('#vtGo').onclick = async () => {
+    const T = VT, ok = await vtBegin(VT_TALK, async cap => { T.recording = false; const t = await vtScoreTalk(cap, pic ? 'picture' : 'question', prompt, pic ? T.picture : ''); if (VT !== T) return; VT.tasks.push(t); if (pic) VT.mode = 'repeat'; else VT.step = 1; renderVoiceTest(); window.scrollTo(0, 0); });
+    if (ok) { VT.recording = true; renderVoiceTest(); }
+  };
+}
+function vtRepeatPage() {
+  const s = VT.sentences[VT.si], rec = VT.recording, n = VT.sentences.length;
+  app.innerHTML = `${vtHead(3, 'Listen and repeat')}
+  <div class="panel"><div class="lbl">SENTENCE ${VT.si + 1} OF ${n}</div>
+    ${rec ? `<p class="spprompt">Now say the sentence.</p>` + vtRecBox(VT_REPEAT)
+      : `<p class="spprompt">Listen to the sentence in a British voice, then repeat it exactly.</p><p class="hint">You cannot see the sentence — listen carefully. You can listen <b>twice</b>.</p>
+      <div class="row" style="margin-top:14px"><button class="btn teal" id="vtPlay" ${VT.plays >= 2 ? 'disabled' : ''}>🔊 Listen${VT.plays ? ' again' : ''}</button><button class="btn red" id="vtGo" ${VT.plays ? '' : 'disabled'}>🎙 Repeat it</button></div>`}</div>`;
+  if (rec) { $('#vtStop').onclick = vtEnd; return; }
+  $('#vtPlay').onclick = () => { VT.plays++; $('#vtPlay').disabled = true; say(s.text, () => { if (VT.mode === 'repeat' && !VT.recording) renderVoiceTest(); }, 0.85); };
+  $('#vtGo').onclick = async () => {
+    try { speechSynthesis.cancel(); } catch (e) {}
+    const T = VT, ok = await vtBegin(VT_REPEAT, async cap => { T.recording = false; const d = await vtScoreSentence(cap, s.level, s.text); if (VT !== T) return; VT.done.push(d); VT.si++; VT.plays = 0; if (VT.si >= n) return vtFinish(); renderVoiceTest(); });
+    if (ok) { VT.recording = true; renderVoiceTest(); }
+  };
+}
+async function vtFinish() {
+  vtBusy('Working out your level…');
+  const T = VT, tot = vtTotals(VT.tasks, VT.done), rec = {id: uid(), date: new Date().toISOString(), name: student ? student.name : '', tasks: VT.tasks, sentences: VT.done, scores: tot.scores, level: tot.level, ai: null, aiError: '', shared: ''};
+  if (vtCaps && vtCaps.save && vtRegistered()) {
+    const d = await vtPost({action: 'finish', student, result: {tasks: rec.tasks, sentences: rec.sentences.map(({audio, ...s}) => s), scores: rec.scores, level: rec.level}}, 80000);
+    if (VT !== T) return;
+    if (d && d.ok) { rec.shared = d.id; rec.level = d.level || rec.level; rec.ai = d.ai || null; rec.aiError = d.aiError || ''; }
+  }
+  vtHistory.unshift({...rec, sentences: rec.sentences.map(({audio, ...s}) => s)}); vtHistory = vtHistory.slice(0, VT_KEEP); await DB.put('kv', 'voiceHistory', vtHistory);
+  onActivity(); VT = {mode: 'result', rec}; renderVoiceTest(); window.scrollTo(0, 0);
+}
+
+/* ---------- pages ---------- */
+async function renderVoiceTest(arg) {
+  if (vtHistory === null) { vtHistory = []; vtHistory = (await DB.get('kv', 'voiceHistory')) || []; }
+  if (arg && arg.startsWith('view/')) { const rec = vtHistory.find(r => r.id === arg.slice(5)); if (rec) VT = {mode: 'result', rec}; }
+  else if (arg && arg.startsWith('result/')) return vtSharedPage(arg.slice(7));
+  else if (arg === '' && VT.mode === 'result') VT = {mode: 'intro'};
+  if (VT.mode === 'talk') return vtTalkPage(); if (VT.mode === 'repeat') return vtRepeatPage(); if (VT.mode === 'result') return vtResultPage(VT.rec);
+  await vtLoadCaps(); if (VT.mode === 'intro' && (location.hash || '').startsWith('#/voicetest')) vtIntroPage();
+}
+function vtIntroPage() {
+  const can = !!SR || vtSpeechOn(), reg = vtRegistered();
+  const how = vtSpeechOn() ? '🎯 Your pronunciation is scored sound by sound by a speech AI.' : vtCaps.speech ? '🎯 Save your name and email on the <a href="#/progress">My progress</a> page to get full pronunciation scoring.' : '🎯 Basic check: the computer checks which words it can understand.';
+  app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › Voice level test</div>
+  <div class="banner photo" style="--img:url(photos/pronounce.jpg)"><div><h1>Voice level test</h1><p>Find your speaking level in about 3 minutes — just by talking.</p></div></div>
+  <div class="panel" style="margin-top:16px"><h3 class="sec-t" style="font-size:24px">How it works</h3>
+    <div class="sptasks">
+      <div class="sptask"><div class="spth"><b>1 · Answer a question</b><span class="chip grey">${VT_TALK} s</span></div><p>Talk about yourself. There are no right or wrong answers.</p></div>
+      <div class="sptask"><div class="spth"><b>2 · Describe a picture</b><span class="chip grey">${VT_TALK} s</span></div><p>Say what you can see and what is happening.</p></div>
+      <div class="sptask"><div class="spth"><b>3 · Listen and repeat</b><span class="chip grey">4 sentences</span></div><p>Hear a British voice and repeat each sentence.</p></div></div>
+    <p class="hint" style="margin:14px 0 0">${how}<br>${vtCaps.ai && reg ? '🤖 The AI teacher writes a summary of your level.' : '🤖 The AI teacher summary is off' + (vtCaps.ai ? ': save your name and email on the <a href="#/progress">My progress</a> page to turn it on.' : '.')}<br>🎧 Use a quiet place. Headphones with a microphone are best.</p>
+    ${can ? `<div class="row" style="margin-top:16px"><button class="btn sun" id="vtStart">🎙 Start the test</button></div>` : `<div class="note">This browser cannot write down your words. Please open the page in <b>Google Chrome</b> or <b>Microsoft Edge</b>.</div>`}</div>
+  ${vtHistory.length ? `<h3 class="sph" style="margin:26px 0 8px">My voice tests</h3><div class="panel"><div class="tablewrap"><table class="rtable"><thead><tr><th>Date</th><th>Level</th><th>Speaking</th><th>Pronunciation</th><th>Overall</th><th></th></tr></thead><tbody>${vtHistory.map(r => `<tr><td>${new Date(r.date).toLocaleDateString()}</td><td><b>${esc(r.level)}</b></td><td>${r.scores.speaking}%</td><td>${r.scores.pronunciation}%</td><td><b style="color:${pcol(r.scores.overall)}">${r.scores.overall}%</b></td><td><a class="btn sm ghost" href="#/voicetest/view/${r.id}">View</a></td></tr>`).join('')}</tbody></table></div></div>` : ''}`;
+  const b = $('#vtStart'); if (b) b.onclick = vtStart;
+}
+async function vtSharedPage(id) {
+  vtBusy('Opening the result…');
+  let d = null; try { const r = await fetch(VT_API + '?id=' + encodeURIComponent(id), {cache: 'no-store'}); d = await r.json(); } catch (e) {}
+  if (location.hash !== '#/voicetest/result/' + id) return;
+  if (!d || !d.ok || !d.test) { app.innerHTML = `<div class="panel" style="text-align:center;padding:40px 20px"><h3 class="sec-t">This result could not be found.</h3><a class="btn sun" href="#/voicetest">Take the voice test</a></div>`; return; }
+  vtResultPage({...d.test, shared: id, tasks: d.test.tasks || [], sentences: d.test.sentences || []}, true);
+}
+function vtWordsHTML(s) { return s.words.length ? s.words.map(w => `<span class="vtw" style="--c:${w.err === 'Omission' ? '#9aa3b5' : pcol(w.score == null ? 100 : w.score)}" title="${w.err === 'Omission' ? 'not heard' : w.score == null ? '' : w.score + '%'}">${esc(w.w)}</span>`).join(' ') : `<span class="lbl">Nothing was heard.</span>`; }
+function vtResultPage(rec, shared) {
+  const sc = rec.scores, col = pcol(sc.overall), a = rec.ai, li = arr => (arr || []).map(x => `<li>${esc(x)}</li>`).join(''), basic = rec.sentences.some(s => s.source !== 'speech');
+  const link = rec.shared ? location.origin + location.pathname + '#/voicetest/result/' + rec.shared : '';
+  app.innerHTML = `<div class="crumbs no-print"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Result</div>
+  <div class="panel res-card">
+    <div class="stud"><div><div class="lbl">VOICE LEVEL TEST</div><b style="font-size:22px">${esc(rec.name || 'My result')}</b></div><div class="hint" style="margin:0;text-align:right">${new Date(rec.date).toLocaleString()}</div></div>
+    <div class="res-top"><div class="ring" style="--p:${sc.overall};--rc:${col};width:150px;height:150px"><span style="width:114px;height:114px;font-size:40px">${esc(rec.level)}</span></div>
+      <div><div class="hint" style="margin:0">${a ? 'Your speaking level' : 'Your speaking level (estimate)'}</div><h1 class="baloo" style="margin:0;font-size:38px;color:${col}">Level ${esc(rec.level)} · ${sc.overall}%</h1>
+      <p class="hint" style="margin:4px 0 0">${a ? 'Level chosen by the AI teacher from your whole test.' : 'An automatic estimate from your scores. Your teacher\'s opinion is more important.'}</p></div></div>
+    <h3 class="sph" style="margin-top:22px">Your skills</h3>
+    <div class="spgauges">${scaleHTML(sc.speaking, '🗣 Speaking (fluency, grammar, vocabulary)')}${scaleHTML(sc.pronunciation, '🎯 Pronunciation' + (basic ? ' (basic check)' : ''))}${scaleHTML(sc.repeating, '👂 Listening and repeating')}</div>
+    ${a ? `<div class="aibox"><div class="aibadge">🤖 AI teacher (Claude) · level: <b>${esc(a.cefr || rec.level)}</b></div>${a.summary ? `<p class="aisum">${esc(a.summary)}</p>` : ''}
+      ${a.speaking ? `<p><b>🗣 Speaking:</b> ${esc(a.speaking)}</p>` : ''}${a.pronunciation ? `<p><b>🎯 Pronunciation:</b> ${esc(a.pronunciation)}</p>` : ''}
+      <div class="spcols"><div><h4 class="sph good">💪 Strengths</h4><ul>${li(a.strengths)}</ul></div><div><h4 class="sph warn">🎯 To improve</h4><ul>${li(a.weaknesses)}</ul></div></div>${(a.tips || []).length ? `<h4 class="sph">💡 Tips</h4><ul>${li(a.tips)}</ul>` : ''}</div>`
+      : rec.aiError && rec.aiError !== 'no key' ? `<div class="aibox"><div class="aioff">🤖 AI summary is not available: ${esc(VT_ERR[rec.aiError] || 'Something went wrong (' + rec.aiError + ').')}</div></div>` : ''}
+    <h3 class="sph" style="margin-top:22px">🎧 Listen and repeat</h3>
+    ${rec.sentences.map((s, i) => `<div class="vtsent"><div class="spth"><b>${esc(s.text)}</b><span class="chip" style="background:${pcol(s.score)}">${s.score}%</span></div>
+      <div class="vtwords">${vtWordsHTML(s)}</div>
+      ${s.accuracy != null ? `<div class="lbl">Accuracy ${s.accuracy}% · Fluency ${s.fluency == null ? '–' : s.fluency + '%'} · Complete ${s.completeness == null ? '–' : s.completeness + '%'}${s.prosody != null ? ' · Rhythm ' + s.prosody + '%' : ''}</div>` : s.heard ? `<div class="lbl">The computer heard: “${esc(s.heard)}”</div>` : ''}
+      <div class="row no-print" style="gap:8px;margin-top:8px"><button class="btn sm teal" data-vsay="${i}">🔊 British voice</button>${s.audio ? `<audio controls src="${s.audio}" style="height:36px"></audio>` : ''}</div></div>`).join('') || '<p class="hint">No sentences were recorded.</p>'}
+    <div class="splegend"><span class="vtw" style="--c:#1b9e5a">clear</span> <span class="vtw" style="--c:#f0a500">nearly</span> <span class="vtw" style="--c:#e63946">practise this</span> <span class="vtw" style="--c:#9aa3b5">not heard</span></div>
+    <h3 class="sph" style="margin-top:22px">🗣 What you said</h3>
+    ${rec.tasks.map(t => `<div class="vtsent"><div class="spth"><b>${t.kind === 'picture' ? 'Describe the picture' : esc(t.prompt)}</b><span class="chip" style="background:${pcol(t.score)}">${t.score}%</span></div>
+      <div class="sptrans" style="margin:8px 0">${t.transcript ? esc(t.transcript) : '<span class="lbl">Nothing was heard.</span>'}</div>
+      <div class="lbl">${t.words} words in ${t.seconds} s · ${t.wpm} words/min · ${t.pauses} pauses · Fluency ${t.fluency}% · Accuracy ${t.accuracy}% · Vocabulary ${t.vocab}%</div></div>`).join('')}
+    ${link ? `<div class="note no-print">🔗 Link to this result: <a href="${esc(link)}">${esc(link)}</a> <button class="btn sm ghost" id="vtCopy">Copy</button></div>` : ''}
+    <div class="row no-print" style="justify-content:center;margin-top:20px">${shared ? `<a class="btn sun" href="#/voicetest">🎙 Take the voice test</a>` : `<button class="btn sun" id="vtAgain">🎙 Take the test again</button>`}<button class="btn ghost" id="vtPrint">🖨 Print / save as PDF</button></div></div>`;
+  app.querySelectorAll('[data-vsay]').forEach(b => b.onclick = () => say(rec.sentences[+b.dataset.vsay].text, null, 0.85));
+  $('#vtPrint').onclick = () => window.print();
+  const again = $('#vtAgain'); if (again) again.onclick = () => { VT = {mode: 'intro'}; if (location.hash === '#/voicetest') renderVoiceTest(''); else go('#/voicetest'); };
+  const cp = $('#vtCopy'); if (cp) cp.onclick = () => { try { navigator.clipboard.writeText(link).then(() => toast('Link copied')); } catch (e) { toast('Copy the link from the page'); } };
+}
+

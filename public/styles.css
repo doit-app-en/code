@@ -548,3 +548,14 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 .pt-hero .big{display:none}
 .panel,.lcard,.pcard{box-shadow:0 4px 18px rgba(15,27,60,.07)}
 @media(max-width:860px){.hero{grid-template-columns:1fr}.hero>div:first-child{padding:28px 22px}.hero-photo{min-height:230px;order:-1}.ptest,.ptest.pronb,.ptest.listenb{padding:26px 22px}}
+
+/* ---------- voice level test ---------- */
+.vtsteps{display:flex;align-items:center;gap:8px;margin:14px 0 4px}.vtsteps span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#e6e9f2;color:var(--muted)}
+.vtsteps span.on{background:var(--navy);color:#fff}.vtsteps span.done{background:#1b9e5a;color:#fff}.vtsteps i{flex:0 0 40px;height:4px;border-radius:2px;background:#e6e9f2}
+.vth{margin:8px 0 12px;font-size:32px;color:var(--navy)}
+.vtpic{display:block;width:100%;max-height:360px;object-fit:cover;border-radius:18px;margin-bottom:14px}
+.vtsent{background:#f8f9fd;border-radius:16px;padding:14px 16px;margin:10px 0}.vtsent .spth{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.vtwords{margin:8px 0 6px;line-height:2.1}.vtw{display:inline-block;padding:1px 10px;border-radius:999px;font-weight:800;color:#fff;background:var(--c,#9aa3b5)}
+@media(max-width:1440px){.navlinks a.hide-sm{font-size:13px;padding:6px 5px}}
+@media(max-width:1200px){.navlinks a.hide-sm{font-size:12px;padding:6px 3px}}
+@media(max-width:1200px){.navlinks a.hide-sm[href="#/"]{display:none}}   /* the logo already goes home */

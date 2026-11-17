@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/class.js": { "maxDuration": 60 }
+    "api/class.js": { "maxDuration": 60 },
+    "api/voice.js": { "maxDuration": 60 }
   },
   "crons": [
     { "path": "/api/reminders", "schedule": "0 14 * * *" }
