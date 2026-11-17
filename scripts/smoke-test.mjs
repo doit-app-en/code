@@ -4,7 +4,7 @@
 // Then takes the whole Voice level test with a fake microphone. Screenshots go to /tmp/smoke/ (look at them after a design change).
 // Needs Playwright + Chrome. Set PLAYWRIGHT_PATH / CHROME_PATH if they are somewhere else.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,6 +18,11 @@ const ROUTES = ['#/', '#/placement', '#/voicetest', '#/pronounce', '#/listening'
 const TEACHER_ROUTES = ['#/', '#/students', '#/speaking', '#/listening', '#/pronounce', '#/placement'];
 const SCREENS = [{ name: 'phone', width: 390, height: 800 }, { name: 'tablet', width: 820, height: 1000 }, { name: 'desktop', width: 1280, height: 900 }];
 const problems = [];
+
+// A lost "}" in styles.css silently puts every rule after it inside the last @media block (it happened: the desktop home page lost its styles).
+{ const css = readFileSync(path.join(root, 'public/styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''); let depth = 0, bad = 0;
+  css.split('\n').forEach((l, i) => { if (/^@media/.test(l) && depth > 0 && !bad) bad = i + 1; depth += (l.match(/{/g) || []).length - (l.match(/}/g) || []).length; });
+  if (depth !== 0 || bad) problems.push(`styles.css: the { } brackets do not match` + (bad ? ` (an @media block starts inside another one near line ${bad})` : '')); }
 
 mkdirSync(shots, { recursive: true });
 const server = spawn(process.execPath, [path.join(root, 'scripts/dev-server.mjs')], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' });
@@ -87,13 +92,28 @@ for (const screen of SCREENS) {
   try {
     await page.route('**/api/class?key=*', r => r.fulfill({ json: { ok: true, students: [{ name: 'Sara <Test>', cls: '9A', email: 'sara@example.com', overall: 62, listening: 70, pronounce: 55, lessons: 60, lastActive: now },
       { name: 'Omar Test', cls: '9B', email: 'omar@example.com', overall: 31, listening: 40, pronounce: 20, lessons: 30, lastActive: now }] } }));
-    await page.route('**/api/voice', r => r.request().method() === 'POST' ? r.fulfill({ json: { ok: true, tests: [{ email: 'sara@example.com', id: 'abcdef0123456789abcdef01', date: now, level: 'A2', overall: 64, speaking: 60, pronunciation: 71, repeating: 62, count: 2 }] } }) : r.continue());
+    const newest = { id: 'abcdef0123456789abcdef01', date: now, level: 'A2', overall: 64, speaking: 60, pronunciation: 71, repeating: 62 }, older = { ...newest, id: 'abcdef0123456789abcdef00', date: '2026-10-01T09:00:00.000Z', level: 'A1', overall: 41 };
+    await page.route('**/api/voice', r => { if (r.request().method() !== 'POST') return r.continue(); const d = JSON.parse(r.request().postData() || '{}');
+      return r.fulfill({ json: d.key !== 'smoke' ? { ok: false, error: 'wrong key' } : d.action === 'history' ? { ok: true, tests: d.email === 'sara@example.com' ? [newest, older] : [] } : { ok: true, tests: [{ email: 'sara@example.com', ...newest, count: 2 }] } }); });
     await page.goto(base + '/', { waitUntil: 'load' }); await page.waitForFunction(() => document.querySelector('#app').innerText.trim().length > 20, null, { timeout: 10000 });
     await page.evaluate(() => { mode = 'teacher'; setModeButtons(); tkey = 'smoke'; location.hash = '#/students'; });
     await page.waitForSelector('td.vcell', { timeout: 10000 });
     const r = await page.evaluate(() => ({ cells: [...document.querySelectorAll('td.vcell')].map(td => td.innerText.replace(/\s+/g, ' ').trim()), link: (document.querySelector('td.vcell a') || {}).hash, over: document.documentElement.scrollWidth - innerWidth }));
     if (r.cells.length !== 2 || !/A2 · 64%.*Speaking 60%.*Pronunciation 71%.*Repeating 62%.*2 tests/.test(r.cells[0]) || !/Not taken/.test(r.cells[1]) || r.link !== '#/voicetest/result/abcdef0123456789abcdef01') problems.push('students voice column: wrong content ' + JSON.stringify(r));
     if (r.over > 1) problems.push(`students voice column: ${r.over}px wider than the phone screen`);
+    // Class filter, order, and the list of a student's older voice tests.
+    const names = () => page.evaluate(() => [...document.querySelectorAll('.rtable td.sname b')].map(b => b.textContent));
+    await page.selectOption('#stCls', '9B'); const f = { names: await names(), title: await page.evaluate(() => document.querySelector('.sec-t').textContent.trim()) };
+    await page.selectOption('#stCls', ''); await page.selectOption('#stSort', 'name'); const byName = await names();
+    await page.selectOption('#stSort', 'high'); const byHigh = await names();
+    await page.click('[data-vh="sara@example.com"]'); await page.waitForSelector('a.vhrow', { timeout: 5000 });
+    const h = await page.evaluate(() => ({ rows: [...document.querySelectorAll('a.vhrow')].map(a => a.hash + ' ' + a.innerText.replace(/\s+/g, ' ').trim()), over: document.documentElement.scrollWidth - innerWidth }));
+    if (f.names.join() !== 'Omar Test' || !/1 of 2/.test(f.title) || byName[0] !== 'Omar Test' || byHigh[0] !== 'Sara <Test>') problems.push('students filter/order: wrong rows ' + JSON.stringify({ f, byName, byHigh }));
+    if (h.rows.length !== 2 || !/result\/abcdef0123456789abcdef01 .*A2 · 64%/.test(h.rows[0]) || !/result\/abcdef0123456789abcdef00 .*A1 · 41%/.test(h.rows[1])) problems.push('students voice history: wrong list ' + JSON.stringify(h));
+    if (h.over > 1) problems.push(`students voice history: ${h.over}px wider than the phone screen`);
+    await page.screenshot({ path: path.join(shots, 'phone-teacher-students-history.png'), fullPage: true });
+    await page.click('[data-vh="sara@example.com"]'); if (await page.$('.vhrow')) problems.push('students voice history: the list did not close');
+    await page.selectOption('#stSort', 'recent');
     await page.evaluate(() => { const w = document.querySelector('.tablewrap'); w.scrollIntoView(); w.scrollLeft = 480; scrollBy(0, -110); });
     await page.screenshot({ path: path.join(shots, 'phone-teacher-students-voice.png') });
   } catch (e) { problems.push('students voice column: could not check — ' + e.message.split('\n')[0]); }
@@ -102,4 +122,4 @@ for (const screen of SCREENS) {
 
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, voice test finished, students voice column checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, voice test finished, students voice column, filter and history checked. Screenshots: ${shots}`);

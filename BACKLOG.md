@@ -7,7 +7,6 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 
 ## Next
 <!-- developer -->
-- [ ] Teacher's Students page: sort / filter by class, and a way to see a student's older voice tests (the server already returns how many each one took).
 - [ ] Friendly states: loading, empty, and "no internet / server off" messages with a "Try again" button wherever the page talks to the server.
 - [ ] Speed: smaller photo files if any is over 300 KB, `width`/`height` on the remaining photos. (Cache headers for `photos/` and `icons/` are done.)
 - [ ] Voice test: more questions, pictures and sentences per level, and do not repeat the ones a student had last time.
@@ -57,6 +56,8 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 - Placement test (content, 2026-11-17): a teacher who deleted default questions on purpose will still receive the 6 new ones on that device (same behaviour as new listening exercises); they can be deleted again in the Questions tab.
 
 ## Done
+- [x] 2026-11-18 Teacher's Students page: "Class" filter and "Order" list above the table (newest/longest ago, name, class, progress high/low, voice test); "Show all N tests" in the Voice test column lists a student's older voice tests with links (new teacher-key-protected `history` action in `api/voice.js`, no database change). Checked with a pretend server and a pretend database only.
+- [x] 2026-11-18 Fix: a lost `}` in `styles.css` (after the phone home-page block) had put every later rule inside `@media(max-width:560px)` — the home "today" card, 3-step path and practice tiles, the phone back button and the student cards had no styles on wider screens. `npm run smoke` now fails if the brackets do not match.
 - [x] 2026-11-18 Owner confirmed on the live site: the "Voice test" column on the Students page shows results, and a real spoken voice test works ("excellent").
 - [x] 2026-11-18 Home page: 3-step path for new students, "today" card for returning ones (streak 🔥, Sun–Sat week dots, "continue where you stopped"), the five sections as a grid of clickable tiles under "Practise". Streak also on My progress. (Researcher idea "Practice streak".)
 - [x] 2026-11-18 Voice test result: "What to do next" box — button to the matching level, Pronounce, Listening, and the unclear words.

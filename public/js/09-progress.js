@@ -120,8 +120,10 @@ function renderProgress() {
 
 /* ---- teacher: Students ---- */
 let classList = null, classErr = '', voiceLatest = null;   // voiceLatest: email → that student's newest voice level test (null = not loaded)
+let stCls = '', stSort = 'recent';                          // the teacher's choice of class and order (kept until the page is closed)
+let voiceHist = {}, voiceOpen = new Set();                  // voiceHist: email → all of that student's voice tests, or 'loading'; voiceOpen: the lists that are open
 async function loadClass() {
-  const url = syncUrl(); classErr = ''; voiceLatest = null;
+  const url = syncUrl(); classErr = ''; voiceLatest = null; voiceHist = {}; voiceOpen = new Set();
   if (!url) { classList = null; return; }
   if (!tkey) { classErr = 'Write your teacher key to see the students.'; classList = null; return; }
   try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(tkey)); const d = await r.json();
@@ -137,20 +139,51 @@ async function loadVoiceLatest() {
     voiceLatest = {}; d.tests.forEach(t => { if (t && t.email) voiceLatest[String(t.email).toLowerCase()] = t; });
   } catch (e) { /* the table still shows the progress */ }
 }
+// All the voice tests of one student (teacher key needed), newest first. Null = could not be loaded.
+async function loadVoiceHistory(email) {
+  try { const r = await fetch(VT_API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({action: 'history', key: tkey, email})}), d = await r.json();
+    return d.ok && Array.isArray(d.tests) ? d.tests : null;
+  } catch (e) { return null; }
+}
+function voiceHistHtml(email) {
+  const h = voiceHist[email], n = x => Math.max(0, Math.min(100, Math.round(+x || 0)));
+  if (!voiceOpen.has(email) || !h) return '';
+  if (h === 'loading') return '<div class="vhist"><span class="lbl">Loading…</span></div>';
+  if (!h.length) return '<div class="vhist"><span class="lbl">No saved tests.</span></div>';
+  return `<div class="vhist">${h.map(t => { const d = Date.parse(t.date), ok = /^[a-z0-9]{10,40}$/.test(t.id || ''),
+    inner = `<span class="vhd">${d ? new Date(d).toLocaleDateString() : ''}</span><span class="chip" style="background:${pcol(n(t.overall))}">${esc(t.level || '?')} · ${n(t.overall)}%</span>${ok ? '<span class="lbl">View →</span>' : ''}`;
+    return ok ? `<a class="vhrow" href="#/voicetest/result/${t.id}" title="Open the full result">${inner}</a>` : `<div class="vhrow">${inner}</div>`; }).join('')}</div>`;
+}
 function voiceCell(r) {
-  const v = voiceLatest && voiceLatest[String(r.email || '').toLowerCase()], n = x => Math.max(0, Math.min(100, Math.round(+x || 0)));
+  const email = String(r.email || '').toLowerCase(), v = voiceLatest && voiceLatest[email], n = x => Math.max(0, Math.min(100, Math.round(+x || 0)));
   if (!v) return '<span class="lbl">Not taken</span>';
+  const count = Math.max(1, Math.round(+v.count || 1)), open = voiceOpen.has(email);
   const badge = `<span class="chip" style="background:${pcol(n(v.overall))}">${esc(v.level || '?')} · ${n(v.overall)}%</span>`, d = Date.parse(v.date);
   return `${/^[a-z0-9]{10,40}$/.test(v.id || '') ? `<a class="vlink" href="#/voicetest/result/${v.id}" title="Open the full result">${badge} <span class="lbl">View →</span></a>` : badge}
     <div class="lbl">Speaking ${n(v.speaking)}% · Pronunciation ${n(v.pronunciation)}% · Repeating ${n(v.repeating)}%</div>
-    <div class="lbl">${d ? new Date(d).toLocaleDateString() : ''}${v.count > 1 ? ` · ${n(v.count)} tests` : ''}</div>`;
+    <div class="lbl">${d ? new Date(d).toLocaleDateString() : ''}</div>
+    ${count > 1 ? `<button class="btn sm ghost vhbtn" data-vh="${esc(email)}" aria-expanded="${open}">${open ? 'Hide the list ▴' : `Show all ${count} tests ▾`}</button>${voiceHistHtml(email)}` : ''}`;
+}
+// Class filter and order of the Students table.
+function studentRows(rows) {
+  const out = stCls ? rows.filter(r => String(r.cls || '').trim() === stCls) : rows.slice();
+  const name = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, {sensitivity: 'base', numeric: true}),
+    recent = (a, b) => (Date.parse(b.lastActive) || 0) - (Date.parse(a.lastActive) || 0),
+    voice = r => { const v = voiceLatest && voiceLatest[String(r.email || '').toLowerCase()]; return v ? +v.overall || 0 : -1; };
+  const by = {recent, name, cls: (a, b) => !String(a.cls || '').trim() - !String(b.cls || '').trim() || String(a.cls || '').trim().localeCompare(String(b.cls || '').trim(), undefined, {sensitivity: 'base', numeric: true}) || name(a, b),
+    high: (a, b) => b.overall - a.overall || name(a, b), low: (a, b) => a.overall - b.overall || name(a, b), idle: (a, b) => -recent(a, b), voice: (a, b) => voice(b) - voice(a) || name(a, b)};
+  return out.sort(by[stSort] || recent);
 }
 function renderStudents() {
   if (mode !== 'teacher') { app.innerHTML = `<div class="panel empty"><div class="e">🧑‍🏫</div>This page is for teachers. Switch to Teacher mode at the top.</div>`; return; }
   const me = student ? [{...student, ...progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : '', here: true}] : [];
   const rows = (classList || []).map(r => ({...r, overall: +r.overall || 0, listening: +r.listening || 0, pronounce: +r.pronounce || 0, lessons: +r.lessons || 0}));
   if (student && !rows.some(r => String(r.email).toLowerCase() === student.email)) rows.push(...me);
-  rows.sort((a, b) => (Date.parse(b.lastActive) || 0) - (Date.parse(a.lastActive) || 0));
+  const classes = [...new Set(rows.map(r => String(r.cls || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base', numeric: true}));
+  if (stCls && !classes.includes(stCls)) stCls = '';
+  if (stSort === 'voice' && !voiceLatest) stSort = 'recent';
+  const all = rows.length, shown = studentRows(rows);
+  const sorts = [['recent', 'Last practised — newest first'], ['idle', 'Last practised — longest ago first'], ['name', 'Name (A–Z)'], ['cls', 'Class, then name'], ['high', 'Progress — highest first'], ['low', 'Progress — lowest first']].concat(voiceLatest ? [['voice', 'Voice test — highest first']] : []);
   const st = r => { const d = r.lastActive ? Math.floor((Date.now() - Date.parse(r.lastActive)) / DAY) : null;
     return d === null ? '<span class="chip grey">Not started</span>' : d <= 1 ? `<span class="chip g">${idleText(d)}</span>` : d < 7 ? `<span class="chip y">${d} days ago</span>` : `<span class="chip r">${d} days ago</span>`; };
   const mail = r => `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent('Time to practise English! 🎧')}&body=${encodeURIComponent(`Hello ${r.name},\n\nWe miss you in Do it English! Please open the page and do a short listening or pronunciation exercise today.\n\nYour progress: ${r.overall}%\n\nSee you soon!`)}`;
@@ -158,17 +191,21 @@ function renderStudents() {
   <div class="crumbs"><a href="#/">Home</a> › Students</div>
   <div class="banner photo" style="--img:url(photos/students.jpg)"><div class="bi">🧑‍🏫</div><div><h1>Students' progress</h1><p>See every student's progress and when they last practised.</p></div></div>
   <div class="panel" style="margin-top:16px">
-    <div class="row" style="justify-content:space-between"><h3 class="sec-t" style="font-size:24px">📊 Students ${rows.length ? `(${rows.length})` : ''}</h3>
+    <div class="row" style="justify-content:space-between"><h3 class="sec-t" style="font-size:24px">📊 Students ${all ? `(${shown.length < all ? shown.length + ' of ' + all : all})` : ''}</h3>
       ${syncUrl() ? '<button class="btn sm" id="refresh">↻ Refresh</button>' : ''}</div>
     ${classErr ? `<div class="warn">⚠️ ${esc(classErr)}</div>` : ''}
-    ${!rows.length ? `<div class="empty"><div class="e">👥</div>${syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>` : `
+    ${!all ? `<div class="empty"><div class="e">👥</div>${syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>` : `
+    ${all > 1 ? `<div class="stbar">
+      ${classes.length > 1 ? `<label><span>Class</span><select class="in" id="stCls"><option value="">All classes (${all})</option>${classes.map(c => `<option value="${esc(c)}"${c === stCls ? ' selected' : ''}>${esc(c)} (${rows.filter(r => String(r.cls || '').trim() === c).length})</option>`).join('')}</select></label>` : ''}
+      <label><span>Order</span><select class="in" id="stSort">${sorts.map(([v, t]) => `<option value="${v}"${v === stSort ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    </div>` : ''}
     <div class="tablewrap"><table class="rtable cards"><thead><tr><th>Student</th><th>Class</th><th>Progress</th><th>Listening</th><th>Pronounce</th><th>Lessons</th>${voiceLatest ? '<th>Voice test</th>' : ''}<th>Last practised</th><th></th></tr></thead><tbody>
-      ${rows.map(r => `<tr><td class="sname"><b>${esc(r.name)}</b>${r.here ? ' <span class="lbl">(this device)</span>' : ''}<div class="lbl">${esc(r.email || '')}</div></td><td data-l="Class">${esc(r.cls || '')}</td>
+      ${shown.map(r => `<tr><td class="sname"><b>${esc(r.name)}</b>${r.here ? ' <span class="lbl">(this device)</span>' : ''}<div class="lbl">${esc(r.email || '')}</div></td><td data-l="Class">${esc(r.cls || '')}</td>
         <td data-l="Progress"><div class="minibar"><i style="width:${r.overall}%;background:${pcol(r.overall)}"></i></div><b style="color:${pcol(r.overall)}">${r.overall}%</b></td>
-        <td data-l="Listening">${r.listening}%</td><td data-l="Pronounce">${r.pronounce}%</td><td data-l="Lessons">${r.lessons}%</td>${voiceLatest ? `<td class="vcell" data-l="Voice test">${voiceCell(r)}</td>` : ''}<td data-l="Last practised">${st(r)}${r.lastReminder ? `<div class="lbl">reminder sent ${new Date(r.lastReminder).toLocaleDateString()}</div>` : ''}</td>
+        <td data-l="Listening">${r.listening}%</td><td data-l="Pronounce">${r.pronounce}%</td><td data-l="Lessons">${r.lessons}%</td>${voiceLatest ? `<td class="vcell" data-l="Voice test" data-e="${esc(String(r.email || '').toLowerCase())}">${voiceCell(r)}</td>` : ''}<td data-l="Last practised">${st(r)}${r.lastReminder ? `<div class="lbl">reminder sent ${new Date(r.lastReminder).toLocaleDateString()}</div>` : ''}</td>
         <td class="smail">${r.email ? `<a class="btn sm ghost" href="${mail(r)}" title="Write a reminder email" aria-label="Write a reminder email to ${esc(r.name)}">✉️<span> Send a reminder</span></a>` : ''}</td></tr>`).join('')}
     </tbody></table></div>`}
-    <p class="lbl" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.${voiceLatest ? ' Voice test = the student\'s newest voice level test; “View” opens the full result.' : ''}</p>
+    <p class="lbl" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.${voiceLatest ? ' Voice test = the student\'s newest voice level test; “View” opens the full result, and “Show all tests” lists the older ones.' : ''}</p>
   </div>
   <div class="panel" style="margin-top:16px">
     <h3 class="sec-t" style="font-size:24px">🔌 Class server & reminder emails</h3>
@@ -194,6 +231,21 @@ function renderStudents() {
       <textarea class="in gs" readonly id="gsCode">${esc(GS_CODE)}</textarea>
     </details>
   </div>`;
+  if ($('#stCls')) $('#stCls').onchange = () => { stCls = $('#stCls').value; renderStudents(); $('#stCls').focus(); };
+  if ($('#stSort')) $('#stSort').onchange = () => { stSort = $('#stSort').value; renderStudents(); $('#stSort').focus(); };
+  const tbl = $('.rtable.cards');
+  if (tbl) tbl.onclick = async e => {
+    const b = e.target.closest('[data-vh]'); if (!b) return;
+    const email = b.dataset.vh, draw = () => { const td = [...document.querySelectorAll('td.vcell')].find(x => x.dataset.e === email); if (td) td.innerHTML = voiceCell({email}); };
+    if (voiceOpen.has(email)) { voiceOpen.delete(email); return draw(); }
+    voiceOpen.add(email);
+    if (Array.isArray(voiceHist[email])) return draw();
+    if (voiceHist[email] === 'loading') return draw();
+    voiceHist[email] = 'loading'; draw();
+    const list = await loadVoiceHistory(email);
+    if (list) voiceHist[email] = list; else { delete voiceHist[email]; voiceOpen.delete(email); toast('Could not load the older tests. Please try again.'); }
+    draw();
+  };
   if ($('#refresh')) $('#refresh').onclick = async () => { $('#refresh').textContent = '…'; await loadClass(); renderStudents(); };
   $('#srvSave').onclick = async () => {
     const url = $('#srvUrl').value.trim(); tkey = $('#srvKey').value.trim();

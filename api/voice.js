@@ -5,6 +5,7 @@
 //   POST {action: 'assess', student, text, audio}      a repeated sentence → scores  (Azure Speech)
 //   POST {action: 'finish', student, result}           AI summary (Claude) + save the result
 //   POST {action: 'latest', key}                       the teacher's Students page: each student's newest test (needs TEACHER_KEY)
+//   POST {action: 'history', key, email}               the teacher's Students page: all the tests of one student (needs TEACHER_KEY)
 // audio = base64 of a WAV file (PCM 16-bit, 16 kHz, mono). Only registered students (My progress page) can use the paid parts.
 import { randomBytes } from 'node:crypto';
 import { db, env, num, isTeacher, readJson, cleanEmail, pct, text } from './_lib/server.js';
@@ -30,6 +31,7 @@ export default async function handler(req, res) {
     if (!supabase) return res.status(200).json({ ok: false, error: 'server not configured' });
     const d = readJson(req), s = d.student || {}, email = cleanEmail(s.email);
     if (d.action === 'latest') return res.status(200).json(await latestTests(supabase, d.key));
+    if (d.action === 'history') return res.status(200).json(await studentTests(supabase, d.key, cleanEmail(d.email)));
     if (!email) return res.status(200).json({ ok: false, error: 'not registered' });
     const reg = await supabase.from('students').select('email').eq('email', email).maybeSingle();
     if (reg.error) throw reg.error;
@@ -69,6 +71,16 @@ async function latestTests(supabase, key) {
     else byEmail.set(r.email, { email: r.email, id: r.id, date: r.created_at, level: r.level, overall: r.overall, speaking: r.speaking, pronunciation: r.pronunciation, repeating: r.repeating, count: 1 });
   }
   return { ok: true, tests: [...byEmail.values()] };
+}
+
+// For the teacher: every test of one student, newest first (scores only; the full result opens by its id).
+async function studentTests(supabase, key, email) {
+  if (!isTeacher(key)) return { ok: false, error: 'wrong key' };
+  if (!email) return { ok: false, error: 'not found' };
+  const { data, error } = await supabase.from('voice_tests').select('id,created_at,level,overall,speaking,pronunciation,repeating')
+    .eq('email', email).order('created_at', { ascending: false }).limit(50);
+  if (error) throw error;
+  return { ok: true, tests: (data || []).map(r => ({ id: r.id, date: r.created_at, level: r.level, overall: r.overall, speaking: r.speaking, pronunciation: r.pronunciation, repeating: r.repeating })) };
 }
 
 // Keeps only the known fields, with safe sizes, so nothing unexpected is saved or sent to the AI.
