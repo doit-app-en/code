@@ -6,7 +6,8 @@
   state = await DB.get('kv', 'state');
   if (!state || !state.levels) { state = seedState(); await save(); }
   LEVELS.forEach(l => { if (!state.levels[l.id]) state.levels[l.id] = {lessons: []}; });
-  if (!state.placement || !Array.isArray(state.placement.questions)) { state.placement = {questions: defaultBank()}; await save(); }
+  if (!state.placement || !Array.isArray(state.placement.questions)) { state.placement = {questions: defaultBank(), v: PLACE_V}; await save(); }
+  if (upgradePlacement()) await save();
   results = (await DB.get('kv', 'results')) || [];
   await loadMedia(ptSet().musicM);
   if (!state.pron || !Array.isArray(state.pron.sections)) { state.pron = {sections: defaultPron()}; await save(); }

@@ -35,7 +35,7 @@ function defaultBank() { return [
   Q('art','Look at ___ moon! It is beautiful.',['the','an','—']),
   Q('art','There is ___ umbrella next to the door.',['an','a','—']),
   Q('can','I ___ swim. I love the sea.',['can','cans','can to'],{tag:'affirmative'}),
-  Q('can','Penguins ___ fly.',["can't","don't","aren't"],{tag:'negative'}),
+  Q('can','Penguins ___ fly.',["can't","isn't","aren't"],{tag:'negative'}),
   Q('can','___ you speak English?',['Can','Do can','Are'],{tag:'question'}),
   Q('obj','What is this?',['a key','a pen','a spoon'],{pic:'🔑'}),
   Q('obj','You cut paper with ___.',['scissors','a spoon','a towel']),
@@ -57,12 +57,32 @@ function defaultBank() { return [
   Q('listen','What does the speaker want?',['Close the window','Open the door','Turn on the light'],{listen:'Can you close the window, please? It is cold.'}),
   Q('listen','How many bedrooms are there?',['Three','One','Two'],{listen:'There are three bedrooms and one bathroom in my house.'}),
   Q('listen','Where is the bathroom?',['Next to the kitchen','Upstairs','Next to the bedroom'],{listen:'Excuse me, where is the bathroom? It is next to the kitchen.'}),
+  // added in version 2 of the default set (see PLACE_V below)
+  Q('order','Choose the correct question.',['What is your name?','What your name is?','Is what your name?'],{v:2}),
+  Q('art','She has ___ cat and two dogs.',['a','an','—'],{v:2}),
+  Q('can','My baby brother is one year old. He ___ read.',["can't","isn't","aren't"],{tag:'negative',v:2}),
+  Q('can','___ your sister ride a bike? — Yes, she can.',['Can','Is','Do can'],{tag:'question',v:2}),
+  Q('obj','You brush your teeth with a ___.',['toothbrush','towel','spoon'],{v:2}),
+  Q('listen','What time is the English lesson?',["At ten o'clock","At two o'clock","At nine o'clock"],{listen:"The English lesson is at ten o'clock today.",v:2}),
 ]; }
+// Default questions are copied into each device once. Bump PLACE_V when the default set changes: new questions carry {v: N},
+// and a corrected question is listed in PLACE_FIX (only replaced where the teacher has not edited it).
+const PLACE_V = 2;
+const PLACE_FIX = [
+  {v: 2, q: 'Penguins ___ fly.', was: ["can't","don't","aren't"], now: ["can't","isn't","aren't"]},   // "don't" was also correct
+];
+function upgradePlacement() {
+  const v = state.placement.v || 1; if (v >= PLACE_V) return false;
+  PLACE_FIX.filter(f => f.v > v).forEach(f => state.placement.questions.forEach(x => { if (x.q === f.q && Array.isArray(x.o) && x.o.join('|') === f.was.join('|')) x.o = [...f.now]; }));
+  const have = new Set(state.placement.questions.map(qKey));
+  state.placement.questions.push(...defaultBank().filter(q => (q.v || 1) > v && !have.has(qKey(q))));
+  state.placement.v = PLACE_V; return true;
+}
 
 /* ---- question generator (A1 templates) ---- */
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-const low = s => s === 'I' ? s : s.charAt(0).toLowerCase() + s.slice(1);
+const low = s => s === 'I' || s === 'Tom' ? s : s.charAt(0).toLowerCase() + s.slice(1);
 const others = (c, pool, n = 2) => shuffle(pool.filter(x => x !== c)).slice(0, n);
 const ing = v => v.endsWith('e') ? v.slice(0, -1) + 'ing' : v + 'ing';
 const third = v => /(ch|sh|s|x|o)$/.test(v) ? v + 'es' : v + 's';
@@ -99,7 +119,7 @@ const GEN = {
     const S = [['I',0],['You',0],['We',0],['They',0],['My friends',0],['He',1],['She',1],['My sister',1],['Tom',1],['My dad',1]];
     const V = [['play','football'],['like','pizza'],['watch','TV'],['live','in a big house'],['speak','French'],['drink','coffee'],['eat','breakfast'],['read','books'],['go','to the gym']];
     const [s, t3] = pick(S), [v, o] = pick(V), tag = pick(['affirmative','negative','question']);
-    if (tag === 'affirmative') return Q('do', `${s} ___ ${o}${v === 'live' ? '' : ' every day'}.`, t3 ? [third(v), v, ing(v)] : [v, third(v), ing(v)], {tag});
+    if (tag === 'affirmative') return Q('do', `${s} ___ ${o}${v === 'live' || v === 'like' ? '' : ' every day'}.`, t3 ? [third(v), v, ing(v)] : [v, third(v), ing(v)], {tag});
     if (tag === 'negative') return Q('do', `${s} ___ ${v} ${o}.`, t3 ? ["doesn't","don't","isn't"] : ["don't","doesn't","aren't"], {tag});
     return Q('do', `___ ${low(s)} ${v} ${o}?`, t3 ? ['Does','Do','Is'] : ['Do','Does','Are'], {tag});
   },
@@ -108,19 +128,20 @@ const GEN = {
     const A = ['swim','ride a bike','speak English','play the piano','cook pasta','run fast','draw a horse','drive a car'];
     const s = pick(S), a = pick(A), tag = pick(['affirmative','negative','question']);
     if (tag === 'affirmative') return Q('can', `${s} ___ ${a} very well.`, ['can','cans','can to'], {tag});
-    if (tag === 'negative') return Q('can', `${s} ___ ${a}. It's too difficult.`, ["can't","doesn't","isn't"], {tag});
+    if (tag === 'negative') return Q('can', `${s} ___ ${a}. It's too difficult.`, ["can't","isn't","aren't"], {tag});
     return Q('can', `___ ${low(s)} ${a}?`, ['Can','Does can','Is'], {tag});
   },
   art() {
     const r = Math.random();
-    if (r < 0.35) { const n = pick(['apple','orange','egg','umbrella','elephant','ice cream','onion','old car']); return Q('art', pick(['I have ___ ','There is ___ ','She wants ___ ']).trim() + ` ${n}.`.replace(/^ /, ' '), ['an','a','—']); }
+    if (r < 0.35) { const n = pick(['apple','orange','egg','umbrella','elephant','English book','onion','old car']); return Q('art', pick(['I have ___ ','There is ___ ','She wants ___ ']).trim() + ` ${n}.`.replace(/^ /, ' '), ['an','a','—']); }
     if (r < 0.7) { const n = pick(['book','cat','pen','banana','dog','sandwich','bike','new phone','big house']); return Q('art', pick(['I have ___','There is ___','He wants ___']) + ` ${n}.`, ['a','an','—']); }
     return Q('art', pick(['Look at ___ sun. It is very hot today.','Can you close ___ door, please? It is cold.','Please turn off ___ light in the kitchen.','The keys are on ___ table in the living room.']), ['the','an','—']);
   },
   order() {
     const SENT = ['She drinks coffee every morning','They are in the classroom','My father works in a bank','We play football on Fridays','I have two sisters','He can ride a bike','The cat is under the table',"I don't like cold weather",'My mother cooks dinner every day','Ali goes to school by bus','There is a lamp in my bedroom'];
     const w = pick(SENT).split(' ').map((x, i) => i === 0 && !['I','Ali'].includes(x) ? x.toLowerCase() : x);
-    const fmtS = a => cap(a.join(' ')) + '.', good = fmtS(w), seen = new Set([good]), bad = [];
+    const fmtS = a => cap(a.join(' ')) + '.', good = fmtS(w), seen = new Set([good, fmtS([w[1], w[0], ...w.slice(2)])]), bad = [];   // never offer "Are they …" / "Can he …" as a wrong answer
+
     for (let k = 0; k < 40 && bad.length < 2; k++) {
       const c = [...w], swaps = 1 + Math.floor(Math.random() * 2);
       for (let s = 0; s < swaps; s++) { const i = Math.floor(Math.random() * (c.length - 1)); [c[i], c[i + 1]] = [c[i + 1], c[i]]; }
@@ -131,7 +152,7 @@ const GEN = {
   obj() {
     const OBJ = [['🔑','a key'],['✂️','scissors'],['☂️','an umbrella'],['📱','a phone'],['⌚','a watch'],['👓','glasses'],['🔦','a torch'],['🥄','a spoon'],['🍴','a fork'],['📚','books'],['🧦','socks'],['👟','shoes'],['🎒','a bag'],['✏️','a pencil'],['☕','a cup'],['🧴','soap']];
     if (Math.random() < 0.5) { const [e, w] = pick(OBJ); return Q('obj', 'What is this?', [w, ...others(w, OBJ.map(o => o[1]))], {pic: e}); }
-    const USE = [['You write with a ___.','pencil'],['You tell the time with a ___.','watch'],['You brush your teeth with a ___.','toothbrush'],['You open the door with a ___.','key'],['You call your friend on your ___.','phone'],['You eat soup with a ___.','spoon'],['You carry your books in a ___.','bag'],['You dry your hands with a ___.','towel'],['You drink water from a ___.','glass']];
+    const USE = [['You write with a ___.','pencil'],['You wear a ___ on your arm. It tells the time.','watch'],['You brush your teeth with a ___.','toothbrush'],['You open the door with a ___.','key'],['You call your friend on your ___.','phone'],['You eat soup with a ___.','spoon'],['You carry your books in a ___.','bag'],['You dry your hands with a ___.','towel'],['You drink water from a ___.','glass']];
     const [q, c] = pick(USE); return Q('obj', q, [c, ...others(c, ['pencil','watch','toothbrush','key','phone','spoon','bag','towel','glass','fork','sock'])]);
   },
   house() {
@@ -518,7 +539,7 @@ function bindBank() {
     editQ = null; await save(); renderPlacement();
   };
   if ($('#cancelEdit')) $('#cancelEdit').onclick = () => { editQ = null; renderPlacement(); };
-  $('#resetBank').onclick = async () => { if (!confirm('Replace all questions with the default question set?')) return; state.placement.questions = defaultBank(); freshIds.clear(); await save(); renderPlacement(); toast('Default questions restored'); };
+  $('#resetBank').onclick = async () => { if (!confirm('Replace all questions with the default question set?')) return; state.placement.questions = defaultBank(); state.placement.v = PLACE_V; freshIds.clear(); await save(); renderPlacement(); toast('Default questions restored'); };
   app.querySelectorAll('[data-hq]').forEach(b => b.onclick = () => say(bank().find(q => q.id === b.dataset.hq).listen, null, 0.85));
   app.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { editQ = b.dataset.eq; renderPlacement(); $('#qForm').scrollIntoView({block: 'center'}); });
   app.querySelectorAll('[data-dq]').forEach(b => b.onclick = async () => { const q = bank().find(x => x.id === b.dataset.dq);

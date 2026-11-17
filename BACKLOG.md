@@ -29,7 +29,7 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 
 ## Content
 <!-- content: one section per run, in this order, then start again. Write the date next to a section when you finish it. -->
-- [ ] Placement test questions
+- [x] Placement test questions — 2026-11-17: default set + the "Generate" templates checked; 4 items with two correct answers fixed, 6 new questions (now 48). Reaches existing devices through `PLACE_V` / `upgradePlacement` in `05-placement.js`.
 - [ ] Level A1 lessons
 - [ ] Level A2 lessons
 - [ ] Level B1 lessons
@@ -58,6 +58,10 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 - Real student accounts (login) so nobody can overwrite another student's progress — wanted before students join.
 - New "Voice test" column on the Students page: open it with your teacher key on the live site and say if the results appear (the agent cannot reach the real database).
 - The Azure speech path and real voices have not been tested by a person yet: take the voice test yourself and say if the level looks right.
+
+- Placement test (content, 2026-11-17): "We ___ hungry. We had a big lunch." uses the past tense ("had") in an A1 test — left as it is; say if you want it changed to the present.
+- Placement test (content, 2026-11-17): the generated question "You watch TV in the ___." counts only "living room" as right, though "bedroom" can be offered as a wrong answer and some students do have a TV there — left as it is.
+- Placement test (content, 2026-11-17): a teacher who deleted default questions on purpose will still receive the 6 new ones on that device (same behaviour as new listening exercises); they can be deleted again in the Questions tab.
 
 ## Done
 - [x] 2026-11-17 Design — home page on a phone (CSS only, under 560px): shorter hero photo so the main button is on the first screen, full-width buttons with one yellow main button (banner buttons are white), feature cards no longer break one word per line, compact banners with readable text, level cards two per row, tidy "Load your teacher's course" box. Page is about 30% shorter (4765px → 3297px at 390px wide).

@@ -60,7 +60,8 @@ async function applyCourse(data) {
     }
     state = data.state;
     LEVELS.forEach(l => { if (!state.levels[l.id]) state.levels[l.id] = {lessons: []}; });
-    if (!state.placement || !Array.isArray(state.placement.questions)) state.placement = {questions: defaultBank()};
+    if (!state.placement || !Array.isArray(state.placement.questions)) state.placement = {questions: defaultBank(), v: PLACE_V};
+    upgradePlacement();
     if (!state.pron || !Array.isArray(state.pron.sections)) state.pron = {sections: defaultPron()};
     if (!state.listen || !Array.isArray(state.listen.exercises)) state.listen = {exercises: defaultListen(), v: LISTEN_V};
     upgradeListen(); groupListen();
