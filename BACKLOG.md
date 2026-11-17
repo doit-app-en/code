@@ -20,7 +20,6 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 
 ## Design
 <!-- designer: one page or flow per run -->
-- [ ] Home page on a phone: first screen, banners and level cards — spacing, hierarchy, one clear main button.
 - [ ] Inner pages (a lesson, an exercise, a result): a clear "← Back" button at the top on phones, not only the breadcrumb.
 - [ ] Voice level test: intro, recording and result pages on a phone.
 - [ ] Placement test: question page and result page on a phone.
@@ -61,6 +60,7 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 - The Azure speech path and real voices have not been tested by a person yet: take the voice test yourself and say if the level looks right.
 
 ## Done
+- [x] 2026-11-17 Design — home page on a phone (CSS only, under 560px): shorter hero photo so the main button is on the first screen, full-width buttons with one yellow main button (banner buttons are white), feature cards no longer break one word per line, compact banners with readable text, level cards two per row, tidy "Load your teacher's course" box. Page is about 30% shorter (4765px → 3297px at 390px wide).
 - [x] 2026-11-18 Teacher's Students page: "Voice test" column (level, three scores, date, number of tests, link to the full result) from a teacher-key-protected list in `api/voice.js`. Checked with a pretend database only — not yet seen with the real one.
 - [x] 2026-11-18 Phone navigation: tab bar at the bottom, current section highlighted, header no longer wider than the screen.
 - [x] 2026-11-17 Voice level test (speak, describe a picture, listen and repeat).

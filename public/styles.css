@@ -585,3 +585,47 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 @media print{.tabbar{display:none!important}body{padding-bottom:0}}
 @media(max-width:860px){body.teacher .navlinks a.tonly{display:none!important}}   /* it is in the tab bar */
 @media(max-width:700px){.setg{grid-template-columns:1fr!important}}
+
+/* ---------- home page on phones: first screen, one main button, compact banners and level cards ---------- */
+@media(max-width:560px){
+  main{padding-top:16px}
+  .hero{border-radius:22px}
+  .hero-photo{min-height:0;height:168px}
+  .hero-photo img{object-position:center 22%}
+  .hero>div:first-child{padding:20px 18px 22px}
+  .hero h1{font-size:38px;margin:10px 0 8px}
+  .pill{font-size:13px;padding:5px 12px}
+  .lead{font-size:16px;line-height:1.5}
+  .hero .row{gap:10px;margin-top:16px!important}
+  .hero .row .btn{flex:1 1 100%;min-height:50px}
+  .hero .row .btn.sun{font-size:17px}
+  .hero .row .btn.ghost{min-height:46px;font-size:15px}
+  .placed{display:flex;margin-top:10px;min-height:48px;padding:4px 8px 4px 14px;border-radius:12px;font-size:15px}
+  .placed .btn.sm{margin-left:auto;min-height:40px;white-space:nowrap}
+  .placed>a:not(.btn){flex:1;display:flex;align-items:center;min-height:40px}
+  .features{gap:10px;margin:16px 0 4px}
+  .feat{flex-direction:column;gap:8px;padding:14px;border-radius:16px}
+  .feat .fi{width:40px;height:40px;font-size:22px}
+  .feat small{display:block;margin-top:2px;font-size:13px;line-height:1.35}
+  .ptest,.ptest.pronb,.ptest.listenb{min-height:0;margin-top:12px;padding:18px 18px 20px;gap:14px;border-radius:18px;background-image:linear-gradient(180deg,rgba(15,27,60,.9) 0%,rgba(15,27,60,.7) 100%),var(--img)}
+  .ptest h2{font-size:23px}
+  .ptest p{font-size:15px;line-height:1.45;opacity:.92}
+  .ptest .btn.sun{background:#fff;min-height:44px;font-size:15px}
+  .sec-h{margin:28px 0 12px}
+  .sec-h h2{font-size:26px}
+  .levels{grid-template-columns:1fr 1fr;gap:10px}
+  .lvl{border-radius:16px}
+  .lphoto{height:96px;border-bottom-width:4px}
+  .lvl .tag{top:8px;right:8px;font-size:11px;padding:2px 8px}
+  .lbody{padding:12px 12px 14px}
+  .lvl h3{font-size:19px;margin-bottom:4px}
+  .lvl p{font-size:13.5px;line-height:1.4;margin-bottom:10px}
+  .lvl .meta{font-size:13px}
+  .lvl .you{top:66px;bottom:auto;left:8px;right:auto;font-size:11px}
+  .share{flex-direction:column;align-items:stretch;margin-top:22px;padding:18px;border-radius:18px;gap:14px}
+  .share .row:first-child{flex-wrap:nowrap;align-items:flex-start;min-width:0!important}
+  .share .si{width:52px;height:52px;font-size:28px;border-radius:14px}
+  .share h3{font-size:20px;line-height:1.25}
+  .share p{font-size:15px}
+  .share .row .btn{flex:1 1 100%;min-height:46px}
+}
