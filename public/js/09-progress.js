@@ -45,6 +45,15 @@ function syncProgress() {
     } catch (e) { /* offline: try again next time */ }
   }, 1500);
 }
+// Practice streak and this week (Sunday first), from the per-day activity count already saved on this device.
+// A day counts when at least one activity was finished. Today not done yet does not break the streak.
+function streakInfo() {
+  const days = activity.days || {}, has = d => !!days[todayKey(d)], now = new Date(), at = n => { const d = new Date(now); d.setDate(d.getDate() - n); return d; };
+  let streak = 0, n = has(now) ? 0 : 1; while (n < 3660 && has(at(n))) { streak++; n++; }
+  const dow = now.getDay(), week = [...Array(7)].map((_, i) => ({l: 'SMTWTFS'[i], on: i <= dow && has(at(dow - i)), today: i === dow}));
+  return {streak, today: has(now), week, weekDays: week.filter(d => d.on).length, total: Object.keys(days).length};
+}
+const weekDotsHTML = s => `<div class="wk">${s.week.map(d => `<span class="${d.on ? 'on' : ''}${d.today ? ' now' : ''}">${d.l}</span>`).join('')}</div>`;
 function nextSuggestions() {
   const out = [], L = lexs();
   const lx = L.findIndex(e => listenBest[e.id] === undefined); if (lx >= 0) out.push({icon: '🎧', text: `Listening: ${L[lx].title}`, href: `#/listening/${lx + 1}`});
@@ -55,7 +64,7 @@ function nextSuggestions() {
 
 /* ---- student: My progress ---- */
 function renderProgress() {
-  const p = progressData(), idle = daysIdle(), col = pcol(p.overall), last7 = [...Array(7)].map((_, k) => { const d = new Date(Date.now() - (6 - k) * DAY); return {k: todayKey(d), l: 'SMTWTFS'[d.getDay()]}; });
+  const p = progressData(), idle = daysIdle(), col = pcol(p.overall), sk = streakInfo(), last7 = [...Array(7)].map((_, k) => { const d = new Date(Date.now() - (6 - k) * DAY); return {k: todayKey(d), l: 'SMTWTFS'[d.getDay()]}; });
   const week = last7.filter(d => activity.days && activity.days[d.k]).length, sugg = nextSuggestions();
   const bar = (label, pct, sub) => `<div class="brow"><span>${label}</span><div class="bt"><i style="width:${pct}%;background:${pcol(pct)}"></i></div><b>${pct}%</b></div>${sub ? `<div class="lbl" style="margin:-4px 0 6px">${sub}</div>` : ''}`;
   app.innerHTML = `
@@ -76,6 +85,7 @@ function renderProgress() {
       <h2 class="baloo" style="margin:0;font-size:30px;color:var(--navy)">Your progress: <span style="color:${col}">${p.overall}%</span></h2>
       <p class="hint" style="margin:2px 0 10px">${p.done} of ${p.total} activities done · Last practised: <b>${idleText(idle)}</b></p>
       <div class="wk">${last7.map(d => `<span class="${activity.days && activity.days[d.k] ? 'on' : ''}" title="${d.k}">${d.l}</span>`).join('')}<small>${week} of the last 7 days</small></div>
+      <p class="pgstreak">🔥 <b>${sk.streak}</b> day${sk.streak === 1 ? '' : 's'} in a row${sk.streak && !sk.today ? ' — practise today to keep it!' : sk.streak ? ' — well done!' : ' — finish one activity today to start your streak.'}</p>
       ${p.placement ? `<p style="margin:10px 0 0;font-weight:700">🎯 Placement test level: <b>${esc(p.placement)}</b></p>` : ''}
     </div>
   </div>
@@ -152,11 +162,11 @@ function renderStudents() {
       ${syncUrl() ? '<button class="btn sm" id="refresh">↻ Refresh</button>' : ''}</div>
     ${classErr ? `<div class="warn">⚠️ ${esc(classErr)}</div>` : ''}
     ${!rows.length ? `<div class="empty"><div class="e">👥</div>${syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>` : `
-    <div class="tablewrap"><table class="rtable"><thead><tr><th>Student</th><th>Class</th><th>Progress</th><th>Listening</th><th>Pronounce</th><th>Lessons</th>${voiceLatest ? '<th>Voice test</th>' : ''}<th>Last practised</th><th></th></tr></thead><tbody>
-      ${rows.map(r => `<tr><td><b>${esc(r.name)}</b>${r.here ? ' <span class="lbl">(this device)</span>' : ''}<div class="lbl">${esc(r.email || '')}</div></td><td>${esc(r.cls || '')}</td>
-        <td><div class="minibar"><i style="width:${r.overall}%;background:${pcol(r.overall)}"></i></div><b style="color:${pcol(r.overall)}">${r.overall}%</b></td>
-        <td>${r.listening}%</td><td>${r.pronounce}%</td><td>${r.lessons}%</td>${voiceLatest ? `<td class="vcell">${voiceCell(r)}</td>` : ''}<td>${st(r)}${r.lastReminder ? `<div class="lbl">reminder sent ${new Date(r.lastReminder).toLocaleDateString()}</div>` : ''}</td>
-        <td>${r.email ? `<a class="btn sm ghost" href="${mail(r)}" title="Write a reminder email">✉️</a>` : ''}</td></tr>`).join('')}
+    <div class="tablewrap"><table class="rtable cards"><thead><tr><th>Student</th><th>Class</th><th>Progress</th><th>Listening</th><th>Pronounce</th><th>Lessons</th>${voiceLatest ? '<th>Voice test</th>' : ''}<th>Last practised</th><th></th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td class="sname"><b>${esc(r.name)}</b>${r.here ? ' <span class="lbl">(this device)</span>' : ''}<div class="lbl">${esc(r.email || '')}</div></td><td data-l="Class">${esc(r.cls || '')}</td>
+        <td data-l="Progress"><div class="minibar"><i style="width:${r.overall}%;background:${pcol(r.overall)}"></i></div><b style="color:${pcol(r.overall)}">${r.overall}%</b></td>
+        <td data-l="Listening">${r.listening}%</td><td data-l="Pronounce">${r.pronounce}%</td><td data-l="Lessons">${r.lessons}%</td>${voiceLatest ? `<td class="vcell" data-l="Voice test">${voiceCell(r)}</td>` : ''}<td data-l="Last practised">${st(r)}${r.lastReminder ? `<div class="lbl">reminder sent ${new Date(r.lastReminder).toLocaleDateString()}</div>` : ''}</td>
+        <td class="smail">${r.email ? `<a class="btn sm ghost" href="${mail(r)}" title="Write a reminder email" aria-label="Write a reminder email to ${esc(r.name)}">✉️<span> Send a reminder</span></a>` : ''}</td></tr>`).join('')}
     </tbody></table></div>`}
     <p class="lbl" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.${voiceLatest ? ' Voice test = the student\'s newest voice level test; “View” opens the full result.' : ''}</p>
   </div>

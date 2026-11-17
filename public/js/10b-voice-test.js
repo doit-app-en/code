@@ -219,6 +219,8 @@ async function vtSharedPage(id) {
 function vtWordsHTML(s) { return s.words.length ? s.words.map(w => `<span class="vtw" style="--c:${w.err === 'Omission' ? '#9aa3b5' : pcol(w.score == null ? 100 : w.score)}" title="${w.err === 'Omission' ? 'not heard' : w.score == null ? '' : w.score + '%'}">${esc(w.w)}</span>`).join(' ') : `<span class="lbl">Nothing was heard.</span>`; }
 function vtResultPage(rec, shared) {
   const sc = rec.scores, col = pcol(sc.overall), a = rec.ai, li = arr => (arr || []).map(x => `<li>${esc(x)}</li>`).join(''), basic = rec.sentences.some(s => s.source !== 'speech');
+  // Where to go after the test: the lessons of the matching level (C1 → the highest level here) and the words that were not clear.
+  const nx = {L: LV({A1: 'a1', A2: 'a2', B1: 'b1', B2: 'b2', C1: 'b2'}[rec.level]), weak: sc.overall > 0 ? [...new Set(rec.sentences.flatMap(x => x.weak || []).map(String))].slice(0, 6) : []};
   const link = rec.shared ? location.origin + location.pathname + '#/voicetest/result/' + rec.shared : '';
   app.innerHTML = `<div class="crumbs no-print"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Result</div>
   <div class="panel res-card">
@@ -228,6 +230,9 @@ function vtResultPage(rec, shared) {
       <p class="hint" style="margin:4px 0 0">${a ? 'Level chosen by the AI teacher from your whole test.' : 'An automatic estimate from your scores. Your teacher\'s opinion is more important.'}</p></div></div>
     <h3 class="sph" style="margin-top:22px">Your skills</h3>
     <div class="spgauges">${scaleHTML(sc.speaking, '🗣 Speaking (fluency, grammar, vocabulary)')}${scaleHTML(sc.pronunciation, '🎯 Pronunciation' + (basic ? ' (basic check)' : ''))}${scaleHTML(sc.repeating, '👂 Listening and repeating')}</div>
+    ${shared ? '' : `<div class="vtnext no-print" id="vtNext"><h3 class="sph" style="margin:0 0 4px">👉 What to do next</h3>
+      <p class="hint" style="margin:0 0 10px">${nx.L ? `Your speaking level is <b>${esc(rec.level)}</b> — the <b>${nx.L.name}</b> lessons are a good place to practise.` : 'Keep practising a little every day.'}${nx.weak.length ? ` Words to practise: ${nx.weak.map(w => `<span class="vtw" style="--c:#e63946">${esc(w)}</span>`).join(' ')}` : ''}</p>
+      <div class="row" style="gap:8px">${nx.L ? `<a class="btn sun" href="#/level/${nx.L.id}">${nx.L.icon} Open ${nx.L.name} →</a>` : ''}<a class="btn ghost" href="#/pronounce">🗣️ Practise pronunciation</a>${sc.repeating < 60 ? '<a class="btn ghost" href="#/listening">🎧 Practise listening</a>' : ''}</div></div>`}
     ${a ? `<div class="aibox"><div class="aibadge">🤖 AI teacher (Claude) · level: <b>${esc(a.cefr || rec.level)}</b></div>${a.summary ? `<p class="aisum">${esc(a.summary)}</p>` : ''}
       ${a.speaking ? `<p><b>🗣 Speaking:</b> ${esc(a.speaking)}</p>` : ''}${a.pronunciation ? `<p><b>🎯 Pronunciation:</b> ${esc(a.pronunciation)}</p>` : ''}
       <div class="spcols"><div><h4 class="sph good">💪 Strengths</h4><ul>${li(a.strengths)}</ul></div><div><h4 class="sph warn">🎯 To improve</h4><ul>${li(a.weaknesses)}</ul></div></div>${(a.tips || []).length ? `<h4 class="sph">💡 Tips</h4><ul>${li(a.tips)}</ul>` : ''}</div>`

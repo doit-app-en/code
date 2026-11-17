@@ -628,4 +628,73 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .share h3{font-size:20px;line-height:1.25}
   .share p{font-size:15px}
   .share .row .btn{flex:1 1 100%;min-height:46px}
+/* ---------- home: today card (streak, week, continue), 3-step path, practice tiles ---------- */
+.today{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;background:#fff;border-radius:22px;padding:20px 24px;margin-top:18px;box-shadow:0 4px 18px rgba(15,27,60,.07)}
+.tstreak{display:grid;justify-items:center;min-width:104px;padding:10px 14px;border-radius:18px;background:#f4f6fa;color:var(--muted)}
+.tstreak i{font-style:normal;font-size:28px;line-height:1;filter:grayscale(1);opacity:.55}
+.tstreak b{font:800 34px/1.05 'Poppins',sans-serif;color:var(--navy)}
+.tstreak small{font-weight:800;font-size:12px}
+.tstreak.lit{background:linear-gradient(160deg,#fff1cf,#ffe0d6);color:#a2541a}.tstreak.lit i{filter:none;opacity:1}
+.tweek{display:grid;gap:8px;min-width:0}.tweek strong{font-size:18px;color:var(--navy)}.tweek>small{font-weight:700;color:var(--muted)}
+.wk span.now{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--sun)}
+.tnext{display:grid;gap:2px;text-decoration:none;background:var(--navy);color:#fff;border-radius:18px;padding:14px 18px;max-width:330px;min-width:220px}
+.tnext small{font-weight:800;opacity:.75;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tnext span{font-weight:800;font-size:17px;line-height:1.3}
+.tnext em{font-style:normal;font-weight:800;color:var(--sun);margin-top:4px}
+.tnext:hover{background:#0f1b3c}
+.pgstreak{margin:10px 0 0;font-weight:700}
+.startp{margin-top:18px}.startp h2{margin:0 0 12px;font-size:26px;color:var(--navy)}
+.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.step3{display:flex;gap:14px;align-items:center;background:#fff;border:1.5px solid #e3e8f0;border-radius:18px;padding:16px 18px;text-decoration:none;min-height:76px;transition:transform .15s,box-shadow .15s}
+.step3:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(15,27,60,.1)}
+.step3>b{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--sun);color:var(--navy);font:800 20px 'Poppins',sans-serif}
+.step3 strong{display:block;font-size:17px;color:var(--navy)}.step3 small{color:var(--muted);font-weight:700}
+.step3.done{background:#f1faf5;border-color:#bfe6d0}.step3.done>b{background:var(--green);color:#fff}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pgrid .ptest,.pgrid .ptest.pronb,.pgrid .ptest.listenb{margin:0;text-decoration:none;color:#fff;transition:transform .15s,box-shadow .15s}
+.pgrid .ptest:first-child{grid-column:1/-1}
+.pgrid .ptest:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(15,27,60,.2)}
+.pgrid .ptest:not(:first-child){flex-direction:column;align-items:flex-start;justify-content:space-between;background-image:linear-gradient(180deg,rgba(15,27,60,.72) 0%,rgba(15,27,60,.9) 100%),var(--img);min-height:210px}
+.pgrid .ptest .btn{flex:none;white-space:nowrap}
+@media(max-width:860px){
+  .today{grid-template-columns:auto 1fr;gap:14px;padding:16px}
+  .tnext{grid-column:1/-1;max-width:none}
+  .tstreak{min-width:86px;padding:8px 10px}
+  .steps3{grid-template-columns:1fr;gap:10px}
+  .sec-h h2{font-size:26px}.sec-h{margin:26px 0 12px}
+}
+@media(max-width:640px){
+  .pgrid{gap:10px}
+  .pgrid .ptest,.pgrid .ptest.pronb,.pgrid .ptest.listenb{padding:16px 14px;border-radius:18px;min-height:150px}
+  .pgrid .ptest:not(:first-child){min-height:164px}
+  .pgrid .ptest h2{font-size:19px;line-height:1.2}
+  .pgrid .ptest:not(:first-child) p{display:none}
+  .pgrid .ptest p{font-size:14px}
+  .pgrid .ptest .btn{padding:8px 12px;font-size:13px;border-radius:10px}
+  .tweek strong{font-size:16px}.tweek .wk span{width:27px;height:27px;font-size:12px}.tweek .wk{gap:4px}
+}
+
+/* ---------- voice test result: what to do next ---------- */
+.vtnext{margin-top:20px;background:#fff8e6;border:2px solid #ffe2a0;border-radius:18px;padding:16px 18px}
+.vtnext .vtw{font-size:14px;margin:2px 0}
+/* ---------- phones: back button instead of the breadcrumb ---------- */
+.backbtn{display:none}
+@media(max-width:860px){
+  .backbtn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;margin:0 0 12px;border-radius:12px;background:#fff;border:1.5px solid #d5dce8;color:var(--navy);font-weight:800;text-decoration:none;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .backbtn+.crumbs{display:none}
+  main{padding-top:14px}
+}
+/* ---------- teacher's Students page on phones: one card per student instead of a wide table ---------- */
+.rtable .smail span{display:none}
+@media(max-width:860px){
+  .rtable.cards thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .rtable.cards,.rtable.cards tbody{display:block}
+  .rtable.cards tr{display:block;border:1.5px solid #e3e8f0;border-radius:18px;padding:12px 14px;margin:0 0 12px;background:#fbfcfe}
+  .rtable.cards td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px dashed #e6eaf2;text-align:right;min-width:0}
+  .rtable.cards td[data-l]:before{content:attr(data-l);font-weight:800;color:var(--muted);font-size:13px;text-align:left;flex:none}
+  .rtable.cards td.sname{display:block;text-align:left;font-size:17px;padding-top:0}
+  .rtable.cards td.vcell{display:block;text-align:left;min-width:0}.rtable.cards td.vcell:before{display:block;margin-bottom:4px}
+  .rtable.cards td[data-l="Progress"] .minibar{flex:1;max-width:150px;margin-left:auto}
+  .rtable.cards td.smail{border:0;padding:10px 0 0;display:block}.rtable.cards td.smail:empty{display:none}
+  .rtable.cards .smail .btn{width:100%;min-height:44px}.rtable.cards .smail span{display:inline}
 }

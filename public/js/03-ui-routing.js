@@ -100,4 +100,11 @@ function render(keepScroll) {
   renderHome();
 }
 window.addEventListener('hashchange', () => render());
+// Phones: a clear "← Back" button above every inner page, made from the page's own breadcrumb (its last link is the page above).
+new MutationObserver(() => {
+  const c = app.querySelector('.crumbs'); if (!c || app.querySelector('.backbtn')) return;
+  const links = c.querySelectorAll('a'), up = links[links.length - 1]; if (!up) return;
+  const b = document.createElement('a'); b.className = 'backbtn no-print'; b.href = up.getAttribute('href'); b.textContent = '← ' + (up.textContent.trim() || 'Back');
+  c.before(b);
+}).observe(app, {childList: true});
 

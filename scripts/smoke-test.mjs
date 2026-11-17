@@ -48,6 +48,10 @@ for (const screen of SCREENS) {
   const ctx = await browser.newContext({ viewport: { width: screen.width, height: screen.height }, permissions: ['microphone'] }), page = await ctx.newPage();
   watch(page, screen.name);
   await page.goto(base + '/', { waitUntil: 'load' }); await page.waitForFunction(() => document.querySelector('#app').innerText.trim().length > 20, null, { timeout: 10000 });
+  // Home page of a new student: the 3-step path and the five practice tiles; of a returning one: the streak card with a "continue" link.
+  { const h = await page.evaluate(async () => { const a = { steps: document.querySelectorAll('#startp .step3').length, tiles: document.querySelectorAll('.pgrid a.ptest').length };
+      const keep = activity; activity = { last: Date.now(), days: { [todayKey()]: 1 } }; renderHome(); a.streak = (document.querySelector('#today .tstreak b') || {}).textContent; a.next = !!document.querySelector('#today a.tnext'); activity = keep; renderHome(); return a; });
+    if (h.steps !== 3 || h.tiles !== 5 || h.streak !== '1' || !h.next) problems.push(`${screen.name} home: path, practice tiles or streak card is wrong ` + JSON.stringify(h)); }
   for (const route of ROUTES) await visit(page, screen, route, 'student');
   await page.evaluate(() => { mode = 'teacher'; setModeButtons(); render(); });
   for (const route of TEACHER_ROUTES) await visit(page, screen, route, 'teacher');
@@ -68,6 +72,7 @@ for (const screen of SCREENS) {
     }
     await page.waitForSelector('#vtAgain', { timeout: 20000 });
     const r = await page.evaluate(() => ({ tasks: VT.rec.tasks.length, sentences: VT.rec.sentences.length, audio: VT.rec.sentences.every(s => !!s.audio), over: document.documentElement.scrollWidth - innerWidth }));
+    if (!await page.$('#vtNext a[href^="#/level/"]')) problems.push('voice test result: the "What to do next" box with a link to a level is missing');
     if (r.tasks !== 2 || r.sentences !== 4 || !r.audio) problems.push('voice test: the result is incomplete ' + JSON.stringify(r));
     if (r.over > 1) problems.push(`voice test result: ${r.over}px wider than the phone screen`);
     await page.screenshot({ path: path.join(shots, 'phone-voice-result.png'), fullPage: true });

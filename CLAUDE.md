@@ -14,6 +14,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `public/js/NN-*.js` | The app, split by section. **Classic scripts, not modules**: they share one global scope and must load in the numbered order. |
 | `public/js/legacy-apps-script.js` | The old Apps Script text a teacher can copy from the Students page (`GS_CODE`). Not numbered; loads between `08` and `09`. |
 | `public/photos/` | Site photos (Unsplash) |
+| `public/manifest.webmanifest`, `public/icons/` | "Add to home screen": name, colours and icons (PNG, drawn from the logo). No service worker, no offline caching. |
 | `api/class.js` | Class server: progress, students list, speaking AI feedback |
 | `api/voice.js` | Voice level test: speech-to-text + pronunciation scores (Azure AI Speech), AI summary (Claude), saved results |
 | `api/reminders.js` | Daily reminder emails (Vercel Cron + Resend) |
@@ -31,6 +32,8 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Hash router (`#/…`) in `03-ui-routing.js`; each page is a `renderX()` function that writes `app.innerHTML`.
 - All course content and a student's own progress live **on the device** in IndexedDB (`DB` in `01-core.js`,
   with `state` as the course). The server only stores a progress summary per student.
+- Home page (`04-home.js`): new students see a 3-step path; returning ones a "today" card (streak, week dots, continue link) built by `streakInfo()` and
+  `nextSuggestions()` in `09-progress.js` from `activity.days` (per device). On phones a "← Back" button is added above every page that has `.crumbs` (`03-ui-routing.js`).
 - Student/teacher mode is only a UI switch. The real protection is `TEACHER_KEY`, checked on the server.
 - The page talks to `/api/class` with the same JSON messages the old Apps Script used (see the top of `api/class.js`).
   `syncUrl()` in `09-progress.js` defaults to `/api/class`; a teacher may still type an Apps Script URL.
@@ -38,7 +41,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
   The browser records WAV (16 kHz mono). With `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` set, `/api/voice` transcribes and scores pronunciation;
   without them the page falls back to the browser's speech recognition ("basic check"). `GET /api/voice` tells the page what is switched on.
   The teacher's Students page asks `POST /api/voice {action:'latest', key}` (teacher key) for each student's newest test and shows it in a "Voice test" column.
-  Paid calls need a registered student and are limited per day by `usage_take()` in the database. The owner has set the Azure keys in production; nobody has confirmed a real spoken test yet.
+  Paid calls need a registered student and are limited per day by `usage_take()` in the database. The owner has set the Azure keys in production and reported on 2026-11-18 that a real spoken test and the Students column work.
 - Database tables have Row Level Security on and **no policies**: only `api/` (service-role key) can reach them.
   The browser never talks to Supabase directly and no Supabase key is in `public/`.
 
