@@ -559,3 +559,27 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 @media(max-width:1440px){.navlinks a.hide-sm{font-size:13px;padding:6px 5px}}
 @media(max-width:1200px){.navlinks a.hide-sm{font-size:12px;padding:6px 3px}}
 @media(max-width:1200px){.navlinks a.hide-sm[href="#/"]{display:none}}   /* the logo already goes home */
+
+/* ---------- navigation: current section, phone tab bar, small headers ---------- */
+.navlinks a.hide-sm.on{background:var(--navy);color:#fff}
+@media(max-width:1440px){body.teacher .navlinks a.hide-sm[href="#/"]{display:none}}
+.tabbar{display:none}
+@media(max-width:860px){
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border-top:1px solid #e3e8f0;overflow-x:auto;scrollbar-width:none;padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
+  .tabbar::-webkit-scrollbar{display:none}
+  .tabbar a{flex:1 0 62px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;border-radius:12px;text-decoration:none;color:var(--muted);font-weight:800;font-size:11px;white-space:nowrap}
+  .tabbar a i{font-style:normal;font-size:21px;line-height:1.1}
+  .tabbar a.on{color:var(--navy);background:#eef2fb}
+  .tabbar a.tonly{display:none!important}body.teacher .tabbar a.tonly{display:flex!important}
+  body{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+  .toast{bottom:84px;max-width:calc(100vw - 24px)}
+  .navlinks{gap:4px}
+}
+@media(max-width:560px){
+  .seg button{padding:7px 10px}.seg button span{display:none}
+  .brand{font-size:19px;gap:7px}.brand .logo{width:36px;height:36px;font-size:18px}
+  header.top{gap:6px}
+}
+@media print{.tabbar{display:none!important}body{padding-bottom:0}}
+@media(max-width:860px){body.teacher .navlinks a.tonly{display:none!important}}   /* it is in the tab bar */
+@media(max-width:700px){.setg{grid-template-columns:1fr!important}}

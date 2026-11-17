@@ -25,12 +25,22 @@
         <div class="row" style="gap:6px"><button class="btn sm teal" id="voiceTest">▶ Test</button><button class="btn sm ghost" id="voiceAuto">Automatic</button></div>
         <small class="lbl">Saved on this device. British (en-GB) voices are listed first.</small></div></div>
     <div class="seg" title="Teacher mode lets you add videos, voice tracks, pictures and questions">
-      <button data-mode="student">🎒 Student</button>
-      <button data-mode="teacher">🧑‍🏫 Teacher</button>
+      <button data-mode="student" aria-label="Student mode">🎒<span> Student</span></button>
+      <button data-mode="teacher" aria-label="Teacher mode">🧑‍🏫<span> Teacher</span></button>
     </div>
   </div>
 </header>
 <main id="app"></main>
+<nav class="tabbar" aria-label="Sections">
+  <a href="#/"><i>🏠</i>Home</a>
+  <a href="#/placement"><i>📝</i>Placement</a>
+  <a href="#/voicetest"><i>🎙</i>Voice test</a>
+  <a href="#/pronounce"><i>🗣️</i>Pronounce</a>
+  <a href="#/listening"><i>🎧</i>Listening</a>
+  <a href="#/speaking"><i>🎤</i>Speaking</a>
+  <a href="#/progress"><i>📈</i>Progress</a>
+  <a href="#/students" class="tonly"><i>🧑‍🏫</i>Students</a>
+</nav>
 <footer>Do it English · Learn • Listen • Match • Speak<br><small>Photos: <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a> photographers</small></footer>
 <div class="toast" id="toast"></div>
 

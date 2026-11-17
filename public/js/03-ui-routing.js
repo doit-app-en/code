@@ -75,9 +75,16 @@ document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { mode =
   toast(mode === 'teacher' ? 'Teacher mode: you can now add and edit content' : 'Student mode'); });
 const go = h => { location.hash = h; };
 let lastRoute = '';
+// Highlights the current section in the top menu and in the phone tab bar.
+function markNav(route) {
+  const sec = route.replace(/^#\/?/, '').split('/')[0], cur = ['placement', 'voicetest', 'pronounce', 'listening', 'speaking', 'progress', 'students'].includes(sec) ? '#/' + sec : '#/';
+  document.querySelectorAll('.navlinks a.hide-sm, .tabbar a').forEach(a => { const on = a.getAttribute('href') === cur; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  const act = document.querySelector('.tabbar a.on'); if (act && act.scrollIntoView && getComputedStyle(act.parentNode).display !== 'none') act.scrollIntoView({block: 'nearest', inline: 'center'});
+}
 function render(keepScroll) {
   stopAll();
   const route = location.hash || '#/';
+  markNav(route);
   if (!keepScroll && route !== lastRoute) window.scrollTo(0, 0);
   lastRoute = route;
   const p = route.replace(/^#\/?/, '').split('/');

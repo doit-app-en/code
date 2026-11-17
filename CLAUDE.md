@@ -20,6 +20,8 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `supabase/migrations/` | Database schema. Add a **new** migration file for every change; never edit an applied one. |
 | `legacy/` | The old Google Apps Script server, kept for reference |
 | `scripts/dev-server.mjs` | `npm run dev` — local preview of `public/` + `api/` |
+| `scripts/smoke-test.mjs` | `npm run smoke` — every page on phone/tablet/desktop in headless Chrome + the whole voice test; screenshots in `/tmp/smoke/` |
+| `AGENT.md`, `BACKLOG.md`, `CHANGELOG.md` | The scheduled improvement agent's rules, its to-do list, and the Arabic log the owner reads |
 
 ## How it works
 
@@ -32,7 +34,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Voice level test (`public/js/10b-voice-test.js`, route `#/voicetest`): 45 s answer + 45 s picture description + 4 listen-and-repeat sentences.
   The browser records WAV (16 kHz mono). With `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` set, `/api/voice` transcribes and scores pronunciation;
   without them the page falls back to the browser's speech recognition ("basic check"). `GET /api/voice` tells the page what is switched on.
-  Paid calls need a registered student and are limited per day by `usage_take()` in the database. The Azure path has not been run against a real key yet.
+  Paid calls need a registered student and are limited per day by `usage_take()` in the database. The owner has set the Azure keys in production; nobody has confirmed a real spoken test yet.
 - Database tables have Row Level Security on and **no policies**: only `api/` (service-role key) can reach them.
   The browser never talks to Supabase directly and no Supabase key is in `public/`.
 
@@ -41,7 +43,9 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Keep it build-free: no bundler, no framework, no `import` in `public/js`. New front-end file → add its `<script>` tag in order.
 - Secrets live only in Vercel environment variables / `.env.local`. Never in `public/`, never committed.
 - Escape user text with `esc()` before putting it in `innerHTML`.
-- Before finishing a change: `node --check` each edited JS file, run `npm run dev`, open the pages you touched and check the browser console.
+- Before finishing a change: `node --check` each edited JS file and run `npm run smoke` (it must pass); look at the screenshots of the pages you touched.
+- After a change the owner would notice, add an entry at the top of `CHANGELOG.md` (Arabic, plain words).
+- Phones are the main screen: under 860px the top links are hidden and the bottom `.tabbar` is the navigation. A new section needs a link in both.
 - Push straight to `main` (the owner's choice while the site is at version 1): no branches or pull requests unless he asks. Every push to `main` deploys to production, so run the checks above first, and `git pull --rebase origin main` right before pushing because another person may be pushing too.
 - `.github/workflows/check.yml` runs on every push; if it fails, fix it straight away. `migrate.yml` applies new `supabase/migrations/` files when they reach `main` (only if the Supabase secrets are set in the repository).
 - The file `public/course.json` is optional (a teacher's exported course, auto-loaded by every student). A 404 for it is normal.
