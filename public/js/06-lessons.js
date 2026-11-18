@@ -164,7 +164,7 @@ function tryMatch(wi, chipEl) {
   if (M.done[wi] !== undefined) return;
   if (wi === M.sel) { M.done[wi] = Object.keys(M.done).length; say(LS.matching[wi].word); M.sel = null; drawStu(); }
   else {
-    M.mist++;
+    M.mist++; noteMistake('m', LS, LS.matching[M.sel]);   // remembered for "Practise my mistakes" (09b-mistakes.js)
     const card = document.querySelector(`.mcard[data-mi="${M.sel}"]`);
     [chipEl, card].forEach(el => { if (el) { el.classList.add('shake', 'bad'); setTimeout(() => el.classList.remove('shake', 'bad'), 500); } });
     const h = document.querySelector('#stu .hint b:last-child'); if (h) h.textContent = M.mist;
@@ -233,6 +233,7 @@ function judge(target, alts) {
 function showResult(res) {
   const it = LS.speaking[S.i];
   S.best[it.id] = Math.max(S.best[it.id] || 0, res.score);
+  if (res.score < MIST_PASS) noteMistake('s', LS, it);   // not said clearly: remembered for "Practise my mistakes"
   document.querySelectorAll('#tgt .w').forEach((w, i) => { w.classList.remove('ok', 'no'); if (tokens(it.text)[i].n) w.classList.add(res.ok.has(i) ? 'ok' : 'no'); });
   const s = res.score, col = s >= 80 ? 'var(--green)' : s >= 55 ? 'var(--sun)' : 'var(--coral)';
   const [title, msg] = s >= 90 ? ['Excellent! 🌟', 'Perfect pronunciation — great job!'] : s >= 80 ? ['Very good! 👏', 'Very clear. Just a tiny bit more practice.'] : s >= 55 ? ['Almost there! 💪', 'Some words were not clear. Listen to the red words and try again.'] : ['Let\'s try again 🔁', 'Listen to the model first, then speak slowly and clearly.'];
@@ -243,6 +244,7 @@ function showResult(res) {
   document.querySelectorAll('.dot')[S.i].className = `dot cur ${s >= 80 ? 'g' : s >= 55 ? 'y' : 'r'}`;
   if (s >= 90) say('Excellent!', null, 1);
 }
+const srErrText = err => err === 'not-allowed' || err === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : err === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : err === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : err === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + err + '). Try again.';
 function startMic() {
   if (!SR) { toast('Please open this page in Chrome or Edge for speech recognition'); return; }
   const mic = $('#mic'), st = $('#status');
@@ -253,7 +255,7 @@ function startMic() {
   let got = false;
   recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… speak now'; };
   recog.onresult = e => { got = true; const alts = [...e.results[0]].map(a => a.transcript); st.textContent = 'Checking…'; showResult(judge(it.text, alts)); st.textContent = 'Press the microphone to try again'; };
-  recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + e.error + '). Try again.'; };
+  recog.onerror = e => { st.textContent = srErrText(e.error); };
   recog.onend = () => { mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and speak'; };
   try { recog.start(); } catch (e) { recog = null; }
 }

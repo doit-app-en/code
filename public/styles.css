@@ -854,3 +854,36 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .ptgo{margin-top:16px!important}.ptgo .btn{flex:1 1 100%;min-height:48px}
   .ptback .btn{min-height:44px}
 }
+
+/* ---------- practise my mistakes (09b-mistakes.js): the link on Home / My progress, and the round at #/mistakes ---------- */
+.mistk{display:flex;gap:14px;align-items:center;margin-top:18px;padding:14px 18px;min-height:72px;background:#f3efff;border:1.5px solid #d9cfff;border-radius:18px;text-decoration:none;color:var(--navy);transition:transform .15s,box-shadow .15s}
+.mistk:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(15,27,60,.1)}
+.mistk>i{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--purple);font-style:normal;font-size:20px}
+.mistk>span{flex:1;min-width:0}.mistk b{display:block;font-size:17px}.mistk small{color:var(--muted);font-weight:700}
+.mistk>em{flex:none;font-style:normal;font-weight:800;color:#5a41d8;white-space:nowrap}
+.mkhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.mkfrom{font-weight:700;font-size:14px;color:var(--muted);background:#f4f6fa;border-radius:99px;padding:4px 12px}
+.mkbar{height:10px;border-radius:99px;background:#eef1f7;margin:10px 0 18px;overflow:hidden}.mkbar i{display:block;height:100%;border-radius:99px;background:var(--purple);transition:width .3s}
+.mkq{text-align:center;max-width:620px;margin:0 auto}
+.mkt{margin:0 0 14px;font-size:22px;color:var(--navy)}
+.mkpic{width:170px;height:170px;margin:0 auto 14px;background:#f7f9ff;border-radius:22px;display:grid;place-items:center;overflow:hidden}
+.mkpic .emo{font-size:96px}.mkpic img{max-height:170px}
+.mkopts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mkopt{min-height:58px;padding:12px 14px;border:3px solid var(--line);border-radius:16px;background:#fff;font:800 18px 'Nunito',system-ui,sans-serif;color:var(--navy);cursor:pointer;transition:.15s}
+.mkopt:hover:not(:disabled){border-color:var(--sky);background:#f3fbff}
+.mkopt:disabled{cursor:default;opacity:.6}
+.mkopt.ok{border-color:var(--green);background:#e9f8f0;color:#12683c;opacity:1}
+.mkopt.no{border-color:var(--coral);background:#ffecec;color:#b93232;opacity:1}
+.mkfb{min-height:26px;margin-top:14px;font-weight:700;color:var(--ink)}.mkfb .g{color:#12683c}.mkfb .r{color:#b93232}
+.mknav{display:flex;justify-content:center;margin-top:18px}.mknav .btn{min-height:48px;min-width:200px}
+.mkend .mksum{margin:0 0 6px;font-size:20px;color:var(--navy)}
+.mkend .btn{min-height:48px}
+@media(max-width:560px){
+  .banner.mkban{min-height:0;padding:12px 16px;margin-bottom:10px;border-radius:18px}.banner.mkban h1{font-size:21px}.banner.mkban .lv{display:none}
+  #mkBody{padding:16px 14px}.mkbar{margin:8px 0 12px}
+  .mistk{padding:12px 14px;gap:12px}.mistk b{font-size:16px}.mistk small{display:block;font-size:13px;line-height:1.3}
+  .mkpic{width:116px;height:116px;margin-bottom:10px;border-radius:18px}.mkpic .emo{font-size:68px}.mkpic img{max-height:116px}
+  .mkopts{gap:8px}.mkopt{padding:8px 6px;font-size:16px;line-height:1.2;min-height:56px;border-width:2px}.mkt{font-size:19px;margin-bottom:10px}
+  .mkfb{margin-top:10px;font-size:15px;line-height:1.35}.mknav{margin-top:12px}
+  .mknav .btn{width:100%}.mkend .row .btn{flex:1 1 100%}
+}

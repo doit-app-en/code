@@ -94,6 +94,7 @@ function render(keepScroll) {
   if (p[0] === 'speaking') return renderSpeaking(p.slice(1).join('/'));
   if (p[0] === 'voicetest') return renderVoiceTest(p.slice(1).join('/'));
   if (p[0] === 'progress') return renderProgress();
+  if (p[0] === 'mistakes') return renderMistakes();
   if (p[0] === 'students') { renderStudents(); if (syncUrl() && classList === null && !classErr && !classLoading) loadClass().then(() => location.hash === '#/students' && renderStudents()); return; }
   if (p[0] === 'level' && state.levels[p[1]]) return renderLevel(p[1]);
   if (p[0] === 'lesson' && state.levels[p[1]]) return renderLesson(p[1], p[2]);

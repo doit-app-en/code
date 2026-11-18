@@ -141,6 +141,56 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Practise my mistakes on a phone: two wrong pairs in Match and one unclear phrase in Speak are remembered, offered on Home and My progress,
+// and leave the list after two correct answers in the rounds. Speech recognition is a pretend one that "hears" window._heard.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage();
+  watch(page, 'practise my mistakes');
+  try {
+    await page.addInitScript(() => { window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { setTimeout(() => { if (this.onstart) this.onstart(); setTimeout(() => { if (this.onresult) this.onresult({ results: [[{ transcript: window._heard || '' }]] }); if (this.onend) this.onend(); }, 40); }, 10); } stop() {} abort() {} }; });
+    await page.goto(base + '/#/level/a1', { waitUntil: 'load' }); await page.waitForSelector('.lcard', { timeout: 10000 });
+    const none = await page.evaluate(() => { renderHome(); return !document.querySelector('#mistGo'); }); await page.evaluate(() => render());
+    await page.click('.lcard'); await page.waitForSelector('[data-tab=match]'); await page.click('[data-tab=match]'); await page.waitForSelector('.mcard');
+    await page.click('.mcard[data-mi="0"]'); await page.click('.chip[data-wi="1"]'); await page.click('.mcard[data-mi="2"]'); await page.click('.chip[data-wi="3"]'); await page.click('.mcard[data-mi="2"]'); await page.click('.chip[data-wi="0"]');   // pair 2 wrong twice: still one item
+    await page.click('[data-tab=speak]'); await page.waitForSelector('#mic');
+    await page.evaluate(() => { window._heard = 'banana'; }); await page.click('#mic'); await page.waitForSelector('#result .result', { timeout: 5000 });
+    await page.evaluate(() => { window._heard = LS.speaking[1].text; }); await page.click('[data-act=snext]'); await page.click('#mic'); await page.waitForSelector('#result .result', { timeout: 5000 });   // said clearly: not a mistake
+    await page.waitForTimeout(200);
+    const a = await page.evaluate(async () => ({ keys: Object.keys(mistakes).map(k => k[0]).sort().join(''), saved: Object.keys((await DB.get('kv', 'mistakes')) || {}).length }));
+    await page.evaluate(() => { location.hash = '#/'; }); await page.waitForSelector('#mistGo', { timeout: 5000 });
+    a.home = await page.evaluate(() => { const e = document.querySelector('#mistGo'); e.scrollIntoView({ block: 'center', behavior: 'instant' }); return e.innerText.replace(/\s+/g, ' '); }); await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(shots, 'phone-home-mistakes.png') });
+    await page.evaluate(() => { location.hash = '#/progress'; }); await page.waitForSelector('#mistGo', { timeout: 5000 });
+    a.over = await page.evaluate(() => { document.querySelector('#mistGo').scrollIntoView({ block: 'center', behavior: 'instant' }); return document.documentElement.scrollWidth - innerWidth; }); await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(shots, 'phone-progress-mistakes.png') });
+    if (!none || a.keys !== 'mms' || a.saved !== 3 || !/Practise my mistakes \(3\)/.test(a.home) || a.over > 1) problems.push('practise my mistakes: the list or its link is wrong ' + JSON.stringify({ none, ...a }));
+    // One round: answer every question (wrongAt = the number of the picture question to answer wrongly, 0 = none). Returns what the end box says.
+    const round = async (wrongAt, shot) => {
+      await page.waitForSelector('#mkBody .prog', { timeout: 5000 }); let pics = 0; const seen = {};
+      for (let n = 0; n < 12 && !await page.$('#mkEnd'); n++) {
+        const kind = await page.evaluate(() => MK.q[MK.i].kind);
+        if (shot && !seen[kind]) { seen[kind] = 1; await page.waitForTimeout(150); await page.screenshot({ path: path.join(shots, `phone-mistakes-${kind === 'm' ? 'picture' : 'speak'}.png`) }); }
+        if (kind === 'm') { pics++; const bad = pics === wrongAt; await page.evaluate(bad => { const x = MK.q[MK.i]; [...document.querySelectorAll('.mkopt')].find(b => (b.textContent === x.item.word) !== bad).click(); }, bad); }
+        else { await page.evaluate(() => { window._heard = MK.q[MK.i].item.text; }); await page.click('#mic'); await page.waitForSelector('#result .result', { timeout: 5000 }); }
+        const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth); if (over > 1) problems.push(`practise my mistakes: a question is ${over}px wider than the phone screen`);
+        if (shot && kind === 'm' && seen.m === 1) { seen.m = 2; await page.waitForTimeout(150); await page.screenshot({ path: path.join(shots, 'phone-mistakes-picture-answered.png') }); }
+        await page.click('#mkNext');
+      }
+      await page.waitForSelector('#mkEnd', { timeout: 5000 });
+      return page.evaluate(() => document.querySelector('#mkEnd').innerText.replace(/\s+/g, ' ') + ' | left ' + Object.keys(mistakes).length + ' | over ' + (document.documentElement.scrollWidth - innerWidth));
+    };
+    await page.click('#mistGo'); const r1 = await round(0, true); const days = await page.evaluate(() => activity.days[todayKey()] || 0);
+    await page.screenshot({ path: path.join(shots, 'phone-mistakes-result.png') });
+    await page.click('[data-act=again]'); const r2 = await round(1);
+    await page.click('[data-act=again]'); const r3 = await round(0);
+    await page.evaluate(() => { location.hash = '#/'; }); await page.waitForTimeout(300); await page.evaluate(() => { location.hash = '#/mistakes'; }); await page.waitForSelector('#mkEmpty', { timeout: 5000 });
+    const end = await page.evaluate(async () => { renderHome(); const link = !!document.querySelector('#mistGo'); render(); return { link, saved: Object.keys((await DB.get('kv', 'mistakes')) || {}).length }; });
+    if (!/3 of 3 correct.*3 still on your list.*left 3 \| over 0/.test(r1) || !/2 of 3 correct.*2 learned.*1 still on your list.*left 1 \| over 0/.test(r2) || !/1 of 1 correct.*1 learned.*Your list is empty.*left 0 \| over 0/.test(r3) || days < 1 || end.link || end.saved !== 0)
+      problems.push('practise my mistakes: the rounds are wrong ' + JSON.stringify({ r1, r2, r3, days, end }));
+  } catch (e) { problems.push('practise my mistakes: could not finish — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 // The whole Voice level test with a fake microphone (the fake microphone says no words, so every score is 0).
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, permissions: ['microphone'] }), page = await ctx.newPage();
@@ -245,4 +295,4 @@ for (const screen of SCREENS) {
 
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson and every listening exercise on a phone, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes and every listening exercise on a phone, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
