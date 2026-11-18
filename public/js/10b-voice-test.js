@@ -14,6 +14,9 @@ const VT_QUESTIONS = [
   'Tell me about a place you would like to visit, and why.',
 ];
 const VT_PICTURES = ['photos/students.jpg', 'photos/hero.jpg', 'photos/lessons.jpg', 'photos/level-a2.jpg', 'photos/level-b1.jpg', 'photos/listening.jpg'];
+// Real size of each picture (width, height), so the page keeps its place while the picture loads.
+const VT_PIC_SIZE = {'photos/students.jpg': [1000, 622], 'photos/hero.jpg': [1200, 800], 'photos/lessons.jpg': [1000, 667], 'photos/level-a2.jpg': [1000, 646], 'photos/level-b1.jpg': [1000, 667], 'photos/listening.jpg': [1000, 671]};
+const vtPicAttr = p => { const z = VT_PIC_SIZE[p] || [1000, 667]; return `src="${p === 'photos/hero.jpg' ? 'photos/hero-1200.jpg' : p}" width="${z[0]}" height="${z[1]}"`; };
 const VT_PIC_PROMPT = 'Describe this picture. What can you see? What are the people doing? How do they feel?';
 const VT_SENTENCES = {
   A1: ['My brother is ten years old.', 'I get up at seven every morning.', 'She likes tea, but she does not like coffee.'],
@@ -153,7 +156,7 @@ function vtBusy(msg) { app.innerHTML = `<div class="panel" style="text-align:cen
 function vtTalkPage() {
   const pic = VT.step === 1, prompt = pic ? VT_PIC_PROMPT : VT.question, rec = VT.recording;
   app.innerHTML = `${vtHead(pic ? 2 : 1, pic ? 'Describe the picture' : 'Answer the question')}
-  <div class="panel vtp${rec ? ' rec' : ''}">${pic ? `<img class="vtpic" src="${VT.picture}" alt="The picture to describe">` : ''}
+  <div class="panel vtp${rec ? ' rec' : ''}">${pic ? `<img class="vtpic" ${vtPicAttr(VT.picture)} alt="The picture to describe">` : ''}
     <p class="spprompt">${esc(prompt)}</p>
     ${rec ? vtRecBox(VT_TALK) + `<h4 class="sph">What the computer hears</h4><div class="splive" id="vtLive">Start speaking…</div>`
       : `<p class="hint">You have <b>${VT_TALK} seconds</b>. There are no right or wrong answers — just keep talking in English. The recording starts when you press the button.</p><div class="row vtgo" style="margin-top:14px"><button class="btn red" id="vtGo">🎙 Start recording</button></div>`}</div>`;

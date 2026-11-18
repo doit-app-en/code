@@ -17,7 +17,7 @@ function renderHome() {
              : `<a class="btn sun" href="#/placement">📝 Find my level</a><button class="btn ghost" id="toLevels">Explore levels ↓</button>`}
       </div>
     </div>
-    <div class="hero-photo"><img src="photos/hero.jpg" alt="Students studying English together" loading="eager" width="1200" height="800"></div>
+    <div class="hero-photo"><img src="photos/hero.jpg" srcset="photos/hero-800.jpg 800w, photos/hero-1200.jpg 1200w, photos/hero.jpg 1600w" sizes="(max-width:860px) 100vw, 560px" alt="Students studying English together" loading="eager" fetchpriority="high" width="1600" height="1067"></div>
   </section>
   ${back ? `<section class="today" id="today">
     <div class="tstreak${sk.streak ? ' lit' : ''}"><i>🔥</i><b>${sk.streak}</b><small>day${sk.streak === 1 ? '' : 's'} in a row</small></div>
@@ -42,19 +42,19 @@ function renderHome() {
     <div class="row" style="gap:18px"><div class="big">🧭</div><div><h2>Placement Test</h2><p>${state.placement.questions.length} A1 questions — grammar, vocabulary, everyday English and listening — to find the right level for you.</p></div></div>
     <span class="btn sun">Start the test →</span>
   </a>
-  <a class="ptest" style="--img:url(photos/listening.jpg)" href="#/voicetest">
+  <a class="ptest" style="--img:url(photos/sm/listening.jpg)" href="#/voicetest">
     <div class="row" style="gap:18px"><div class="big">🎙</div><div><h2>Voice Level Test</h2><p>Talk for 3 minutes — answer a question, describe a picture and repeat sentences — and see your speaking and pronunciation level.</p></div></div>
     <span class="btn sun">Start talking →</span>
   </a>
-  <a class="ptest pronb" style="--img:url(photos/pronounce.jpg)" href="#/pronounce">
+  <a class="ptest pronb" style="--img:url(photos/sm/pronounce.jpg)" href="#/pronounce">
     <div class="row" style="gap:18px"><div class="big">🗣️</div><div><h2>Pronounce</h2><p>Listen to English words letter by letter, A to Z — then the AI checks your pronunciation and gives you a score.</p></div></div>
     <span class="btn sun">Start pronouncing →</span>
   </a>
-  <a class="ptest listenb" style="--img:url(photos/listening.jpg)" href="#/listening">
+  <a class="ptest listenb" style="--img:url(photos/sm/listening.jpg)" href="#/listening">
     <div class="row" style="gap:18px"><div class="big">🎧</div><div><h2>Listening</h2><p>${(state.listen && state.listen.exercises.length) || 18} Starters listening exercises — listen and move things, draw lines, tick, colour and number pictures.</p></div></div>
     <span class="btn sun">Start listening →</span>
   </a>
-  <a class="ptest speakb" style="--img:url(photos/level-b2.jpg)" href="#/speaking">
+  <a class="ptest speakb" style="--img:url(photos/sm/level-b2.jpg)" href="#/speaking">
     <div class="row" style="gap:18px"><div class="big">🎤</div><div><h2>Test your speaking</h2><p>Record yourself for up to 3 minutes and get feedback on your fluency, accuracy, vocabulary, and formal and informal English.</p></div></div>
     <span class="btn sun">Test my speaking →</span>
   </a>
@@ -62,7 +62,7 @@ function renderHome() {
   <div class="sec-h" id="levels"><h2>Choose your level</h2></div>
   <div class="levels">${LEVELS.map(l => `
     <div class="lvl ${placed === l.id ? 'rec' : ''}" style="--c:${l.color}" data-go="#/level/${l.id}">
-      <div class="lphoto" style="background-image:url(photos/level-${l.id}.jpg)"><span class="tag">${l.tag}</span></div>
+      <div class="lphoto" style="background-image:url(photos/sm/level-${l.id}.jpg)"><span class="tag">${l.tag}</span></div>
       <div class="lbody"><h3>${l.name}</h3><p>${l.desc}</p>
       <div class="meta">📚 ${state.levels[l.id].lessons.length} lesson${state.levels[l.id].lessons.length === 1 ? '' : 's'}</div></div>
       ${placed === l.id ? '<span class="you">⭐ Your level</span>' : ''}

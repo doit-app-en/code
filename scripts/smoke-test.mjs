@@ -4,7 +4,7 @@
 // Then takes the whole Voice level test with a fake microphone. Screenshots go to /tmp/smoke/ (look at them after a design change).
 // Needs Playwright + Chrome. Set PLAYWRIGHT_PATH / CHROME_PATH if they are somewhere else.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -48,6 +48,15 @@ async function visit(page, screen, route, mode) {
   if (r.over > 1) problems.push(`${label}: ${r.over}px wider than the screen (${r.wide.join(' | ')})`);
   await page.screenshot({ path: path.join(shots, `${screen.name}-${mode}-${route.replace(/[^a-z0-9]+/gi, '_') || 'home'}.png`) });
 }
+
+// Photos: every photo the pages name must exist (a wrong path only shows as a grey box), and none may be heavier than 300 KB (phones on mobile data).
+{ const pub = path.join(root, 'public'), named = new Set();
+  for (const f of ['index.html', 'styles.css', ...readdirSync(path.join(pub, 'js')).map(n => 'js/' + n)]) {
+    const t = readFileSync(path.join(pub, f), 'utf8'); for (const m of t.match(/photos\/[\w\/-]+\.jpg/g) || []) named.add(m);
+    for (const m of t.match(/photos\/[\w\/-]*\$\{l\.id\}\.jpg/gi) || []) for (const id of ['f1', 'f2', 'a1', 'a2', 'b1', 'b2']) named.add(m.replace(/\$\{l\.id\}/i, id)); }
+  for (const p of named) if (!existsSync(path.join(pub, p))) problems.push(`photo missing: public/${p} is used by a page but the file is not there`);
+  const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
+  for (const p of walk(path.join(pub, 'photos'))) if (statSync(p).size > 300 * 1024) problems.push(`photo too heavy: ${path.relative(root, p)} is ${Math.round(statSync(p).size / 1024)} KB (keep photos under 300 KB)`); }
 
 for (const screen of SCREENS) {
   const ctx = await browser.newContext({ viewport: { width: screen.width, height: screen.height }, permissions: ['microphone'] }), page = await ctx.newPage();

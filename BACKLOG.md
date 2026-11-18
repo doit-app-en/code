@@ -7,7 +7,6 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 
 ## Next
 <!-- developer -->
-- [ ] Speed: smaller photo files if any is over 300 KB, `width`/`height` on the remaining photos. (Cache headers for `photos/` and `icons/` are done.)
 - [ ] Voice test: more questions, pictures and sentences per level, and do not repeat the ones a student had last time.
 - [ ] Pronounce section: when the speech service is on (`GET /api/voice` → `speech: true`), score with it instead of the browser's recognition, like the voice test does.
 - [ ] Weekly goal: the student picks 2, 3 or 5 days a week; the home "today" card shows "2 of 3 days this week" (from "Ideas from other sites"; the week strip is already there).
@@ -17,6 +16,7 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 ## Design
 <!-- designer: one page or flow per run -->
 - [ ] Placement test: question page and result page on a phone.
+- [ ] Home page on a tablet (561–860px wide): the hero photo is about 525px tall and pushes the title and "Find my level" to the bottom of the first screen — give it a fixed, shorter height like the phone has. (Seen by the developer on 2026-11-18; not changed.)
 - [ ] My progress page: make the numbers easy to read at a glance.
 - [ ] Phone polish for the remaining pages: text sizes, buttons at least 44px high, wide tables scroll inside their own box.
 - [ ] Accessibility pass: labels for icon-only buttons, visible keyboard focus, alt text for pictures, colour contrast of small grey text.
@@ -63,6 +63,7 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 - Lessons (content, 2026-11-17): every level has only one default lesson with 4 phrases (A1 now has three). Do you want the content agent to keep adding two short lessons per level on its daily run?
 
 ## Done
+- [x] 2026-11-18 Speed — photos: no photo was over 300 KB, so nothing was recompressed; instead the home page now loads smaller copies: `photos/hero-800.jpg` / `hero-1200.jpg` through `srcset` on the hero, and 640px copies in `photos/sm/` for the level cards and the small practice tiles (inner pages keep the full photos). Home page photos: about 1.2 MB → about 0.5 MB. The voice test picture has `width`/`height` (`VT_PIC_SIZE` in `10b-voice-test.js`) so the page does not jump while it loads. `npm run smoke` now fails if a page names a photo that does not exist or a photo is over 300 KB. A new photo used on the home page needs its small copy in `photos/sm/` too.
 - [x] 2026-11-18 Design — voice level test on a phone (under 560px; classes `vtban`, `vtp`, `vthow`, `vtgo`, `vtrec`, `vttop`, `vthist` in `10b-voice-test.js`, rules at the end of `styles.css`): intro with a shorter banner, compact steps and a full-width Start button on the first screen (tips moved under the button); timer ring, sound bars and "I have finished" side by side so the stop button is never under the tab bar; result page with the level ring beside the level, no overlapping "90100" tick labels, full-width buttons and audio players; "My voice tests" shows Date / Level / Overall / View without sideways scrolling. Ring sizes moved from inline styles to CSS.
 - [x] 2026-11-18 Friendly states wherever the page talks to the server: Students page (loading box, "could not be loaded" + Try again, no false "No students yet", voice results line and older-tests list with Try again), shared voice result ("could not be opened" + Try again instead of "not found"), My progress ("could not be sent to your teacher" + Try again; sent again automatically when the internet returns), voice test intro (loading box, 8 s limit), a "No internet connection" bar under the header. Helpers `netWhy()`, `stateBox()`, `loadBox()` in `09-progress.js`; checked in `npm run smoke` with a pretend server that fails and then answers.
 - [x] 2026-11-18 Teacher's Students page: "Class" filter and "Order" list above the table (newest/longest ago, name, class, progress high/low, voice test); "Show all N tests" in the Voice test column lists a student's older voice tests with links (new teacher-key-protected `history` action in `api/voice.js`, no database change). Checked with a pretend server and a pretend database only.
