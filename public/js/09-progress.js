@@ -131,7 +131,8 @@ function nextSuggestions() {
 function renderProgress() {
   const p = progressData(), idle = daysIdle(), col = pcol(p.overall), sk = streakInfo(), last7 = [...Array(7)].map((_, k) => { const d = new Date(Date.now() - (6 - k) * DAY); return {k: todayKey(d), l: 'SMTWTFS'[d.getDay()]}; });
   const week = last7.filter(d => activity.days && activity.days[d.k]).length, sugg = nextSuggestions();
-  const bar = (label, pct, sub) => `<div class="brow"><span>${label}</span><div class="bt"><i style="width:${pct}%;background:${pcol(pct)}"></i></div><b>${pct}%</b></div>${sub ? `<div class="lbl" style="margin:-4px 0 6px">${sub}</div>` : ''}`;
+  const bar = (label, pct, sub) => `<div class="brow"><span>${label}${sub ? ` <small>${sub}</small>` : ''}</span><div class="bt"><i style="width:${pct}%;background:${pcol(pct)}"></i></div><b>${pct}%</b></div>`;
+  const idleT = idleText(idle), idleCap = idleT[0].toUpperCase() + idleT.slice(1);
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › My progress</div>
   <div class="banner photo" style="--img:url(photos/placement.jpg)"><div class="bi">📈</div><div><h1>${student ? 'Hello, ' + esc(student.name.split(' ')[0]) + '!' : 'My progress'}</h1>
@@ -145,15 +146,19 @@ function renderProgress() {
       <div class="err" id="stErr"></div><div><button class="btn sun" type="submit">Save</button></div></form></div>` : ''}
   ${idle !== null && idle >= 3 ? `<div class="idle">⏰ <div><b>You haven't practised for ${idle} days.</b> Let's do a quick exercise today — just 5 minutes!</div>${sugg[0] ? `<a class="btn sun sm" href="${sugg[0].href}">Start now →</a>` : ''}</div>` : ''}
   <div class="panel pgtop" style="margin-top:16px">
-    <div class="ring" style="--p:${p.overall};--rc:${col};width:170px;height:170px"><span style="width:132px;height:132px;font-size:42px">${p.overall}%</span></div>
-    <div class="grow">
-      <h2 class="baloo" style="margin:0;font-size:30px;color:var(--navy)">Your progress: <span style="color:${col}">${p.overall}%</span></h2>
-      <p class="hint" style="margin:2px 0 10px">${p.done} of ${p.total} activities done · Last practised: <b>${idleText(idle)}</b></p>
+    <div class="ring" role="img" aria-label="Your progress: ${p.overall}%" style="--p:${p.overall};--rc:${col}"><span>${p.overall}%</span></div>
+    <div class="pghd"><h2 class="baloo">Your progress</h2><p class="hint">Listening, Pronounce and Lessons together.</p></div>
+    <div class="pgstats">
+      <div class="pgst"><b>${p.done}</b><small>of ${p.total} activities done</small></div>
+      <div class="pgst${sk.streak ? ' lit' : ''}"><b><i>🔥</i> ${sk.streak}</b><small>day${sk.streak === 1 ? '' : 's'} in a row</small></div>
+      <div class="pgst"><b class="w">${idleCap}</b><small>last practised</small></div>
+    </div>
+    <div class="grow pgmore">
       <div class="wk">${last7.map(d => `<span class="${activity.days && activity.days[d.k] ? 'on' : sk.rests.includes(d.k) ? 'rest' : ''}" title="${sk.rests.includes(d.k) ? 'Rest day' : d.k}">${sk.rests.includes(d.k) ? '💤' : d.l}</span>`).join('')}<small>${week} of the last 7 days</small></div>
       <div class="wgoal" id="wgoal"></div>
       <p class="pgstreak">🔥 <b>${sk.streak}</b> day${sk.streak === 1 ? '' : 's'} in a row${sk.restSaved ? ' — your rest day kept it safe. Practise today!' : sk.streak && !sk.today ? ' — practise today to keep it!' : sk.streak ? ' — well done!' : ' — finish one activity today to start your streak.'}</p>
       ${milesHTML(sk)}${restHTML(sk)}
-      ${p.placement ? `<p style="margin:10px 0 0;font-weight:700">🎯 Placement test level: <b>${esc(p.placement)}</b></p>` : ''}
+      ${p.placement ? `<p class="pgplace">🎯 Placement test level: <b>${esc(p.placement)}</b></p>` : ''}
     </div>
   </div>
   ${mistLinkHTML()}

@@ -887,3 +887,32 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .mkfb{margin-top:10px;font-size:15px;line-height:1.35}.mknav{margin-top:12px}
   .mknav .btn{width:100%}.mkend .row .btn{flex:1 1 100%}
 }
+/* My progress: the numbers at a glance — ring beside the title, three number tiles, section scores on the right, slim bars */
+.pgtop{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"ring head" "ring stats" "ring more";gap:14px 30px;align-items:center}
+.pgtop .ring{grid-area:ring;width:170px;height:170px;align-self:start}.pgtop .ring span{width:132px;height:132px;font-size:42px}
+.pghd{grid-area:head;min-width:0}.pghd h2{margin:0;font-size:30px;line-height:1.15;color:var(--navy)}.pghd .hint{margin:2px 0 0}
+.pgstats{grid-area:stats;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:560px}
+.pgst{display:grid;align-content:center;gap:2px;min-height:84px;padding:12px 16px;border-radius:18px;background:#f4f6fa}
+.pgst b{font:800 32px/1.1 'Poppins',sans-serif;color:var(--navy)}.pgst b.w{font-size:22px;line-height:1.2}
+.pgst b i{font-style:normal;font-size:.72em;filter:grayscale(1);opacity:.55}
+.pgst small{font-weight:800;font-size:13px;line-height:1.3;color:var(--muted)}
+.pgst.lit{background:linear-gradient(160deg,#fff1cf,#ffe0d6)}.pgst.lit small{color:#a2541a}.pgst.lit b i{filter:none;opacity:1}
+.pgmore{grid-area:more;min-width:0}
+.pgplace{margin:12px 0 0;font-weight:700}
+.pggrid .sec-t{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.pggrid .sec-t span{font-size:28px;line-height:1}
+.pggrid .bars{gap:14px}
+.pggrid .brow{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:baseline}
+.pggrid .brow .bt{grid-column:1/-1;grid-row:2;height:10px}
+.pggrid .brow small{font-size:13px;font-weight:700;color:var(--muted);margin-left:4px;white-space:nowrap}
+.pggrid .brow b{text-align:right;font-size:17px;color:var(--navy)}
+.pgletters{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px}.pgletters a{width:auto;height:40px}
+@media(min-width:900px){.pggrid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){
+  .pgtop{grid-template-areas:"ring head" "stats stats" "more more";gap:14px 16px;padding:18px 16px;border-radius:22px}
+  .pgtop .ring{width:92px;height:92px;align-self:center}.pgtop .ring span{width:70px;height:70px;font-size:24px}
+  .pghd h2{font-size:25px}.pghd .hint{font-size:14px;line-height:1.35}
+  .pgstats{gap:8px}.pgst{min-height:78px;padding:10px 10px;border-radius:16px}
+  .pgst b{font-size:26px}.pgst b.w{font-size:16px}.pgst small{font-size:12px}
+  .pggrid .panel{padding:18px 16px;border-radius:22px}
+  .pgletters a{height:44px}
+}
