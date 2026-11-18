@@ -296,7 +296,7 @@ function renderPron(id, arrived) {   // arrived: the student came here from anot
 function renderPronIndex() {
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › Pronounce</div>
-  <div class="banner photo" style="--img:url(photos/pronounce.jpg)"><div class="bi">🗣️</div><div><h1>Pronounce</h1>
+  <div class="banner photo prban" style="--img:url(photos/pronounce.jpg)"><div class="bi">🗣️</div><div><h1>Pronounce</h1>
     <p>Choose a letter. Listen to all its words, then the AI checks your pronunciation with ${PRON_N} random words.</p></div></div>
   <div class="pkey"><span><i style="background:#e63946"></i>Below 60% · needs practice</span><span><i style="background:#f0a500"></i>60–89% · good</span><span><i style="background:#1b9e5a"></i>90–100% · excellent</span></div>
   <div class="pgrid">${pronSecs().map(s => { const b = pronBest[s.id], n = secWords(s).length; return `
@@ -315,12 +315,12 @@ function renderPronListen(sec) {
   const nTest = Math.min(PRON_N, words.length);
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › <a href="#/pronounce">Pronounce</a> › Letter ${sec.id}</div>
-  <div class="lhead"><div><span class="lv" style="background:#f15bb5">🗣️ Pronounce</span><h1>Letter ${sec.id}${sec.id.toLowerCase()}</h1></div>
-    <div class="row">${prev ? `<a class="btn ghost sm" href="#/pronounce/${prev.id}">← ${prev.id}</a>` : ''}${next ? `<a class="btn ghost sm" href="#/pronounce/${next.id}">${next.id} →</a>` : ''}</div></div>
-  <div class="panel">
-    <div class="row" style="justify-content:space-between;align-items:flex-start">
+  <div class="lhead prhead"><div><span class="lv" style="background:#f15bb5">🗣️ Pronounce</span><h1>Letter ${sec.id}${sec.id.toLowerCase()}</h1></div>
+    <div class="row prnav">${prev ? `<a class="btn ghost sm" href="#/pronounce/${prev.id}">← ${prev.id}</a>` : ''}${next ? `<a class="btn ghost sm" href="#/pronounce/${next.id}">${next.id} →</a>` : ''}</div></div>
+  <div class="panel prlist">
+    <div class="row prtop" style="justify-content:space-between;align-items:flex-start">
       <div><h3 class="sec-t">🎧 Step 1 · Listen to the words</h3><p class="hint" style="margin:0">Tap a word to hear it, or press “Listen to all”. Listened: <b id="hcount">${words.length - left}</b> / ${words.length}</p></div>
-      <div class="row"><button class="btn teal" id="playAll">▶ Listen to all</button><button class="btn ghost sm" id="slowT">${pronSlow ? '🐢 Slow: on' : '🐢 Slow: off'}</button></div>
+      <div class="row prplay"><button class="btn teal" id="playAll">▶ Listen to all</button><button class="btn ghost sm" id="slowT">${pronSlow ? '🐢 Slow: on' : '🐢 Slow: off'}</button></div>
     </div>
     <div class="pbar" style="margin:14px 0 6px"><i id="hbar" style="width:${(words.length - left) / Math.max(1, words.length) * 100}%"></i></div>
     ${sec.groups.map((g, gi) => `<div class="pgroup">
@@ -357,19 +357,19 @@ function renderPronTest(sec) {
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › <a href="#/pronounce">Pronounce</a> › <a href="#/pronounce/${sec.id}">Letter ${sec.id}</a> › Test</div>
   <div class="panel ptc">
-    <div class="row" style="justify-content:space-between"><b class="baloo" style="font-size:22px;color:var(--navy)">🎤 Pronunciation test · Letter ${sec.id}</b><span class="prog">Word ${PR.i + 1} of ${N}</span></div>
+    <div class="row pthd" style="justify-content:space-between"><b class="baloo ptt">🎤 Pronunciation test · Letter ${sec.id}</b><span class="prog">Word ${PR.i + 1} of ${N}</span></div>
     <div class="pbar"><i style="width:${PR.i / N * 100}%"></i></div>
     ${scaleHTML(avg, 'Your score so far')}
     <div class="pbig" id="pbig">${esc(w)}</div>
-    <div class="row" style="justify-content:center"><button class="btn ghost sm" id="pHear">🔊 Listen</button><button class="btn ghost sm" id="pSlow">🐢 Slowly</button></div>
+    <div class="row pthear" style="justify-content:center"><button class="btn ghost sm" id="pHear">🔊 Listen</button><button class="btn ghost sm" id="pSlow">🐢 Slowly</button></div>
     <button class="mic" id="pMic" title="Press and say the word">🎤</button>
     <div class="status" id="pStat" ${SR || pronSvc() ? '' : 'data-no="1"'}>${SR || pronSvc() ? 'Press the microphone and say the word' : '⚠️ Speech recognition needs Google Chrome or Microsoft Edge.'}</div>
     <div id="pRes"></div>
-    <div class="row" style="justify-content:center;margin-top:16px">
+    <div class="row ptacts" style="justify-content:center;margin-top:16px">
       <button class="btn ghost" id="pSkip">Skip</button>
       <button class="btn" id="pNext" style="background:#7b61ff" disabled>${PR.i < N - 1 ? 'Next word →' : 'See my result →'}</button>
     </div>
-    <p class="lbl" style="text-align:center;margin:10px 0 0">You can try each word up to 3 times — your best try counts.</p>
+    <p class="lbl ptnote" style="text-align:center;margin:10px 0 0">You can try each word up to 3 times — your best try counts.</p>
     <p class="lbl" id="pHow" style="text-align:center;margin:4px 0 0"></p>
   </div>`;
   PR.tries = 0; PR.best = null; PR.busy = false;
@@ -393,6 +393,9 @@ function renderPronTest(sec) {
     st.textContent = PR.best.score === 100 ? 'Perfect! Press “Next word”.' : PR.tries < 3 ? `Try again (${3 - PR.tries} ${3 - PR.tries === 1 ? 'try' : 'tries'} left) or press “Next word”.` : 'No tries left — press “Next word”.';
     if (PR.tries >= 3 || PR.best.score === 100) mic.disabled = true;
     if (r.score >= 90) say('Excellent!', null, 1);
+    // on a small screen the score must not push "Next word" under the tab bar (.ptacts has a scroll margin for it)
+    const acts = $('#pNext').parentNode, bar = $('.tabbar'), low = bar && bar.offsetHeight ? bar.getBoundingClientRect().top : innerHeight;
+    if (acts.getBoundingClientRect().bottom > low - 4) acts.scrollIntoView({block: 'end', behavior: 'smooth'});
   };
   // The speech service: record the word, send it, show the score. A silent recording or an answer the service could not give is not a try.
   const viaSvc = async () => {
@@ -448,20 +451,20 @@ async function finishPron(sec) {
   const prev = pronBest[sec.id];
   pronBest[sec.id] = {best: Math.max(avg, prev ? prev.best : 0), last: avg, date: new Date().toISOString()};
   await DB.put('kv', 'pron', pronBest); onActivity();
-  PR.mode = 'done'; PR.avg = avg; PR.newBest = !prev || avg > prev.best; renderPron(sec.id);
+  PR.mode = 'done'; PR.avg = avg; PR.newBest = !prev || avg > prev.best; renderPron(sec.id); window.scrollTo(0, 0);
 }
 function renderPronDone(sec) {
   const all = pronSecs(), next = all[all.indexOf(sec) + 1], avg = PR.avg;
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › <a href="#/pronounce">Pronounce</a> › <a href="#/pronounce/${sec.id}">Letter ${sec.id}</a> › Result</div>
-  <div class="panel" style="text-align:center">
-    <div style="font-size:50px">${avg >= 90 ? '🏆' : avg >= 60 ? '👏' : '💪'}</div>
-    <h2 class="baloo" style="margin:0;font-size:34px;color:var(--navy)">Letter ${sec.id} · Your pronunciation</h2>
+  <div class="panel prdone" style="text-align:center">
+    <div class="premo">${avg >= 90 ? '🏆' : avg >= 60 ? '👏' : '💪'}</div>
+    <h2 class="baloo prdt">Letter ${sec.id} · Your pronunciation</h2>
     <p class="hint">${pword(avg)}${PR.newBest && pronBest[sec.id] ? ' · New best score!' : ''}</p>
     <div style="max-width:640px;margin:10px auto 0;text-align:left">${scaleHTML(avg, 'Pronunciation score', true)}</div>
     <h3 class="baloo" style="text-align:left;margin:26px 0 10px;font-size:22px;color:var(--navy)">Your words</h3>
     <div class="plog">${PR.log.map(l => `<button class="plw" data-say="${esc(l.w)}" style="--pc:${pcol(l.score)}"><span>🔊 ${esc(l.w)}</span><b>${l.score}%</b>${l.score < 100 && l.heard ? `<small>heard: “${esc(l.heard)}”</small>` : l.score === 0 ? '<small>skipped</small>' : ''}</button>`).join('')}</div>
-    <div class="row" style="justify-content:center;margin-top:22px">
+    <div class="row prfoot" style="justify-content:center;margin-top:22px">
       <button class="btn sun" id="again">↻ Try ${Math.min(PRON_N, secWords(sec).length)} new words</button>
       <button class="btn ghost" id="relisten">🎧 Listen again</button>
       ${next ? `<a class="btn" style="background:#7b61ff" href="#/pronounce/${next.id}">Letter ${next.id} →</a>` : ''}

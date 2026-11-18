@@ -985,5 +985,76 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .aibox{padding:12px;margin-top:16px}
   .spfoot{gap:10px}.spfoot .btn{flex:1 1 100%;min-height:48px}
 }
+/* ---------- Pronounce: sizes that were inline, and the phone layout ---------- */
+.ptt{font-size:22px;color:var(--navy)}
+.premo{font-size:50px}
+.prdt{margin:0;font-size:34px;color:var(--navy)}
+.plw{text-align:left}
+.ptacts{scroll-margin-bottom:84px}
+@media(max-width:560px){
+  /* letters */
+  .banner.prban{min-height:0;padding:18px 20px;border-radius:22px}.banner.prban h1{font-size:30px}.banner.prban p{font-size:15px;margin-top:4px;line-height:1.35}
+  .pkey{gap:4px 14px;margin:12px 0 0;font-size:13px}.pkey i{width:12px;height:12px}
+  .pgrid:has(.pcard){gap:10px;margin-top:12px}
+  .pcard{padding:12px 8px 14px;border-radius:18px}
+  .pcard .pl{font-size:44px}.pcard .pl small{font-size:28px}
+  .pcard .pm{margin:4px 0 8px}
+  /* one letter: listen */
+  .prhead{flex-wrap:nowrap;align-items:flex-end;gap:10px;margin-bottom:12px}
+  .prhead h1{font-size:30px}.prhead .lv{font-size:13px;padding:3px 10px;margin-bottom:4px}
+  .prnav{flex-wrap:nowrap;gap:8px}.prnav .btn{min-height:44px;min-width:56px;padding:0 10px;font-size:15px;white-space:nowrap}
+  .prlist,.pcta{padding:18px 16px;border-radius:22px}
+  .prlist .sec-t,.pcta .sec-t{font-size:20px;line-height:1.25;margin-bottom:4px}
+  .prlist .hint,.pcta .hint{font-size:15px;line-height:1.4}
+  .prtop{gap:10px}
+  .prplay{flex:1 1 100%;flex-wrap:nowrap;gap:10px}
+  .prplay #playAll{flex:1;min-height:48px}.prplay #slowT{flex:none;min-height:48px;padding:0 14px;white-space:nowrap}
+  .prlist>.pbar{margin:12px 0 4px!important;height:10px;background:#eef1f7}
+  .pgroup{padding:12px 0 6px}
+  .pgh{gap:8px;margin-bottom:8px;justify-content:space-between}
+  .pgh b{font-size:18px;line-height:1.25;min-width:0;flex:1}
+  .pgh .btn{flex:none;min-height:40px;padding:0 14px}
+  .pgh .ar{font-size:14px;line-height:1.6;padding:6px 10px}
+  .pwords{gap:8px}
+  .pw{min-height:44px;padding:8px 14px}
+  .pcta{margin-top:12px!important;gap:12px}
+  .pcta>div{flex:1 1 100%;min-width:0}
+  .pcta .btn{flex:1 1 100%;min-height:48px}
+  /* test */
+  .ptc{padding:16px 16px 18px;border-radius:22px}
+  .pthd{gap:2px 10px;align-items:baseline}
+  .ptt{font-size:17px;line-height:1.3}.pthd .prog{font-size:14px}
+  .ptc>.pbar{margin:8px 0 10px;height:10px;background:#eef1f7}
+  .ptc .pscale{margin:0}
+  .ptc .psh{margin-bottom:4px;font-size:13px;align-items:center}.ptc .psh b{font-size:20px;line-height:1}
+  .ptc .pbar3{height:12px}.ptc .pmark{width:20px;height:20px;margin:-10px 0 0 -10px;border-width:5px}
+  .ptc .pticks{height:14px;font-size:11px;margin-top:3px}
+  .pticks span:nth-child(3){display:none}
+  .pbig{font-size:clamp(34px,11vw,44px);margin:8px 0 8px;overflow-wrap:anywhere}
+  .pthear{gap:10px}.pthear .btn{min-height:44px;padding:0 16px;font-size:15px}
+  .ptc .mic{width:88px;height:88px;font-size:38px;margin:14px auto 10px;box-shadow:0 5px 0 #d44c4c}
+  .ptc .status{font-size:15px;line-height:1.35;text-align:center;min-height:20px}
+  .ptc .result{flex-wrap:nowrap;justify-content:flex-start;gap:14px;margin-top:10px;padding:12px 14px;border-radius:16px}
+  .ptc .result .ring{width:72px;height:72px;flex:none}.ptc .result .ring span{width:56px;height:56px;font-size:19px}
+  .ptc .result .fb{min-width:0}.ptc .result .fb b{font-size:18px;line-height:1.25}
+  .ptc .result .hint{font-size:14px;line-height:1.35;margin-top:2px!important;overflow-wrap:anywhere}
+  .ptacts{flex-wrap:nowrap;gap:10px;margin-top:12px!important}
+  .ptacts .btn{min-height:48px}.ptacts #pSkip{flex:none;padding:0 18px}.ptacts #pNext{flex:1;padding:0 12px;white-space:nowrap}
+  .ptnote{margin-top:10px!important;line-height:1.4}
+  .ptc #pHow{line-height:1.4}.ptc #pHow a{display:inline-block;padding:6px 0}
+  /* result */
+  .prdone{padding:18px 16px;border-radius:22px}
+  .premo{font-size:38px;line-height:1.1}
+  .prdt{font-size:23px;line-height:1.2;margin-top:4px}
+  .prdone>.hint{font-size:15px;line-height:1.4;margin:4px 0 0}
+  .pscale.big .psh{align-items:center}.pscale.big .psh b{font-size:36px;line-height:1}
+  .pscale.big .pbar3{height:20px}.pscale.big .pmark{width:30px;height:30px;margin:-15px 0 0 -15px;border-width:7px}
+  .prdone h3{margin:18px 0 8px!important;font-size:19px!important}
+  .plog{grid-template-columns:1fr;gap:8px}
+  .plw{min-height:48px;padding:8px 12px;border-width:2px;align-items:center}
+  .plw small{font-size:13px;overflow-wrap:anywhere}
+  .prfoot{gap:10px;margin-top:16px!important}
+  .prfoot .btn{flex:1 1 40%;min-height:48px;padding:0 10px;white-space:nowrap}.prfoot #again{flex:1 1 100%}
+}
 /* a hidden message must not peep over the phone tab bar */
 .toast{opacity:0;visibility:hidden}.toast.show{opacity:1;visibility:visible}
