@@ -66,6 +66,20 @@ for (const screen of SCREENS) {
   { const h = await page.evaluate(async () => { const a = { steps: document.querySelectorAll('#startp .step3').length, tiles: document.querySelectorAll('.pgrid a.ptest').length };
       const keep = activity; activity = { last: Date.now(), days: { [todayKey()]: 1 } }; renderHome(); a.streak = (document.querySelector('#today .tstreak b') || {}).textContent; a.next = !!document.querySelector('#today a.tnext'); activity = keep; renderHome(); return a; });
     if (h.steps !== 3 || h.tiles !== 5 || h.streak !== '1' || !h.next) problems.push(`${screen.name} home: path, practice tiles or streak card is wrong ` + JSON.stringify(h)); }
+  // Weekly goal on the "today" card: pick 3 days → "1 of 3 days this week"; change to 2 with two days practised → goal reached. Screenshot for the eye.
+  { const g = await page.evaluate(async () => { const keep = activity, a = {}, txt = () => document.querySelector('#wgoal').innerText.replace(/\s+/g, ' ');
+      localStorage.removeItem('die_goal'); activity = { last: Date.now(), days: { [todayKey()]: 1 } }; renderHome();
+      a.opts = document.querySelectorAll('#wgoal [data-goal]').length; document.querySelector('#wgoal [data-goal="3"]').click(); a.set = txt(); a.count = document.querySelector('#wkCount').hidden;
+      renderHome(); a.kept = txt(); a.bar = document.querySelector('#wgoal .wgbar i').style.width;
+      document.querySelector('#wgChange').click(); document.querySelector('#wgoal [data-goal="2"]').click();
+      const y = new Date(); y.setDate(y.getDate() - 1); if (new Date().getDay() > 0) activity.days[todayKey(y)] = 1; else localStorage.setItem('die_goal', '1x'); // on a Sunday the week has one day: check the "no goal" fallback instead
+      renderHome(); a.hit = txt(); a.sunday = new Date().getDay() === 0; a.over = document.documentElement.scrollWidth - innerWidth; window._keepAct = keep; return a; });
+    await page.evaluate(() => document.querySelector('#today').scrollIntoView({ block: 'center', behavior: 'instant' })); await page.waitForTimeout(300); await page.screenshot({ path: path.join(shots, `${screen.name}-home-weekly-goal.png`) });
+    await page.evaluate(() => { location.hash = '#/progress'; }); await page.waitForTimeout(300); g.progress = await page.evaluate(() => { const e = document.querySelector('.pgtop #wgoal'); if (e) e.scrollIntoView({ block: 'center', behavior: 'instant' }); return (e || {}).innerText || ''; }); await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(shots, `${screen.name}-progress-weekly-goal.png`) });
+    await page.evaluate(() => { localStorage.removeItem('die_goal'); activity = window._keepAct; location.hash = '#/'; }); await page.waitForTimeout(300);
+    if (g.opts !== 3 || !/1 of 3 days this week/.test(g.set) || !g.count || !/1 of 3 days this week/.test(g.kept) || g.bar !== '33%' || !(g.sunday ? /Pick a weekly goal/.test(g.hit) : /goal reached: 2 of 2 days/.test(g.hit)) || !g.progress.trim() || g.over > 1)
+      problems.push(`${screen.name} home: the weekly goal is wrong ` + JSON.stringify(g)); }
   for (const route of ROUTES) await visit(page, screen, route, 'student');
   await page.evaluate(() => { mode = 'teacher'; setModeButtons(); render(); });
   for (const route of TEACHER_ROUTES) await visit(page, screen, route, 'teacher');

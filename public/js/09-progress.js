@@ -68,6 +68,21 @@ function streakInfo() {
   return {streak, today: has(now), week, weekDays: week.filter(d => d.on).length, total: Object.keys(days).length};
 }
 const weekDotsHTML = s => `<div class="wk">${s.week.map(d => `<span class="${d.on ? 'on' : ''}${d.today ? ' now' : ''}">${d.l}</span>`).join('')}</div>`;
+// Weekly goal: the student picks 2, 3 or 5 practice days a week (kept on this device in localStorage 'die_goal').
+// The week is Sunday to Saturday, the same as the week dots. `<div class="wgoal" id="wgoal"></div>` + drawGoal() shows it.
+const GOALS = [2, 3, 5];
+function weekGoal() { const g = +ls('die_goal'); return GOALS.includes(g) ? g : 0; }
+function drawGoal(open) {
+  const el = $('#wgoal'); if (!el) return; const g = weekGoal(), n = streakInfo().weekDays, hit = g && n >= g, left = g - n;
+  el.innerHTML = g && !open
+    ? `<div class="wgline${hit ? ' wgdone' : ''}"><b>${hit ? '🎉 Weekly goal reached:' : '🎯'} ${n} of ${g} days this week</b><button type="button" class="wgchg" id="wgChange">Change goal</button></div>
+       <div class="wgbar${hit ? ' wgdone' : ''}" role="img" aria-label="${n} of ${g} days"><i style="width:${Math.min(100, Math.round(n / g * 100))}%"></i></div>
+       <small>${hit ? 'Great work! Every extra day makes your English stronger.' : `${left} more day${left === 1 ? '' : 's'} to reach your goal.`}</small>`
+    : `<span class="wgq">🎯 ${g ? 'Change my weekly goal:' : 'Pick a weekly goal:'}</span><div class="wgopts">${GOALS.map(x => `<button type="button" class="wgopt${x === g ? ' on' : ''}" data-goal="${x}">${x} days</button>`).join('')}</div>`;
+  const c = $('#wkCount'); if (c) c.hidden = !!g;
+  if ($('#wgChange')) $('#wgChange').onclick = () => drawGoal(true);
+  el.querySelectorAll('[data-goal]').forEach(b => b.onclick = () => { ls('die_goal', b.dataset.goal); toast(`Your goal: ${b.dataset.goal} days a week 🎯`); drawGoal(); });
+}
 function nextSuggestions() {
   const out = [], L = lexs();
   const lx = L.findIndex(e => listenBest[e.id] === undefined); if (lx >= 0) out.push({icon: '🎧', text: `Listening: ${L[lx].title}`, href: `#/listening/${lx + 1}`});
@@ -99,6 +114,7 @@ function renderProgress() {
       <h2 class="baloo" style="margin:0;font-size:30px;color:var(--navy)">Your progress: <span style="color:${col}">${p.overall}%</span></h2>
       <p class="hint" style="margin:2px 0 10px">${p.done} of ${p.total} activities done · Last practised: <b>${idleText(idle)}</b></p>
       <div class="wk">${last7.map(d => `<span class="${activity.days && activity.days[d.k] ? 'on' : ''}" title="${d.k}">${d.l}</span>`).join('')}<small>${week} of the last 7 days</small></div>
+      <div class="wgoal" id="wgoal"></div>
       <p class="pgstreak">🔥 <b>${sk.streak}</b> day${sk.streak === 1 ? '' : 's'} in a row${sk.streak && !sk.today ? ' — practise today to keep it!' : sk.streak ? ' — well done!' : ' — finish one activity today to start your streak.'}</p>
       ${p.placement ? `<p style="margin:10px 0 0;font-weight:700">🎯 Placement test level: <b>${esc(p.placement)}</b></p>` : ''}
     </div>
@@ -122,7 +138,7 @@ function renderProgress() {
   ${sugg.length ? `<div class="panel" style="margin-top:16px"><h3 class="sec-t" style="font-size:22px">👉 Practise next</h3><div class="row" style="margin-top:8px">${sugg.map(s => `<a class="btn ghost" href="${s.href}">${s.icon} ${esc(s.text)}</a>`).join('')}</div></div>` : ''}
   <p class="lbl" id="syncLine" aria-live="polite" style="margin:14px 0 4px">${syncLineHTML()}</p><p class="lbl" style="margin:0">
   ${student ? `👤 ${esc(student.name)} · ${esc(student.email)} <button class="btn sm ghost" id="stEdit">✏️ Change</button>` : ''}</p>`;
-  drawSyncLine();
+  drawSyncLine(); drawGoal();
   const f = $('#stForm');
   if (f) f.onsubmit = async e => {
     e.preventDefault(); const d = Object.fromEntries(new FormData(f)), s = {name: d.name.trim(), cls: d.cls.trim(), email: d.email.trim().toLowerCase()};

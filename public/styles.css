@@ -655,6 +655,16 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 .tstreak.lit{background:linear-gradient(160deg,#fff1cf,#ffe0d6);color:#a2541a}.tstreak.lit i{filter:none;opacity:1}
 .tweek{display:grid;gap:8px;min-width:0}.tweek strong{font-size:18px;color:var(--navy)}.tweek>small{font-weight:700;color:var(--muted)}
 .wk span.now{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--sun)}
+.wgoal{display:grid;gap:6px;max-width:420px}.wgoal:empty{display:none}
+.wgline{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;color:var(--navy);font-size:16px}.wgline.wgdone{color:var(--green)}
+.wgchg{border:0;background:none;padding:10px 0;margin:-10px 0;font:inherit;font-size:13px;font-weight:800;color:var(--muted);text-decoration:underline;cursor:pointer}
+.wgbar{height:10px;border-radius:99px;background:#eef0f6;overflow:hidden}.wgbar i{display:block;height:100%;border-radius:99px;background:var(--sun);transition:width .3s}.wgbar.wgdone i{background:var(--green)}
+.wgoal>small{font-weight:700;color:var(--muted)}
+.wgq{font-weight:800;color:var(--navy);font-size:15px}
+.wgopts{display:flex;gap:8px;flex-wrap:wrap}
+.wgopt{min-height:44px;padding:8px 16px;border-radius:14px;border:2px solid var(--line);background:#fff;color:var(--navy);font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.wgopt:hover{border-color:var(--sun)}.wgopt.on{background:var(--sun);border-color:var(--sun)}
+.pgtop .wgoal{margin-top:10px}
 .tnext{display:grid;gap:2px;text-decoration:none;background:var(--navy);color:#fff;border-radius:18px;padding:14px 18px;max-width:330px;min-width:220px}
 .tnext small{font-weight:800;opacity:.75;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .tnext span{font-weight:800;font-size:17px;line-height:1.3}

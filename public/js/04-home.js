@@ -22,7 +22,7 @@ function renderHome() {
   ${back ? `<section class="today" id="today">
     <div class="tstreak${sk.streak ? ' lit' : ''}"><i>🔥</i><b>${sk.streak}</b><small>day${sk.streak === 1 ? '' : 's'} in a row</small></div>
     <div class="tweek"><strong>${sk.today ? 'Done for today — great work! ✅' : sk.streak ? 'Practise today to keep your streak!' : 'Finish one activity today to start a streak.'}</strong>
-      ${weekDotsHTML(sk)}<small>${sk.weekDays} day${sk.weekDays === 1 ? '' : 's'} this week${pl ? ` · 🎯 Your level: <b style="color:${pl.color}">${pl.name}</b>` : ''}${student ? ` · 📈 ${progressData().overall}% done` : ''}</small></div>
+      ${weekDotsHTML(sk)}<div class="wgoal" id="wgoal"></div><small><span id="wkCount">${sk.weekDays} day${sk.weekDays === 1 ? '' : 's'} this week${pl || student ? ' · ' : ''}</span>${[pl ? `⭐ Your level: <b style="color:${pl.color}">${pl.name}</b>` : '', student ? `📈 ${progressData().overall}% done` : ''].filter(Boolean).join(' · ')}</small></div>
     ${next ? `<a class="tnext" href="${next.href}"><small>${sk.total ? 'Continue where you stopped' : 'Start here'}</small><span>${next.icon} ${esc(next.text)}</span><em>Go →</em></a>` : ''}
   </section>` : ''}
   ${!pl || !sk.total ? `<section class="startp" id="startp"><h2>${back ? 'Your path' : 'New here? Start in 3 steps'}</h2><div class="steps3">
@@ -79,6 +79,7 @@ function renderHome() {
       <label class="btn ghost">⬆ Import course file<input type="file" accept=".json,application/json" hidden id="importIn"></label>
     </div>
   </section>`);
+  drawGoal();
   if ($('#exportBtn')) $('#exportBtn').onclick = exportCourse;
   $('#importIn').onchange = e => importCourse(e.target.files[0]);
   if ($('#toLevels')) $('#toLevels').onclick = () => $('#levels').scrollIntoView({behavior: 'smooth'});
