@@ -22,18 +22,23 @@ const VT_SENTENCES = {
   B2: ['Although the weather was terrible, we thoroughly enjoyed the trip.', 'I would rather work in a team than on my own.', 'The film was much more interesting than I had expected.'],
 };
 const VT_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-const VT_ERR = {'not registered': 'Save your name and email on the “My progress” page first.', 'student limit': 'You have reached today\'s limit. Try again tomorrow.', 'daily limit': 'The class has reached today\'s limit. Try again tomorrow.', 'no key': 'The AI teacher is not switched on yet.', 'too short': 'There was not enough speech for the AI teacher.', busy: 'The AI teacher is busy right now.', refusal: 'The AI teacher could not write a summary for this test.'};
+const VT_ERR = {'not registered': 'Save your name and email on the “My progress” page first.', 'student limit': 'You have reached today\'s limit. Try again tomorrow.', 'daily limit': 'The class has reached today\'s limit. Try again tomorrow.', 'no key': 'The AI teacher is not switched on yet.', 'too short': 'There was not enough speech for the AI teacher.', busy: 'The AI teacher is busy right now.', refusal: 'The AI teacher could not write a summary for this test.',
+  unsaved: 'the server could not be reached at the end of the test, so this result is saved only on this device — your teacher cannot see it. Check your internet connection and take the test again later.'};
 let VT = {mode: 'intro'}, vtHistory = null, vtCaps = null;
 const vtPick = a => a[Math.floor(Math.random() * a.length)];
 const vtAvg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : null;
 const vtRegistered = () => !!student && !!student.email;
 const vtSpeechOn = () => !!vtCaps && vtCaps.speech && vtRegistered();
 
+let vtCapsAgain = false;   // the server could not be reached: ask again the next time the page opens
 async function vtLoadCaps() {
-  if (vtCaps) return;
-  vtCaps = {speech: false, ai: false, save: false};
+  if (vtCaps && !vtCapsAgain) return;
+  vtCaps = vtCaps || {speech: false, ai: false, save: false}; vtCapsAgain = false;
   if (!/^https?:$/.test(location.protocol)) return;
-  try { const r = await fetch(VT_API, {cache: 'no-store'}), d = await r.json(); if (d && d.ok) vtCaps = {speech: !!d.speech, ai: !!d.ai, save: !!d.save}; } catch (e) {}
+  if (VT.mode === 'intro' && (location.hash || '').startsWith('#/voicetest')) app.innerHTML = loadBox('Getting the voice test ready…');
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 8000);
+  try { const r = await fetch(VT_API, {cache: 'no-store', signal: ctl.signal}), d = await r.json(); if (d && d.ok) vtCaps = {speech: !!d.speech, ai: !!d.ai, save: !!d.save}; } catch (e) { vtCapsAgain = true; }
+  clearTimeout(to);
 }
 async function vtPost(body, ms = 70000) {
   const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), ms);
@@ -180,6 +185,7 @@ async function vtFinish() {
     const d = await vtPost({action: 'finish', student, result: {tasks: rec.tasks, sentences: rec.sentences.map(({audio, ...s}) => s), scores: rec.scores, level: rec.level}}, 80000);
     if (VT !== T) return;
     if (d && d.ok) { rec.shared = d.id; rec.level = d.level || rec.level; rec.ai = d.ai || null; rec.aiError = d.aiError || ''; }
+    else if (d && (d.error === 'offline' || d.error === 'server error')) rec.aiError = 'unsaved';
   }
   vtHistory.unshift({...rec, sentences: rec.sentences.map(({audio, ...s}) => s)}); vtHistory = vtHistory.slice(0, VT_KEEP); await DB.put('kv', 'voiceHistory', vtHistory);
   onActivity(); VT = {mode: 'result', rec}; renderVoiceTest(); window.scrollTo(0, 0);
@@ -213,6 +219,9 @@ async function vtSharedPage(id) {
   vtBusy('Opening the result…');
   let d = null; try { const r = await fetch(VT_API + '?id=' + encodeURIComponent(id), {cache: 'no-store'}); d = await r.json(); } catch (e) {}
   if (location.hash !== '#/voicetest/result/' + id) return;
+  if (!d || d.error === 'server error') {   // no answer is not the same as "no such result": say so and let the reader try again
+    app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Result</div><div class="panel">${stateBox(navigator.onLine === false ? '📡' : '⚠️', 'This result could not be opened', netWhy(), 'vtRetry')}</div>`;
+    $('#vtRetry').onclick = () => vtSharedPage(id); return; }
   if (!d || !d.ok || !d.test) { app.innerHTML = `<div class="panel" style="text-align:center;padding:40px 20px"><h3 class="sec-t">This result could not be found.</h3><a class="btn sun" href="#/voicetest">Take the voice test</a></div>`; return; }
   vtResultPage({...d.test, shared: id, tasks: d.test.tasks || [], sentences: d.test.sentences || []}, true);
 }

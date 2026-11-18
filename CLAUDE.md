@@ -34,6 +34,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
   with `state` as the course). The server only stores a progress summary per student.
 - Home page (`04-home.js`): new students see a 3-step path; returning ones a "today" card (streak, week dots, continue link) built by `streakInfo()` and
   `nextSuggestions()` in `09-progress.js` from `activity.days` (per device). On phones a "← Back" button is added above every page that has `.crumbs` (`03-ui-routing.js`).
+- Anything that waits for the server shows a state: `loadBox()` while loading, `stateBox()` with a "Try again" button when it fails, and `netWhy()` for the reason (all in `09-progress.js`). `#offbar` in `index.html` is the "No internet connection" bar (`netBar()` in `03-ui-routing.js`).
 - Student/teacher mode is only a UI switch. The real protection is `TEACHER_KEY`, checked on the server.
 - The page talks to `/api/class` with the same JSON messages the old Apps Script used (see the top of `api/class.js`).
   `syncUrl()` in `09-progress.js` defaults to `/api/class`; a teacher may still type an Apps Script URL.

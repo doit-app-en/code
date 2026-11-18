@@ -120,6 +120,51 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Friendly states: when the server or the internet is away, the page must say so and offer "Try again" — and trying again must work.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage(), now = new Date().toISOString();
+  watch(page, 'friendly states');
+  try {
+    let down = true, voiceDown = true;
+    const test = { id: 'abcdef0123456789abcdef01', date: now, level: 'A2', overall: 64, speaking: 60, pronunciation: 71, repeating: 62 };
+    await page.route('**/api/class**', async r => { if (down) return r.abort(); if (r.request().method() === 'POST') return r.fulfill({ json: { ok: true } });
+      await new Promise(f => setTimeout(f, 600)); return r.fulfill({ json: { ok: true, students: [{ name: 'Sara Test', cls: '9A', email: 'sara@example.com', overall: 62, listening: 70, pronounce: 55, lessons: 60, lastActive: now }] } }); });
+    await page.route('**/api/voice**', r => { if (r.request().method() !== 'POST') return down ? r.abort() : r.continue(); if (voiceDown) return r.abort(); const d = JSON.parse(r.request().postData() || '{}');
+      return r.fulfill({ json: d.action === 'history' ? { ok: true, tests: [test, test] } : { ok: true, tests: [{ email: 'sara@example.com', ...test, count: 2 }] } }); });
+    await page.goto(base + '/', { waitUntil: 'load' }); await page.waitForFunction(() => document.querySelector('#app').innerText.trim().length > 20, null, { timeout: 10000 });
+    // 1. Students: no answer → a box with "Try again", and no misleading "No students yet".
+    await page.evaluate(() => { mode = 'teacher'; setModeButtons(); tkey = 'smoke'; location.hash = '#/students'; });
+    await page.waitForSelector('#stRetry', { timeout: 10000 });
+    if (await page.evaluate(() => /No students yet/.test(app.innerText))) problems.push('friendly states: "No students yet" is shown although the server did not answer');
+    await page.screenshot({ path: path.join(shots, 'phone-state-students-error.png') });
+    down = false; await page.click('#stRetry'); await page.waitForSelector('.statebox .spin', { timeout: 3000 });
+    await page.screenshot({ path: path.join(shots, 'phone-state-students-loading.png') });
+    await page.waitForSelector('.rtable td.sname', { timeout: 10000 });
+    // 2. The voice results did not load → a line under the table with "Try again"; it then brings the column.
+    await page.waitForSelector('#voiceRetry', { timeout: 5000 });
+    await page.waitForTimeout(300); await page.evaluate(() => document.querySelector('.vnote').scrollIntoView({ block: 'center', behavior: 'instant' })); await page.waitForTimeout(200); await page.screenshot({ path: path.join(shots, 'phone-state-students-voice-error.png') });
+    voiceDown = false; await page.click('#voiceRetry'); await page.waitForSelector('td.vcell', { timeout: 5000 });
+    if (await page.$('.vnote')) problems.push('friendly states: the voice results line stayed after they loaded');
+    // 3. A student's older tests did not load → the message and "Try again" are inside the cell.
+    voiceDown = true; await page.click('[data-vh="sara@example.com"]'); await page.waitForSelector('.vherr [data-again]', { timeout: 5000 });
+    voiceDown = false; await page.click('.vherr [data-again]'); await page.waitForSelector('a.vhrow', { timeout: 5000 });
+    // 4. A shared result that cannot be fetched is "could not be opened" (not "not found"), with "Try again".
+    down = true; await page.evaluate(() => { location.hash = '#/voicetest/result/abcdef0123456789abcdef01'; }); await page.waitForSelector('#vtRetry', { timeout: 10000 });
+    await page.screenshot({ path: path.join(shots, 'phone-state-result-error.png') });
+    // 5. My progress: the progress could not be sent → it says so; "Try again" sends it.
+    await page.evaluate(async () => { mode = 'student'; setModeButtons(); student = { id: 'smoke', name: 'Sara Test', cls: '9A', email: 'sara@example.com' }; location.hash = '#/progress'; await sendProgress(); });
+    await page.waitForSelector('#syncRetry', { timeout: 5000 });
+    await page.waitForTimeout(300); await page.evaluate(() => document.querySelector('#syncLine').scrollIntoView({ block: 'center', behavior: 'instant' })); await page.waitForTimeout(200); await page.screenshot({ path: path.join(shots, 'phone-state-progress-unsent.png') });
+    down = false; await page.click('#syncRetry'); await page.waitForFunction(() => /shared with your teacher/.test(document.querySelector('#syncLine').innerText), null, { timeout: 5000 });
+    // 6. No internet: the bar under the header appears and goes away again.
+    await ctx.setOffline(true); await page.waitForFunction(() => !document.querySelector('#offbar').hidden, null, { timeout: 5000 });
+    const over = await page.evaluate(() => { scrollTo({ top: 0, behavior: 'instant' }); return document.documentElement.scrollWidth - innerWidth; }); if (over > 1) problems.push(`friendly states: the "no internet" bar makes the page ${over}px wider than the phone screen`);
+    await page.waitForTimeout(200); await page.screenshot({ path: path.join(shots, 'phone-state-offline.png') });
+    await ctx.setOffline(false); await page.waitForFunction(() => document.querySelector('#offbar').hidden, null, { timeout: 5000 });
+  } catch (e) { problems.push('friendly states: could not check — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, voice test finished, students voice column, filter and history checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

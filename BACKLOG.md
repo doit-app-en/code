@@ -7,7 +7,6 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 
 ## Next
 <!-- developer -->
-- [ ] Friendly states: loading, empty, and "no internet / server off" messages with a "Try again" button wherever the page talks to the server.
 - [ ] Speed: smaller photo files if any is over 300 KB, `width`/`height` on the remaining photos. (Cache headers for `photos/` and `icons/` are done.)
 - [ ] Voice test: more questions, pictures and sentences per level, and do not repeat the ones a student had last time.
 - [ ] Pronounce section: when the speech service is on (`GET /api/voice` → `speech: true`), score with it instead of the browser's recognition, like the voice test does.
@@ -59,6 +58,7 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 - Lessons (content, 2026-11-17): every level has only one default lesson with 4 phrases (A1 now has three). Do you want the content agent to keep adding two short lessons per level on its daily run?
 
 ## Done
+- [x] 2026-11-18 Friendly states wherever the page talks to the server: Students page (loading box, "could not be loaded" + Try again, no false "No students yet", voice results line and older-tests list with Try again), shared voice result ("could not be opened" + Try again instead of "not found"), My progress ("could not be sent to your teacher" + Try again; sent again automatically when the internet returns), voice test intro (loading box, 8 s limit), a "No internet connection" bar under the header. Helpers `netWhy()`, `stateBox()`, `loadBox()` in `09-progress.js`; checked in `npm run smoke` with a pretend server that fails and then answers.
 - [x] 2026-11-18 Teacher's Students page: "Class" filter and "Order" list above the table (newest/longest ago, name, class, progress high/low, voice test); "Show all N tests" in the Voice test column lists a student's older voice tests with links (new teacher-key-protected `history` action in `api/voice.js`, no database change). Checked with a pretend server and a pretend database only.
 - [x] 2026-11-18 Fix: a lost `}` in `styles.css` (after the phone home-page block) had put every later rule inside `@media(max-width:560px)` — the home "today" card, 3-step path and practice tiles, the phone back button and the student cards had no styles on wider screens. `npm run smoke` now fails if the brackets do not match.
 - [x] 2026-11-18 Owner confirmed on the live site: the "Voice test" column on the Students page shows results, and a real spoken voice test works ("excellent").

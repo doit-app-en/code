@@ -94,12 +94,17 @@ function render(keepScroll) {
   if (p[0] === 'speaking') return renderSpeaking(p.slice(1).join('/'));
   if (p[0] === 'voicetest') return renderVoiceTest(p.slice(1).join('/'));
   if (p[0] === 'progress') return renderProgress();
-  if (p[0] === 'students') { renderStudents(); if (syncUrl() && classList === null && !classErr) loadClass().then(() => location.hash === '#/students' && renderStudents()); return; }
+  if (p[0] === 'students') { renderStudents(); if (syncUrl() && classList === null && !classErr && !classLoading) loadClass().then(() => location.hash === '#/students' && renderStudents()); return; }
   if (p[0] === 'level' && state.levels[p[1]]) return renderLevel(p[1]);
   if (p[0] === 'lesson' && state.levels[p[1]]) return renderLesson(p[1], p[2]);
   renderHome();
 }
 window.addEventListener('hashchange', () => render());
+// No internet: a bar under the header says so (practice still works and is saved on the device). When it is back, the progress is sent again.
+function netBar() { const b = $('#offbar'); if (b) b.hidden = navigator.onLine !== false; }
+window.addEventListener('offline', netBar);
+window.addEventListener('online', () => { netBar(); toast('✅ You are back online'); if (student) syncProgress(); if (location.hash === '#/students' && mode === 'teacher' && classErr && classRetry && !classLoading) loadClass().then(() => location.hash === '#/students' && renderStudents()); });
+netBar();
 // Phones: a clear "← Back" button above every inner page, made from the page's own breadcrumb (its last link is the page above).
 new MutationObserver(() => {
   const c = app.querySelector('.crumbs'); if (!c || app.querySelector('.backbtn')) return;

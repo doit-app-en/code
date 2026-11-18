@@ -451,6 +451,15 @@ audio{width:100%;margin-bottom:16px}
 .stbar label{display:flex;flex-direction:column;gap:4px;flex:1 1 180px;max-width:300px;font-weight:800;font-size:13px;color:var(--muted)}
 .stbar select{width:100%;min-height:44px}
 .vhbtn{margin-top:6px}
+/* friendly states: loading, could-not-load (with "Try again"), no internet */
+.statebox{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:28px 16px;margin-top:14px;background:#f8f9fd;border-radius:16px;color:var(--ink)}
+.statebox .e{font-size:44px;line-height:1}.statebox b{font-size:18px;color:var(--navy)}.statebox p{margin:0;max-width:46ch;color:var(--muted);font-weight:600}
+.statebox .btn{min-height:44px;margin-top:6px}
+.spin.sm{width:14px;height:14px;border-width:3px;vertical-align:-2px}
+.syncbad{color:#a12a2a;font-weight:700}#syncLine .btn{min-height:40px;margin:6px 0 0;display:flex}
+.vnote{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;background:#fff6e0;border:2px solid #ffd77a;border-radius:14px;padding:10px 14px;font-weight:700;font-size:14px;color:#7a4a00}
+.vnote .btn,.vherr .btn{min-height:40px}.vherr{padding-top:6px}.rtable td.vcell .vherr .lbl{color:#a12a2a}
+.offbar{background:#fff6e0;border-bottom:2px solid #ffd77a;color:#7a4a00;padding:10px 16px;text-align:center;font-weight:600;font-size:14px}.offbar[hidden]{display:none}
 .vhist{margin-top:6px;border-top:1px dashed #e6eaf2}
 .vhrow{display:flex;align-items:center;gap:10px;min-height:40px;padding:3px 0;border-bottom:1px dashed #e6eaf2;text-decoration:none;color:var(--ink);font-size:14px;font-weight:700}
 .vhrow .vhd{flex:none;white-space:nowrap}.rtable td.vcell .vhrow .lbl{margin:0 0 0 auto;white-space:nowrap}a.vhrow:hover .lbl{color:var(--navy);text-decoration:underline}

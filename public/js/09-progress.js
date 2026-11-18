@@ -10,6 +10,10 @@ const DEFAULT_SERVER = /^https?:$/.test(location.protocol) ? BUILT_IN_SERVER : '
 const syncUrl = () => (state.sync && state.sync.url) || DEFAULT_SERVER;
 const avgOf = a => a.length ? Math.round(a.reduce((x, y) => x + (+y || 0), 0) / a.length) : 0;
 function daysIdle() { return activity.last ? Math.floor((Date.now() - activity.last) / DAY) : null; }
+// Friendly states for everything that talks to the server: why it failed, in words a student understands, and a "Try again" button.
+const netWhy = () => navigator.onLine === false ? 'You are not connected to the internet.' : 'The server did not answer. It may be busy — wait a moment.';
+const stateBox = (icon, title, text, btnId) => `<div class="statebox" role="status"><div class="e">${icon}</div><b>${esc(title)}</b><p>${esc(text)}</p>${btnId ? `<button class="btn sm" id="${btnId}">↻ Try again</button>` : ''}</div>`;
+const loadBox = text => `<div class="statebox" role="status"><span class="spin big"></span><p>${esc(text)}</p></div>`;
 const idleText = d => d === null ? 'not yet' : d === 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago';
 
 function progressData() {
@@ -34,17 +38,27 @@ async function onActivity() {
   await DB.put('kv', 'activity', activity); syncProgress();
 }
 async function markLessonDone(id) { if (!lessonsDone[id]) { lessonsDone[id] = Date.now(); await DB.put('kv', 'lessonsDone', lessonsDone); } onActivity(); }
-function syncProgress() {
-  clearTimeout(syncT);
-  syncT = setTimeout(async () => {
-    const url = syncUrl(); if (!url || !student || !student.email) return;
-    try {
-      await fetch(url, {method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'},
-        body: JSON.stringify({action: 'progress', student, progress: progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : ''})});
-      activity.synced = Date.now(); await DB.put('kv', 'activity', activity);
-    } catch (e) { /* offline: try again next time */ }
-  }, 1500);
+let syncState = '';   // '' | 'sending' | 'failed' — what happened to the last try to send the progress to the teacher
+async function sendProgress() {
+  const url = syncUrl(); if (!url || !student || !student.email) return;
+  syncState = 'sending'; drawSyncLine();
+  try {
+    await fetch(url, {method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify({action: 'progress', student, progress: progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : ''})});
+    activity.synced = Date.now(); await DB.put('kv', 'activity', activity); syncState = '';
+  } catch (e) { syncState = 'failed'; /* offline: sent again after the next activity, when the internet is back, or with "Try again" */ }
+  drawSyncLine();
 }
+function syncProgress() { clearTimeout(syncT); syncT = setTimeout(sendProgress, 1500); }
+// The line on "My progress" that says whether the teacher has the newest progress.
+function syncLineHTML() {
+  if (!student) return 'Your progress is saved on this device.';
+  if (!syncUrl()) return 'Your progress is saved on this device. Your teacher has not connected the class server yet.';
+  if (syncState === 'failed') return `<span class="syncbad">⚠️ Your progress is safe on this device, but it could not be sent to your teacher. ${esc(netWhy())}</span> <button class="btn sm" id="syncRetry">↻ Try again</button>`;
+  if (syncState === 'sending') return '<span class="spin sm"></span> Sending your progress to your teacher…';
+  return `✅ Your progress is shared with your teacher${activity.synced ? ' (last update ' + new Date(activity.synced).toLocaleString() + ')' : ''}.`;
+}
+function drawSyncLine() { const el = $('#syncLine'); if (!el) return; el.innerHTML = syncLineHTML(); const b = $('#syncRetry'); if (b) b.onclick = sendProgress; }
 // Practice streak and this week (Sunday first), from the per-day activity count already saved on this device.
 // A day counts when at least one activity was finished. Today not done yet does not break the streak.
 function streakInfo() {
@@ -106,8 +120,9 @@ function renderProgress() {
         return bar(`${l.icon} ${l.name}`, Math.round(d / ids.length * 100), `${d} of ${ids.length}`); }).join('')}</div></div>
   </div>
   ${sugg.length ? `<div class="panel" style="margin-top:16px"><h3 class="sec-t" style="font-size:22px">👉 Practise next</h3><div class="row" style="margin-top:8px">${sugg.map(s => `<a class="btn ghost" href="${s.href}">${s.icon} ${esc(s.text)}</a>`).join('')}</div></div>` : ''}
-  <p class="lbl" style="margin-top:14px">${syncUrl() && student ? `✅ Your progress is shared with your teacher${activity.synced ? ' (last update ' + new Date(activity.synced).toLocaleString() + ')' : ''}.` : student ? 'Your progress is saved on this device. Your teacher has not connected the class server yet.' : 'Your progress is saved on this device.'}
-  ${student ? ` · 👤 ${esc(student.name)} · ${esc(student.email)} <button class="btn sm ghost" id="stEdit">✏️ Change</button>` : ''}</p>`;
+  <p class="lbl" id="syncLine" aria-live="polite" style="margin:14px 0 4px">${syncLineHTML()}</p><p class="lbl" style="margin:0">
+  ${student ? `👤 ${esc(student.name)} · ${esc(student.email)} <button class="btn sm ghost" id="stEdit">✏️ Change</button>` : ''}</p>`;
+  drawSyncLine();
   const f = $('#stForm');
   if (f) f.onsubmit = async e => {
     e.preventDefault(); const d = Object.fromEntries(new FormData(f)), s = {name: d.name.trim(), cls: d.cls.trim(), email: d.email.trim().toLowerCase()};
@@ -119,25 +134,28 @@ function renderProgress() {
 }
 
 /* ---- teacher: Students ---- */
-let classList = null, classErr = '', voiceLatest = null;   // voiceLatest: email → that student's newest voice level test (null = not loaded)
+let classList = null, classErr = '', classRetry = false, classLoading = false, voiceErr = false, voiceLatest = null;   // voiceLatest: email → that student's newest voice level test (null = not loaded)
 let stCls = '', stSort = 'recent';                          // the teacher's choice of class and order (kept until the page is closed)
 let voiceHist = {}, voiceOpen = new Set();                  // voiceHist: email → all of that student's voice tests, or 'loading'; voiceOpen: the lists that are open
 async function loadClass() {
-  const url = syncUrl(); classErr = ''; voiceLatest = null; voiceHist = {}; voiceOpen = new Set();
+  const url = syncUrl(); classErr = ''; classRetry = false; voiceErr = false; voiceLatest = null; voiceHist = {}; voiceOpen = new Set();
   if (!url) { classList = null; return; }
-  if (!tkey) { classErr = 'Write your teacher key to see the students.'; classList = null; return; }
+  if (!tkey) { classErr = 'Write your teacher key in the box below to see the students.'; classList = null; return; }
+  classLoading = true; if (location.hash === '#/students' && mode === 'teacher') renderStudents();
   try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(tkey)); const d = await r.json();
-    if (!d.ok) { classErr = d.error === 'wrong key' ? 'The teacher key is not correct.' : d.error === 'server not configured' ? 'The class server is not set up yet: add the Supabase keys in Vercel (see README).' : 'The class server did not answer correctly.'; classList = null; return; }
+    if (!d.ok) { classErr = d.error === 'wrong key' ? 'The teacher key is not correct. Write it again in the box below.' : d.error === 'server not configured' ? 'The class server is not set up yet: add the Supabase keys in Vercel (see README).' : 'The class server did not answer correctly.';
+      classRetry = d.error !== 'wrong key' && d.error !== 'server not configured'; classList = null; classLoading = false; return; }
     classList = d.students || [];
     if (url === BUILT_IN_SERVER) await loadVoiceLatest();
-  } catch (e) { classErr = 'Could not reach the class server. Check the internet connection and the web app address.'; classList = null; }
+  } catch (e) { classErr = 'Could not reach the class server. ' + netWhy() + (url === BUILT_IN_SERVER ? '' : ' Check the web app address too.'); classRetry = true; classList = null; }
+  classLoading = false;
 }
 // Voice level test results are extra: if they cannot be loaded, the Students table simply has no "Voice test" column.
 async function loadVoiceLatest() {
   try { const r = await fetch(VT_API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({action: 'latest', key: tkey})}), d = await r.json();
-    if (!d.ok || !Array.isArray(d.tests)) return;
-    voiceLatest = {}; d.tests.forEach(t => { if (t && t.email) voiceLatest[String(t.email).toLowerCase()] = t; });
-  } catch (e) { /* the table still shows the progress */ }
+    if (!d.ok || !Array.isArray(d.tests)) { voiceErr = true; return; }
+    voiceLatest = {}; voiceErr = false; d.tests.forEach(t => { if (t && t.email) voiceLatest[String(t.email).toLowerCase()] = t; });
+  } catch (e) { voiceErr = true; /* the table still shows the progress, with a "Try again" line under it */ }
 }
 // All the voice tests of one student (teacher key needed), newest first. Null = could not be loaded.
 async function loadVoiceHistory(email) {
@@ -148,7 +166,8 @@ async function loadVoiceHistory(email) {
 function voiceHistHtml(email) {
   const h = voiceHist[email], n = x => Math.max(0, Math.min(100, Math.round(+x || 0)));
   if (!voiceOpen.has(email) || !h) return '';
-  if (h === 'loading') return '<div class="vhist"><span class="lbl">Loading…</span></div>';
+  if (h === 'loading') return '<div class="vhist"><span class="lbl"><span class="spin sm"></span> Loading the tests…</span></div>';
+  if (h === 'error') return `<div class="vhist vherr"><span class="lbl">⚠️ Could not load the older tests. ${esc(netWhy())}</span> <button class="btn sm" data-vh="${esc(email)}" data-again="1">↻ Try again</button></div>`;
   if (!h.length) return '<div class="vhist"><span class="lbl">No saved tests.</span></div>';
   return `<div class="vhist">${h.map(t => { const d = Date.parse(t.date), ok = /^[a-z0-9]{10,40}$/.test(t.id || ''),
     inner = `<span class="vhd">${d ? new Date(d).toLocaleDateString() : ''}</span><span class="chip" style="background:${pcol(n(t.overall))}">${esc(t.level || '?')} · ${n(t.overall)}%</span>${ok ? '<span class="lbl">View →</span>' : ''}`;
@@ -192,9 +211,9 @@ function renderStudents() {
   <div class="banner photo" style="--img:url(photos/students.jpg)"><div class="bi">🧑‍🏫</div><div><h1>Students' progress</h1><p>See every student's progress and when they last practised.</p></div></div>
   <div class="panel" style="margin-top:16px">
     <div class="row" style="justify-content:space-between"><h3 class="sec-t" style="font-size:24px">📊 Students ${all ? `(${shown.length < all ? shown.length + ' of ' + all : all})` : ''}</h3>
-      ${syncUrl() ? '<button class="btn sm" id="refresh">↻ Refresh</button>' : ''}</div>
-    ${classErr ? `<div class="warn">⚠️ ${esc(classErr)}</div>` : ''}
-    ${!all ? `<div class="empty"><div class="e">👥</div>${syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>` : `
+      ${syncUrl() && !classLoading ? '<button class="btn sm" id="refresh">↻ Refresh</button>' : ''}</div>
+    ${classLoading ? loadBox('Loading your students…') : classErr ? (classRetry ? stateBox(navigator.onLine === false ? '📡' : '⚠️', 'The students could not be loaded', classErr, 'stRetry') : `<div class="warn">⚠️ ${esc(classErr)}</div>`) : ''}
+    ${!all ? (classLoading || classErr ? '' : `<div class="empty"><div class="e">👥</div>${syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>`) : `
     ${all > 1 ? `<div class="stbar">
       ${classes.length > 1 ? `<label><span>Class</span><select class="in" id="stCls"><option value="">All classes (${all})</option>${classes.map(c => `<option value="${esc(c)}"${c === stCls ? ' selected' : ''}>${esc(c)} (${rows.filter(r => String(r.cls || '').trim() === c).length})</option>`).join('')}</select></label>` : ''}
       <label><span>Order</span><select class="in" id="stSort">${sorts.map(([v, t]) => `<option value="${v}"${v === stSort ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
@@ -204,7 +223,8 @@ function renderStudents() {
         <td data-l="Progress"><div class="minibar"><i style="width:${r.overall}%;background:${pcol(r.overall)}"></i></div><b style="color:${pcol(r.overall)}">${r.overall}%</b></td>
         <td data-l="Listening">${r.listening}%</td><td data-l="Pronounce">${r.pronounce}%</td><td data-l="Lessons">${r.lessons}%</td>${voiceLatest ? `<td class="vcell" data-l="Voice test" data-e="${esc(String(r.email || '').toLowerCase())}">${voiceCell(r)}</td>` : ''}<td data-l="Last practised">${st(r)}${r.lastReminder ? `<div class="lbl">reminder sent ${new Date(r.lastReminder).toLocaleDateString()}</div>` : ''}</td>
         <td class="smail">${r.email ? `<a class="btn sm ghost" href="${mail(r)}" title="Write a reminder email" aria-label="Write a reminder email to ${esc(r.name)}">✉️<span> Send a reminder</span></a>` : ''}</td></tr>`).join('')}
-    </tbody></table></div>`}
+    </tbody></table></div>
+    ${voiceErr && !classLoading ? `<div class="vnote"><span>⚠️ The voice test results could not be loaded. ${esc(netWhy())}</span> <button class="btn sm" id="voiceRetry">↻ Try again</button></div>` : ''}`}
     <p class="lbl" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.${voiceLatest ? ' Voice test = the student\'s newest voice level test; “View” opens the full result, and “Show all tests” lists the older ones.' : ''}</p>
   </div>
   <div class="panel" style="margin-top:16px">
@@ -237,16 +257,19 @@ function renderStudents() {
   if (tbl) tbl.onclick = async e => {
     const b = e.target.closest('[data-vh]'); if (!b) return;
     const email = b.dataset.vh, draw = () => { const td = [...document.querySelectorAll('td.vcell')].find(x => x.dataset.e === email); if (td) td.innerHTML = voiceCell({email}); };
-    if (voiceOpen.has(email)) { voiceOpen.delete(email); return draw(); }
+    if (voiceOpen.has(email) && !b.dataset.again) { voiceOpen.delete(email); if (voiceHist[email] === 'error') delete voiceHist[email]; return draw(); }
     voiceOpen.add(email);
     if (Array.isArray(voiceHist[email])) return draw();
     if (voiceHist[email] === 'loading') return draw();
     voiceHist[email] = 'loading'; draw();
     const list = await loadVoiceHistory(email);
-    if (list) voiceHist[email] = list; else { delete voiceHist[email]; voiceOpen.delete(email); toast('Could not load the older tests. Please try again.'); }
+    voiceHist[email] = list || 'error';   // the "Try again" button is inside the list
     draw();
   };
-  if ($('#refresh')) $('#refresh').onclick = async () => { $('#refresh').textContent = '…'; await loadClass(); renderStudents(); };
+  const reload = async () => { await loadClass(); if (location.hash === '#/students') renderStudents(); };
+  if ($('#refresh')) $('#refresh').onclick = reload;
+  if ($('#stRetry')) $('#stRetry').onclick = reload;
+  if ($('#voiceRetry')) $('#voiceRetry').onclick = async () => { const b = $('#voiceRetry'); b.disabled = true; b.textContent = 'Loading…'; await loadVoiceLatest(); if (location.hash === '#/students') renderStudents(); if (voiceErr) toast('Still no answer. ' + netWhy()); };
   $('#srvSave').onclick = async () => {
     const url = $('#srvUrl').value.trim(); tkey = $('#srvKey').value.trim();
     if (url && url !== BUILT_IN_SERVER && !/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) return toast('Leave the address empty, or write a Google Apps Script web app address');
