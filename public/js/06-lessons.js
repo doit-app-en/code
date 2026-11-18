@@ -11,9 +11,9 @@ function renderLevel(lid) {
         <h3>${esc(s.title)}</h3>
         <div class="badges">
           <span class="badge">🎬 ${s.video ? 'Video' : 'No video'}</span>
-          <span class="badge">🎧 ${s.phrases.length} phrases</span>
-          <span class="badge">🧩 ${s.matching.length} pairs</span>
-          <span class="badge">🎤 ${s.speaking.length} to say</span>
+          <span class="badge">🎧 ${s.phrases.filter(txtOk).length} phrases</span>
+          <span class="badge">🧩 ${s.matching.filter(pairOk).length} pairs</span>
+          <span class="badge">🎤 ${s.speaking.filter(txtOk).length} to say</span>
           ${lessonsDone[s.id] ? '<span class="badge fin">✅ Finished</span>' : ''}
         </div>
         ${T ? `<div class="tools"><button class="btn sm ghost" data-ren="${s.id}">✏️ Rename</button>
@@ -48,6 +48,21 @@ function renderLevel(lid) {
 
 /* ================= LESSON PAGE ================= */
 let LID, LS, LVL, curTab = 'video', M = {}, S = {i:0, best:{}};
+// A teacher's half-written items (a phrase with no text, a pair with no word or no picture) stay in the editor but are never shown to students.
+const txtOk = p => !!String((p && p.text) || '').trim();
+const hasPic = img => !!(img && (img.m || String(img.e || '').trim()));
+const pairOk = p => !!(p && String(p.word || '').trim() && hasPic(p.img));
+const mIdx = () => LS.matching.map((_, i) => i).filter(i => pairOk(LS.matching[i]));
+const spk = () => LS.speaking.filter(txtOk);
+const sameWord = (a, b) => String(a.word || '').trim().toLowerCase() === String(b.word || '').trim().toLowerCase();
+// The line in the teacher tools that says how many items students do not see yet.
+function edNoteText() {
+  const k = {listen: 'phrases', match: 'matching', speak: 'speaking'}[curTab]; if (!k || !LS) return '';
+  const n = LS[k].filter(p => !(k === 'matching' ? pairOk(p) : txtOk(p))).length; if (!n) return '';
+  return k === 'matching' ? `⚠️ ${n} pair${n === 1 ? ' has' : 's have'} no word or no picture yet — students do not see ${n === 1 ? 'it' : 'them'}.`
+    : `⚠️ ${n} phrase${n === 1 ? ' has' : 's have'} no text yet — students do not see ${n === 1 ? 'it' : 'them'}.`;
+}
+const edNoteHTML = () => `<p class="lbl ednote" id="edNote" style="margin:8px 0 0;color:#b45309">${edNoteText()}</p>`;
 const TABS = [['video','🎬','Watch'],['listen','🎧','Listen & See'],['match','🧩','Match'],['speak','🎤','Speak']];
 async function renderLesson(lid, sid) {
   const lesson = state.levels[lid].lessons.find(s => s.id === sid);
@@ -94,7 +109,7 @@ function stuVideo() {
   else player = `<div class="vwrap"><video controls playsinline src="${esc(v.type === 'file' ? (urlCache[v.m] || '') : v.url)}"></video></div>`;
   return `<h3 class="sec-t">🎬 Watch & meet new phrases</h3><p class="hint">Watch the video carefully. Then tap the phrases below to hear them again.</p>
     ${player}
-    ${LS.phrases.length ? `<div class="chips">${LS.phrases.map((p, i) => `<span class="pchip" data-say="${i}">🔊 ${esc(p.text)}</span>`).join('')}</div>` : ''}`;
+    ${LS.phrases.some(txtOk) ? `<div class="chips">${LS.phrases.map((p, i) => txtOk(p) ? `<span class="pchip" data-say="${i}">🔊 ${esc(p.text)}</span>` : '').join('')}</div>` : ''}`;
 }
 function edVideo() {
   const v = LS.video;
@@ -112,12 +127,12 @@ function stageHTML(i) {
 }
 function stuListen() {
   const ph = LS.phrases;
-  if (!ph.length && !LS.audio) return `<h3 class="sec-t">🎧 Listen & See</h3><div class="empty"><div class="e">🎧</div>No phrases yet.${mode === 'teacher' ? ' Add a voice track and pictures below.' : ''}</div>`;
+  if (!ph.some(txtOk) && !LS.audio) return `<h3 class="sec-t">🎧 Listen & See</h3><div class="empty"><div class="e">🎧</div>No phrases yet.${mode === 'teacher' ? ' Add a voice track and pictures below.' : ''}</div>`;
   return `<h3 class="sec-t">🎧 Listen & See</h3>
     <p class="hint">${LS.audio ? 'Play the voice track — each picture lights up when you hear its phrase. Tap a picture to jump to it.' : 'Tap a picture to hear the phrase, or press “Play all”.'}</p>
     <div class="stage" id="stage">${stageHTML(-1)}</div>
     ${LS.audio ? `<audio id="trk" controls src="${urlCache[LS.audio.m] || ''}"></audio>` : `<button class="btn sun" data-act="playall">▶ Play all</button>`}
-    <div class="phr-grid">${ph.map((p, i) => `<div class="phr" data-pi="${i}"><div class="pic">${imgHTML(p.img)}</div><div class="pt">${esc(p.text)}</div>${LS.audio ? `<span class="tm">${fmt(p.time)}</span>` : ''}</div>`).join('')}</div>`;
+    <div class="phr-grid">${ph.map((p, i) => !txtOk(p) ? '' : `<div class="phr" data-pi="${i}"><div class="pic">${imgHTML(p.img)}</div><div class="pt">${esc(p.text)}</div>${LS.audio ? `<span class="tm">${fmt(p.time)}</span>` : ''}</div>`).join('')}</div>`;
 }
 let activeP = -1;
 function setActive(i) {
@@ -139,20 +154,20 @@ function edListen() {
       <span class="lbl">sec</span><input class="in tin" type="number" step="0.1" min="0" value="${p.time}" data-kind="phrases" data-idx="${i}" data-field="time">
       <button class="btn sm ghost" data-act="now" data-idx="${i}" title="Use current track time">⏱</button>
       <button class="btn sm ghost" data-act="del" data-kind="phrases" data-idx="${i}">🗑</button></div>`).join('')}
-    <button class="btn sm" data-act="add" data-kind="phrases">➕ Add phrase</button></div>`;
+    <button class="btn sm" data-act="add" data-kind="phrases">➕ Add phrase</button>${edNoteHTML()}</div>`;
 }
 
 /* ---- 3. MATCH ---- */
 const PCOL = ['#2ec4b6','#ff6b6b','#7b61ff','#ffb703','#4361ee','#06b67a','#f15bb5','#fb8500','#00b4d8','#8338ec'];
-function resetMatch() { M = {lid: LS.id, n: LS.matching.length, sel: null, done: {}, mist: 0, order: shuffle(LS.matching.map((_, i) => i)), pics: shuffle(LS.matching.map((_, i) => i))}; }
+function resetMatch() { const ix = mIdx(); M = {lid: LS.id, key: ix.join(), sel: null, done: {}, mist: 0, order: shuffle(ix), pics: shuffle(ix)}; }
 function stuMatch() {
-  const P = LS.matching;
-  if (P.length < 2) return `<h3 class="sec-t">🧩 Match the pictures</h3><div class="empty"><div class="e">🧩</div>Add at least 2 picture–word pairs${mode === 'teacher' ? ' below' : ''}.</div>`;
-  if (M.lid !== LS.id || M.n !== P.length) resetMatch();
-  const nd = Object.keys(M.done).length, all = nd === P.length;
+  const P = LS.matching, ix = mIdx();
+  if (ix.length < 2) return `<h3 class="sec-t">🧩 Match the pictures</h3><div class="empty"><div class="e">🧩</div>Add at least 2 picture–word pairs${mode === 'teacher' ? ' below' : ''}.</div>`;
+  if (M.lid !== LS.id || M.key !== ix.join()) resetMatch();
+  const nd = Object.keys(M.done).length, all = nd === ix.length;
   const stars = M.mist === 0 ? '⭐⭐⭐' : M.mist <= 2 ? '⭐⭐' : '⭐';
   return `<h3 class="sec-t">🧩 Match the pictures</h3>
-    <p class="hint">Tap a picture, then tap the word that goes with it (or drag the picture onto the word). Matched: <b>${nd}/${P.length}</b> · Mistakes: <b>${M.mist}</b></p>
+    <p class="hint">Tap a picture, then tap the word that goes with it (or drag the picture onto the word). Matched: <b>${nd}/${ix.length}</b> · Mistakes: <b>${M.mist}</b></p>
     <div class="match">
       <div class="mpics">${M.pics.map(i => { const d = M.done[i]; return `<div class="mcard ${d !== undefined ? 'done' : ''} ${M.sel === i ? 'sel' : ''}" data-mi="${i}" ${d === undefined ? 'draggable="true"' : ''} style="--pc:${PCOL[d % PCOL.length]}"><div class="pic">${imgHTML(P[i].img)}</div>${d !== undefined ? `<span class="tagn">${d + 1}</span>` : ''}</div>`; }).join('')}</div>
       <div class="mwords">${M.order.map(i => { const d = M.done[i]; return `<div class="chip ${d !== undefined ? 'done' : ''}" data-wi="${i}" style="--pc:${PCOL[d % PCOL.length]}">${d !== undefined ? `<span class="tagn" style="background:#fff;color:var(--pc)">${d + 1}</span>` : ''}${esc(P[i].word)}</div>`; }).join('')}</div>
@@ -162,6 +177,8 @@ function stuMatch() {
 function tryMatch(wi, chipEl) {
   if (M.sel === null || M.sel === undefined) { chipEl.classList.add('shake'); setTimeout(() => chipEl.classList.remove('shake'), 450); toast('First choose a picture 👆'); return; }
   if (M.done[wi] !== undefined) return;
+  // Two pairs with the same word (two pictures of "orange"): either word box is right for either picture.
+  if (wi !== M.sel && LS.matching[M.sel] && sameWord(LS.matching[wi], LS.matching[M.sel])) { const o = M.order, a = o.indexOf(wi), b = o.indexOf(M.sel); [o[a], o[b]] = [o[b], o[a]]; wi = M.sel; }
   if (wi === M.sel) { M.done[wi] = Object.keys(M.done).length; say(LS.matching[wi].word); M.sel = null; drawStu(); }
   else {
     M.mist++; noteMistake('m', LS, LS.matching[M.sel]);   // remembered for "Practise my mistakes" (09b-mistakes.js)
@@ -176,12 +193,12 @@ function edMatch() {
     ${LS.matching.map((p, i) => `<div class="erow">${picEdit('matching', i, p.img)}
       <input class="in grow" value="${esc(p.word)}" data-kind="matching" data-idx="${i}" data-field="word" placeholder="Word">
       <button class="btn sm ghost" data-act="del" data-kind="matching" data-idx="${i}">🗑</button></div>`).join('')}
-    <button class="btn sm" data-act="add" data-kind="matching">➕ Add pair</button></div>`;
+    <button class="btn sm" data-act="add" data-kind="matching">➕ Add pair</button>${edNoteHTML()}</div>`;
 }
 
 /* ---- 4. SPEAK ---- */
 function stuSpeak() {
-  const list = LS.speaking;
+  const list = spk();
   if (!list.length) return `<h3 class="sec-t">🎤 Speak</h3><div class="empty"><div class="e">🎤</div>No phrases to practise yet.</div>`;
   if (S.i >= list.length) S.i = 0;
   const it = list[S.i];
@@ -203,7 +220,7 @@ function edSpeak() {
     ${LS.speaking.map((p, i) => `<div class="erow"><span class="lbl">${i + 1}</span><input class="in grow" value="${esc(p.text)}" data-kind="speaking" data-idx="${i}" data-field="text" placeholder="Word or phrase to pronounce">
       <button class="btn sm ghost" data-act="del" data-kind="speaking" data-idx="${i}">🗑</button></div>`).join('')}
     <div class="row"><button class="btn sm" data-act="add" data-kind="speaking">➕ Add phrase</button>
-    <button class="btn sm ghost" data-act="copyph">⤵ Copy phrases from “Listen & See”</button></div></div>`;
+    <button class="btn sm ghost" data-act="copyph">⤵ Copy phrases from “Listen & See”</button></div>${edNoteHTML()}</div>`;
 }
 // pronunciation judging
 const norm = s => String(s).toLowerCase().replace(/[’‘`]/g, "'").replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -231,7 +248,7 @@ function judge(target, alts) {
   return best;
 }
 function showResult(res) {
-  const it = LS.speaking[S.i];
+  const it = spk()[S.i];
   S.best[it.id] = Math.max(S.best[it.id] || 0, res.score);
   if (res.score < MIST_PASS) noteMistake('s', LS, it);   // not said clearly: remembered for "Practise my mistakes"
   document.querySelectorAll('#tgt .w').forEach((w, i) => { w.classList.remove('ok', 'no'); if (tokens(it.text)[i].n) w.classList.add(res.ok.has(i) ? 'ok' : 'no'); });
@@ -250,7 +267,7 @@ function startMic() {
   const mic = $('#mic'), st = $('#status');
   if (recog) { recog.stop(); return; }
   speechSynthesis.cancel();
-  const it = LS.speaking[S.i];
+  const it = spk()[S.i];
   recog = new SR(); recog.lang = LANG; recog.interimResults = false; recog.maxAlternatives = 5; recog.continuous = false;
   let got = false;
   recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… speak now'; };
@@ -273,7 +290,7 @@ function bindStu() {
   const trk = $('#trk');
   if (trk) trk.ontimeupdate = () => {
     const t = trk.currentTime; let a = -1, at = -1;
-    LS.phrases.forEach((p, i) => { if (p.time <= t + 0.05 && p.time >= at) { a = i; at = p.time; } });
+    LS.phrases.forEach((p, i) => { if (txtOk(p) && p.time <= t + 0.05 && p.time >= at) { a = i; at = p.time; } });
     setActive(a);
   };
 }
@@ -291,15 +308,15 @@ async function onBodyClick(e) {
   const act = b.dataset.act, k = b.dataset.kind, i = +b.dataset.idx;
   switch (act) {
     case 'playall': {
-      const tok = ++playToken; let n = 0;
-      const next = () => { if (tok !== playToken || n >= LS.phrases.length) { if (tok === playToken) setActive(-1); return; } setActive(n); say(LS.phrases[n].text, () => setTimeout(next, 700)); n++; };
+      const tok = ++playToken, ix = LS.phrases.map((_, i) => i).filter(i => txtOk(LS.phrases[i])); let n = 0;
+      const next = () => { if (tok !== playToken || n >= ix.length) { if (tok === playToken) setActive(-1); return; } const i = ix[n++]; setActive(i); say(LS.phrases[i].text, () => setTimeout(next, 700)); };
       next(); break;
     }
     case 'mreset': resetMatch(); drawStu(); break;
-    case 'hear': say(LS.speaking[S.i].text); break;
-    case 'slow': say(LS.speaking[S.i].text, null, 0.6); break;
+    case 'hear': say(spk()[S.i].text); break;
+    case 'slow': say(spk()[S.i].text, null, 0.6); break;
     case 'mic': startMic(); break;
-    case 'snext': stopAll(); S.i = (S.i + 1) % LS.speaking.length; drawStu(); break;
+    case 'snext': stopAll(); S.i = (S.i + 1) % Math.max(1, spk().length); drawStu(); break;
     case 'sprev': stopAll(); S.i = Math.max(0, S.i - 1); drawStu(); break;
     case 'dot': stopAll(); S.i = i; drawStu(); break;
     // teacher actions
@@ -342,7 +359,8 @@ async function onBodyChange(e) {
   else if (f === 'time') item.time = Math.max(0, parseFloat(t.value) || 0);
   else item[f] = t.value;
   await save();
-  if (curTab === 'listen' && $('#trk')) drawStuKeepAudio(); else { if (curTab === 'match') M = {}; drawStu(); }
+  { const en = $('#edNote'); if (en) en.textContent = edNoteText(); }
+  if (curTab === 'listen' && $('#trk') && f !== 'text') drawStuKeepAudio(); else { if (curTab === 'match') M = {}; drawStu(); }
 }
 async function toggleRec(btn) {
   if (recorder && recorder.state === 'recording') { recorder.stop(); return; }

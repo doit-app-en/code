@@ -128,6 +128,20 @@ for (const screen of SCREENS) {
     await page.click('[data-tab=speak]'); await page.click('#nextStep'); await page.waitForSelector('.lcard .badge.fin', { timeout: 5000 });
     if (await page.evaluate(() => document.querySelectorAll('.lcard .badge.fin').length) !== 1) problems.push('lesson: after "Finish lesson" exactly one lesson should be marked Finished on the level page');
     await page.screenshot({ path: path.join(shots, 'phone-level-finished.png') });
+    // A teacher's half-written lesson: students never see a pair with no word or picture or a phrase with no text, and two pairs with the same word accept either word box.
+    await page.evaluate(async () => { const s = newLesson('Half written', {items: [['orange', '🍊', 'The orange is sweet.'], ['orange', '🟧', 'My bag is orange.'], ['bread', '🍞', 'I buy bread.']]}); s.id = 'smoke-half';
+      s.phrases.push({id: 'h1', text: ' ', img: {e: ''}, time: 9}); s.matching.push({id: 'h2', word: '', img: {e: ''}}, {id: 'h3', word: 'milk', img: {e: ''}}); s.speaking.unshift({id: 'h4', text: ''});
+      state.levels.a2.lessons.push(s); location.hash = '#/lesson/a2/smoke-half'; });
+    await page.waitForSelector('[data-tab=match]');
+    const hw = { chips: await page.evaluate(() => document.querySelectorAll('#stu .pchip').length) };
+    await page.click('[data-tab=listen]'); hw.tiles = await page.evaluate(() => document.querySelectorAll('#stu .phr').length);
+    await page.click('[data-tab=speak]'); hw.dots = await page.evaluate(() => document.querySelectorAll('#stu .dot').length); hw.say = await page.evaluate(() => document.querySelector('#tgt').textContent.trim().length);
+    await page.click('[data-tab=match]'); hw.cards = await page.evaluate(() => document.querySelectorAll('#stu .mcard').length); hw.words = await page.evaluate(() => [...document.querySelectorAll('#stu .chip')].filter(c => c.textContent.trim()).length);
+    await page.click('.mcard[data-mi="0"]'); await page.click('#stu .chip[data-wi="1"]'); await page.click('.mcard[data-mi="1"]'); await page.click('#stu .chip[data-wi="1"]'); await page.click('.mcard[data-mi="2"]'); await page.click('#stu .chip[data-wi="2"]');
+    hw.mist = await page.evaluate(() => M.mist); hw.win = await page.evaluate(() => document.querySelectorAll('#stu .win').length);
+    if (hw.chips !== 3 || hw.tiles !== 3 || hw.dots !== 3 || !hw.say || hw.cards !== 3 || hw.words !== 3 || hw.mist !== 0 || hw.win !== 1) problems.push('lesson with unfinished items: students should see 3 phrases, 3 pairs and 3 things to say, and the two "orange" pairs should accept either word ' + JSON.stringify(hw));
+    await page.screenshot({ path: path.join(shots, 'phone-lesson-half-written.png'), fullPage: true });
+    await page.evaluate(async () => { state.levels.a2.lessons = state.levels.a2.lessons.filter(s => s.id !== 'smoke-half'); await save(); location.hash = '#/'; }); await page.waitForTimeout(200);
     // Every listening exercise: nothing wider than the phone, and "Check my answers" with nothing answered gives 0.
     const count = await page.evaluate(() => lexs().length), seen = new Set();
     for (let n = 1; n <= count; n++) {
