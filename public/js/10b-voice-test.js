@@ -147,16 +147,16 @@ function vtStart() {
   renderVoiceTest(); window.scrollTo(0, 0);
 }
 const vtHead = (n, title) => `<div class="crumbs"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Step ${n} of 3</div><div class="vtsteps">${[1, 2, 3].map(i => `<span class="${i < n ? 'done' : i === n ? 'on' : ''}">${i < n ? '✓' : i}</span>`).join('<i></i>')}</div><h2 class="baloo vth">${title}</h2>`;
-const vtRecBox = max => `<div class="sprow"><div class="ring" id="vtRing" style="--p:0;--rc:#3a86ff;width:130px;height:130px"><span id="vtTime" style="width:100px;height:100px;font-size:34px">${max}</span></div>
-  <div class="grow"><div class="spmeter" id="vtMeter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="lbl" style="margin:6px 0">🔴 Recording… the bars move when I can hear you.</div><button class="btn red" id="vtStop" disabled>⏹ I have finished</button></div></div>`;
+const vtRecBox = max => `<div class="sprow vtrec"><div class="ring" id="vtRing" style="--p:0;--rc:#3a86ff"><span id="vtTime">${max}</span></div>
+  <div class="grow"><div class="spmeter" id="vtMeter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="lbl vtrl">🔴 Recording… the bars move when I can hear you.</div><button class="btn red" id="vtStop" disabled>⏹ I have finished</button></div></div>`;
 function vtBusy(msg) { app.innerHTML = `<div class="panel" style="text-align:center;padding:50px 20px"><div class="spin big"></div><h3 class="sec-t" style="margin-top:16px">${esc(msg)}</h3><p class="hint">This takes a few seconds.</p></div>`; }
 function vtTalkPage() {
   const pic = VT.step === 1, prompt = pic ? VT_PIC_PROMPT : VT.question, rec = VT.recording;
   app.innerHTML = `${vtHead(pic ? 2 : 1, pic ? 'Describe the picture' : 'Answer the question')}
-  <div class="panel">${pic ? `<img class="vtpic" src="${VT.picture}" alt="The picture to describe">` : ''}
+  <div class="panel vtp${rec ? ' rec' : ''}">${pic ? `<img class="vtpic" src="${VT.picture}" alt="The picture to describe">` : ''}
     <p class="spprompt">${esc(prompt)}</p>
     ${rec ? vtRecBox(VT_TALK) + `<h4 class="sph">What the computer hears</h4><div class="splive" id="vtLive">Start speaking…</div>`
-      : `<p class="hint">You have <b>${VT_TALK} seconds</b>. There are no right or wrong answers — just keep talking in English. The recording starts when you press the button.</p><div class="row" style="margin-top:14px"><button class="btn red" id="vtGo">🎙 Start recording</button></div>`}</div>`;
+      : `<p class="hint">You have <b>${VT_TALK} seconds</b>. There are no right or wrong answers — just keep talking in English. The recording starts when you press the button.</p><div class="row vtgo" style="margin-top:14px"><button class="btn red" id="vtGo">🎙 Start recording</button></div>`}</div>`;
   if (rec) { $('#vtStop').onclick = vtEnd; return; }
   $('#vtGo').onclick = async () => {
     const T = VT, ok = await vtBegin(VT_TALK, async cap => { T.recording = false; const t = await vtScoreTalk(cap, pic ? 'picture' : 'question', prompt, pic ? T.picture : ''); if (VT !== T) return; VT.tasks.push(t); if (pic) VT.mode = 'repeat'; else VT.step = 1; renderVoiceTest(); window.scrollTo(0, 0); });
@@ -166,10 +166,10 @@ function vtTalkPage() {
 function vtRepeatPage() {
   const s = VT.sentences[VT.si], rec = VT.recording, n = VT.sentences.length;
   app.innerHTML = `${vtHead(3, 'Listen and repeat')}
-  <div class="panel"><div class="lbl">SENTENCE ${VT.si + 1} OF ${n}</div>
+  <div class="panel vtp"><div class="lbl">SENTENCE ${VT.si + 1} OF ${n}</div>
     ${rec ? `<p class="spprompt">Now say the sentence.</p>` + vtRecBox(VT_REPEAT)
       : `<p class="spprompt">Listen to the sentence in a British voice, then repeat it exactly.</p><p class="hint">You cannot see the sentence — listen carefully. You can listen <b>twice</b>.</p>
-      <div class="row" style="margin-top:14px"><button class="btn teal" id="vtPlay" ${VT.plays >= 2 ? 'disabled' : ''}>🔊 Listen${VT.plays ? ' again' : ''}</button><button class="btn red" id="vtGo" ${VT.plays ? '' : 'disabled'}>🎙 Repeat it</button></div>`}</div>`;
+      <div class="row vtgo two" style="margin-top:14px"><button class="btn teal" id="vtPlay" ${VT.plays >= 2 ? 'disabled' : ''}>🔊 Listen${VT.plays ? ' again' : ''}</button><button class="btn red" id="vtGo" ${VT.plays ? '' : 'disabled'}>🎙 Repeat it</button></div>`}</div>`;
   if (rec) { $('#vtStop').onclick = vtEnd; return; }
   $('#vtPlay').onclick = () => { VT.plays++; $('#vtPlay').disabled = true; say(s.text, () => { if (VT.mode === 'repeat' && !VT.recording) renderVoiceTest(); }, 0.85); };
   $('#vtGo').onclick = async () => {
@@ -204,15 +204,15 @@ function vtIntroPage() {
   const can = !!SR || vtSpeechOn(), reg = vtRegistered();
   const how = vtSpeechOn() ? '🎯 Your pronunciation is scored sound by sound by a speech AI.' : vtCaps.speech ? '🎯 Save your name and email on the <a href="#/progress">My progress</a> page to get full pronunciation scoring.' : '🎯 Basic check: the computer checks which words it can understand.';
   app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › Voice level test</div>
-  <div class="banner photo" style="--img:url(photos/pronounce.jpg)"><div><h1>Voice level test</h1><p>Find your speaking level in about 3 minutes — just by talking.</p></div></div>
-  <div class="panel" style="margin-top:16px"><h3 class="sec-t" style="font-size:24px">How it works</h3>
-    <div class="sptasks">
+  <div class="banner photo vtban" style="--img:url(photos/pronounce.jpg)"><div><h1>Voice level test</h1><p>Find your speaking level in about 3 minutes — just by talking.</p></div></div>
+  <div class="panel vtp" style="margin-top:16px"><h3 class="sec-t vthow-t">How it works</h3>
+    <div class="sptasks vthow">
       <div class="sptask"><div class="spth"><b>1 · Answer a question</b><span class="chip grey">${VT_TALK} s</span></div><p>Talk about yourself. There are no right or wrong answers.</p></div>
       <div class="sptask"><div class="spth"><b>2 · Describe a picture</b><span class="chip grey">${VT_TALK} s</span></div><p>Say what you can see and what is happening.</p></div>
       <div class="sptask"><div class="spth"><b>3 · Listen and repeat</b><span class="chip grey">4 sentences</span></div><p>Hear a British voice and repeat each sentence.</p></div></div>
-    <p class="hint" style="margin:14px 0 0">${how}<br>${vtCaps.ai && reg ? '🤖 The AI teacher writes a summary of your level.' : '🤖 The AI teacher summary is off' + (vtCaps.ai ? ': save your name and email on the <a href="#/progress">My progress</a> page to turn it on.' : '.')}<br>🎧 Use a quiet place. Headphones with a microphone are best.</p>
-    ${can ? `<div class="row" style="margin-top:16px"><button class="btn sun" id="vtStart">🎙 Start the test</button></div>` : `<div class="note">This browser cannot write down your words. Please open the page in <b>Google Chrome</b> or <b>Microsoft Edge</b>.</div>`}</div>
-  ${vtHistory.length ? `<h3 class="sph" style="margin:26px 0 8px">My voice tests</h3><div class="panel"><div class="tablewrap"><table class="rtable"><thead><tr><th>Date</th><th>Level</th><th>Speaking</th><th>Pronunciation</th><th>Overall</th><th></th></tr></thead><tbody>${vtHistory.map(r => `<tr><td>${new Date(r.date).toLocaleDateString()}</td><td><b>${esc(r.level)}</b></td><td>${r.scores.speaking}%</td><td>${r.scores.pronunciation}%</td><td><b style="color:${pcol(r.scores.overall)}">${r.scores.overall}%</b></td><td><a class="btn sm ghost" href="#/voicetest/view/${r.id}">View</a></td></tr>`).join('')}</tbody></table></div></div>` : ''}`;
+    ${can ? `<div class="row vtgo" style="margin-top:16px"><button class="btn sun" id="vtStart">🎙 Start the test</button></div>` : `<div class="note">This browser cannot write down your words. Please open the page in <b>Google Chrome</b> or <b>Microsoft Edge</b>.</div>`}
+    <ul class="vttips"><li>${how}</li><li>${vtCaps.ai && reg ? '🤖 The AI teacher writes a summary of your level.' : '🤖 The AI teacher summary is off' + (vtCaps.ai ? ': save your name and email on the <a href="#/progress">My progress</a> page to turn it on.' : '.')}</li><li>🎧 Use a quiet place. Headphones with a microphone are best.</li></ul></div>
+  ${vtHistory.length ? `<h3 class="sph" style="margin:26px 0 8px">My voice tests</h3><div class="panel"><div class="tablewrap"><table class="rtable vthist"><thead><tr><th>Date</th><th>Level</th><th>Speaking</th><th>Pronunciation</th><th>Overall</th><th></th></tr></thead><tbody>${vtHistory.map(r => `<tr><td>${new Date(r.date).toLocaleDateString()}</td><td><b>${esc(r.level)}</b></td><td>${r.scores.speaking}%</td><td>${r.scores.pronunciation}%</td><td><b style="color:${pcol(r.scores.overall)}">${r.scores.overall}%</b></td><td><a class="btn sm ghost" href="#/voicetest/view/${r.id}">View</a></td></tr>`).join('')}</tbody></table></div></div>` : ''}`;
   const b = $('#vtStart'); if (b) b.onclick = vtStart;
 }
 async function vtSharedPage(id) {
@@ -234,14 +234,14 @@ function vtResultPage(rec, shared) {
   app.innerHTML = `<div class="crumbs no-print"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Result</div>
   <div class="panel res-card">
     <div class="stud"><div><div class="lbl">VOICE LEVEL TEST</div><b style="font-size:22px">${esc(rec.name || 'My result')}</b></div><div class="hint" style="margin:0;text-align:right">${new Date(rec.date).toLocaleString()}</div></div>
-    <div class="res-top"><div class="ring" style="--p:${sc.overall};--rc:${col};width:150px;height:150px"><span style="width:114px;height:114px;font-size:40px">${esc(rec.level)}</span></div>
-      <div><div class="hint" style="margin:0">${a ? 'Your speaking level' : 'Your speaking level (estimate)'}</div><h1 class="baloo" style="margin:0;font-size:38px;color:${col}">Level ${esc(rec.level)} · ${sc.overall}%</h1>
+    <div class="res-top vttop"><div class="ring" style="--p:${sc.overall};--rc:${col}"><span>${esc(rec.level)}</span></div>
+      <div><div class="hint" style="margin:0">${a ? 'Your speaking level' : 'Your speaking level (estimate)'}</div><h1 class="baloo vtlv" style="color:${col}">Level ${esc(rec.level)} · ${sc.overall}%</h1>
       <p class="hint" style="margin:4px 0 0">${a ? 'Level chosen by the AI teacher from your whole test.' : 'An automatic estimate from your scores. Your teacher\'s opinion is more important.'}</p></div></div>
     <h3 class="sph" style="margin-top:22px">Your skills</h3>
     <div class="spgauges">${scaleHTML(sc.speaking, '🗣 Speaking (fluency, grammar, vocabulary)')}${scaleHTML(sc.pronunciation, '🎯 Pronunciation' + (basic ? ' (basic check)' : ''))}${scaleHTML(sc.repeating, '👂 Listening and repeating')}</div>
     ${shared ? '' : `<div class="vtnext no-print" id="vtNext"><h3 class="sph" style="margin:0 0 4px">👉 What to do next</h3>
       <p class="hint" style="margin:0 0 10px">${nx.L ? `Your speaking level is <b>${esc(rec.level)}</b> — the <b>${nx.L.name}</b> lessons are a good place to practise.` : 'Keep practising a little every day.'}${nx.weak.length ? ` Words to practise: ${nx.weak.map(w => `<span class="vtw" style="--c:#e63946">${esc(w)}</span>`).join(' ')}` : ''}</p>
-      <div class="row" style="gap:8px">${nx.L ? `<a class="btn sun" href="#/level/${nx.L.id}">${nx.L.icon} Open ${nx.L.name} →</a>` : ''}<a class="btn ghost" href="#/pronounce">🗣️ Practise pronunciation</a>${sc.repeating < 60 ? '<a class="btn ghost" href="#/listening">🎧 Practise listening</a>' : ''}</div></div>`}
+      <div class="row vtgo" style="gap:8px">${nx.L ? `<a class="btn sun" href="#/level/${nx.L.id}">${nx.L.icon} Open ${nx.L.name} →</a>` : ''}<a class="btn ghost" href="#/pronounce">🗣️ Practise pronunciation</a>${sc.repeating < 60 ? '<a class="btn ghost" href="#/listening">🎧 Practise listening</a>' : ''}</div></div>`}
     ${a ? `<div class="aibox"><div class="aibadge">🤖 AI teacher (Claude) · level: <b>${esc(a.cefr || rec.level)}</b></div>${a.summary ? `<p class="aisum">${esc(a.summary)}</p>` : ''}
       ${a.speaking ? `<p><b>🗣 Speaking:</b> ${esc(a.speaking)}</p>` : ''}${a.pronunciation ? `<p><b>🎯 Pronunciation:</b> ${esc(a.pronunciation)}</p>` : ''}
       <div class="spcols"><div><h4 class="sph good">💪 Strengths</h4><ul>${li(a.strengths)}</ul></div><div><h4 class="sph warn">🎯 To improve</h4><ul>${li(a.weaknesses)}</ul></div></div>${(a.tips || []).length ? `<h4 class="sph">💡 Tips</h4><ul>${li(a.tips)}</ul>` : ''}</div>`
@@ -250,14 +250,14 @@ function vtResultPage(rec, shared) {
     ${rec.sentences.map((s, i) => `<div class="vtsent"><div class="spth"><b>${esc(s.text)}</b><span class="chip" style="background:${pcol(s.score)}">${s.score}%</span></div>
       <div class="vtwords">${vtWordsHTML(s)}</div>
       ${s.accuracy != null ? `<div class="lbl">Accuracy ${s.accuracy}% · Fluency ${s.fluency == null ? '–' : s.fluency + '%'} · Complete ${s.completeness == null ? '–' : s.completeness + '%'}${s.prosody != null ? ' · Rhythm ' + s.prosody + '%' : ''}</div>` : s.heard ? `<div class="lbl">The computer heard: “${esc(s.heard)}”</div>` : ''}
-      <div class="row no-print" style="gap:8px;margin-top:8px"><button class="btn sm teal" data-vsay="${i}">🔊 British voice</button>${s.audio ? `<audio controls src="${s.audio}" style="height:36px"></audio>` : ''}</div></div>`).join('') || '<p class="hint">No sentences were recorded.</p>'}
+      <div class="row no-print vtplay" style="gap:8px;margin-top:8px"><button class="btn sm teal" data-vsay="${i}">🔊 British voice</button>${s.audio ? `<audio controls src="${s.audio}" style="height:36px"></audio>` : ''}</div></div>`).join('') || '<p class="hint">No sentences were recorded.</p>'}
     <div class="splegend"><span class="vtw" style="--c:#1b9e5a">clear</span> <span class="vtw" style="--c:#f0a500">nearly</span> <span class="vtw" style="--c:#e63946">practise this</span> <span class="vtw" style="--c:#9aa3b5">not heard</span></div>
     <h3 class="sph" style="margin-top:22px">🗣 What you said</h3>
     ${rec.tasks.map(t => `<div class="vtsent"><div class="spth"><b>${t.kind === 'picture' ? 'Describe the picture' : esc(t.prompt)}</b><span class="chip" style="background:${pcol(t.score)}">${t.score}%</span></div>
       <div class="sptrans" style="margin:8px 0">${t.transcript ? esc(t.transcript) : '<span class="lbl">Nothing was heard.</span>'}</div>
       <div class="lbl">${t.words} words in ${t.seconds} s · ${t.wpm} words/min · ${t.pauses} pauses · Fluency ${t.fluency}% · Accuracy ${t.accuracy}% · Vocabulary ${t.vocab}%</div></div>`).join('')}
     ${link ? `<div class="note no-print">🔗 Link to this result: <a href="${esc(link)}">${esc(link)}</a> <button class="btn sm ghost" id="vtCopy">Copy</button></div>` : ''}
-    <div class="row no-print" style="justify-content:center;margin-top:20px">${shared ? `<a class="btn sun" href="#/voicetest">🎙 Take the voice test</a>` : `<button class="btn sun" id="vtAgain">🎙 Take the test again</button>`}<button class="btn ghost" id="vtPrint">🖨 Print / save as PDF</button></div></div>`;
+    <div class="row no-print vtgo" style="justify-content:center;margin-top:20px">${shared ? `<a class="btn sun" href="#/voicetest">🎙 Take the voice test</a>` : `<button class="btn sun" id="vtAgain">🎙 Take the test again</button>`}<button class="btn ghost" id="vtPrint">🖨 Print / save as PDF</button></div></div>`;
   app.querySelectorAll('[data-vsay]').forEach(b => b.onclick = () => say(rec.sentences[+b.dataset.vsay].text, null, 0.85));
   $('#vtPrint').onclick = () => window.print();
   const again = $('#vtAgain'); if (again) again.onclick = () => { VT = {mode: 'intro'}; if (location.hash === '#/voicetest') renderVoiceTest(''); else go('#/voicetest'); };
