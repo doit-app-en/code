@@ -13,7 +13,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `public/styles.css` | All styles. Kept next to `index.html` on purpose: `url(photos/…)` must resolve the same from CSS and from inline styles. |
 | `public/js/NN-*.js` | The app, split by section. **Classic scripts, not modules**: they share one global scope and must load in the numbered order. |
 | `public/js/legacy-apps-script.js` | The old Apps Script text a teacher can copy from the Students page (`GS_CODE`). Not numbered; loads between `08` and `09`. |
-| `public/photos/` | Site photos (Unsplash) |
+| `public/photos/` | Site photos (Unsplash). `hero-800.jpg` / `hero-1200.jpg` and `photos/sm/` (640px) are smaller copies used only by the home page; a new home-page photo needs its small copy too. `npm run smoke` fails on a missing photo or one over 300 KB. |
 | `public/manifest.webmanifest`, `public/icons/` | "Add to home screen": name, colours and icons (PNG, drawn from the logo). No service worker, no offline caching. |
 | `api/class.js` | Class server: progress, students list, speaking AI feedback |
 | `api/voice.js` | Voice level test: speech-to-text + pronunciation scores (Azure AI Speech), AI summary (Claude), saved results |
