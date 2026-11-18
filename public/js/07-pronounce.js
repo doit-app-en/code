@@ -340,7 +340,7 @@ function renderPronTest(sec) {
       if (PR.tries >= 3 || PR.best.score === 100) mic.disabled = true;
       if (r.score >= 90) say('Excellent!', null, 1);
     };
-    recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + e.error + '). Try again.'; };
+    recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + e.error + '). Try again.'; };
     recog.onend = () => { mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and say the word'; };
     try { recog.start(); } catch (e) { recog = null; }
   };

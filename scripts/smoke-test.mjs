@@ -101,6 +101,46 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Practice flows on a phone: a placement test from the form to the result, a lesson from Match to "Finish lesson", and every listening exercise fits the screen.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage();
+  watch(page, 'practice flows');
+  try {
+    await page.goto(base + '/#/placement', { waitUntil: 'load' }); await page.waitForSelector('#infoForm', { timeout: 10000 });
+    await page.evaluate(() => { state.placement.questions = bank().slice(0, 4).concat(bank().filter(q => q.listen).slice(0, 1)); });   // a short test (this browser profile is thrown away)
+    await page.fill('[name=name]', 'Sara Test'); await page.fill('[name=cls]', '9A'); await page.fill('[name=phone]', '0790 123 4567'); await page.click('#infoForm button[type=submit]'); await page.waitForSelector('.opt');
+    // A second quick tap (a double tap on the answer before) must not answer the new question.
+    await page.waitForTimeout(450); const first = await page.evaluate(() => { const k = P.items[0].opts.findIndex(o => o.ok); document.querySelector(`.opt[data-k="${k}"]`).click(); return new Promise(r => setTimeout(() => { document.querySelector('.opt').click(); r({ i: P.i, locked: !!P.locked, ans: P.ans.length }); }, 320)); });
+    if (first.i !== 1 || first.locked || first.ans !== 1) problems.push('placement test: a quick second tap answered the next question ' + JSON.stringify(first));
+    for (let n = 0; n < 8 && await page.evaluate(() => P.stage === 'test'); n++) { await page.waitForTimeout(420); await page.evaluate(() => { const k = P.items[P.i].opts.findIndex(o => o.ok); document.querySelector(`.opt[data-k="${k}"]`).click(); }); await page.waitForTimeout(320); }
+    await page.waitForSelector('.res-card', { timeout: 5000 });
+    const pt = await page.evaluate(() => ({ pct: P.rec.pct, level: P.rec.level, saved: results.length, over: document.documentElement.scrollWidth - innerWidth }));
+    if (pt.pct !== 100 || pt.level !== 'a2' || pt.saved !== 1 || pt.over > 1) problems.push('placement test: all answers right did not give 100% / Level A2, or the result is wider than the phone ' + JSON.stringify(pt));
+    await page.screenshot({ path: path.join(shots, 'phone-placement-result.png'), fullPage: true });
+    // A lesson: match every pair (one mistake first), then finish it → the level page marks it "Finished".
+    await page.evaluate(() => { location.hash = '#/level/a1'; }); await page.waitForSelector('.lcard'); await page.click('.lcard'); await page.waitForSelector('[data-tab=match]'); await page.click('[data-tab=match]'); await page.waitForSelector('.mcard');
+    await page.click('.mcard[data-mi="0"]'); await page.click('.chip[data-wi="1"]');
+    const pairs = await page.evaluate(() => LS.matching.length); for (let i = 0; i < pairs; i++) { await page.click(`.mcard[data-mi="${i}"]`); await page.click(`.chip[data-wi="${i}"]`); }
+    await page.waitForSelector('#stu .win', { timeout: 5000 });
+    const mt = await page.evaluate(() => { const w = document.querySelector('#stu .win'); w.scrollIntoView({ block: 'center', behavior: 'instant' }); return { mist: M.mist, win: Math.round(w.getBoundingClientRect().width), box: Math.round(document.querySelector('#stu').getBoundingClientRect().width), over: document.documentElement.scrollWidth - innerWidth }; });
+    if (mt.mist !== 1 || mt.win < mt.box - 2 || mt.over > 1) problems.push('lesson Match: the "All matched" box is not as wide as the page, or the mistakes count is wrong ' + JSON.stringify(mt));
+    await page.waitForTimeout(200); await page.screenshot({ path: path.join(shots, 'phone-lesson-match-win.png') });
+    await page.click('[data-tab=speak]'); await page.click('#nextStep'); await page.waitForSelector('.lcard .badge.fin', { timeout: 5000 });
+    if (await page.evaluate(() => document.querySelectorAll('.lcard .badge.fin').length) !== 1) problems.push('lesson: after "Finish lesson" exactly one lesson should be marked Finished on the level page');
+    await page.screenshot({ path: path.join(shots, 'phone-level-finished.png') });
+    // Every listening exercise: nothing wider than the phone, and "Check my answers" with nothing answered gives 0.
+    const count = await page.evaluate(() => lexs().length), seen = new Set();
+    for (let n = 1; n <= count; n++) {
+      await page.evaluate(n => { location.hash = '#/listening/' + n; }, n); await page.waitForFunction(n => LS_.n === n && !!document.querySelector('#lCheck'), n, { timeout: 5000 });
+      const e = await page.evaluate(() => { const ex = lexs()[LS_.n - 1]; return { type: ex.type, title: ex.title, over: document.documentElement.scrollWidth - innerWidth, ok: lsGrade(ex, LS_).ok }; });
+      if (e.over > 1) problems.push(`listening exercise ${n} "${e.title}" (${e.type}): ${e.over}px wider than the phone screen`);
+      if (e.ok !== 0) problems.push(`listening exercise ${n} "${e.title}": ${e.ok} answers count as right before the student has done anything`);
+      if (!seen.has(e.type)) { seen.add(e.type); await page.evaluate(() => document.querySelector('#lAct').scrollIntoView({ block: 'start', behavior: 'instant' })); await page.evaluate(() => scrollBy(0, -70)); await page.waitForTimeout(150); await page.screenshot({ path: path.join(shots, `phone-listening-${e.type}.png`) }); }
+    }
+  } catch (e) { problems.push('practice flows: could not finish — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 // The whole Voice level test with a fake microphone (the fake microphone says no words, so every score is 0).
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, permissions: ['microphone'] }), page = await ctx.newPage();
@@ -205,4 +245,4 @@ for (const screen of SCREENS) {
 
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson and every listening exercise on a phone, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

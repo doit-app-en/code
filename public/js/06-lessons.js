@@ -14,6 +14,7 @@ function renderLevel(lid) {
           <span class="badge">🎧 ${s.phrases.length} phrases</span>
           <span class="badge">🧩 ${s.matching.length} pairs</span>
           <span class="badge">🎤 ${s.speaking.length} to say</span>
+          ${lessonsDone[s.id] ? '<span class="badge fin">✅ Finished</span>' : ''}
         </div>
         ${T ? `<div class="tools"><button class="btn sm ghost" data-ren="${s.id}">✏️ Rename</button>
           <button class="btn sm ghost" data-up="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
@@ -252,7 +253,7 @@ function startMic() {
   let got = false;
   recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… speak now'; };
   recog.onresult = e => { got = true; const alts = [...e.results[0]].map(a => a.transcript); st.textContent = 'Checking…'; showResult(judge(it.text, alts)); st.textContent = 'Press the microphone to try again'; };
-  recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + e.error + '). Try again.'; };
+  recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + e.error + '). Try again.'; };
   recog.onend = () => { mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and speak'; };
   try { recog.start(); } catch (e) { recog = null; }
 }

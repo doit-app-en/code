@@ -22,7 +22,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `supabase/migrations/` | Database schema. Add a **new** migration file for every change; never edit an applied one. |
 | `legacy/` | The old Google Apps Script server, kept for reference |
 | `scripts/dev-server.mjs` | `npm run dev` — local preview of `public/` + `api/` |
-| `scripts/smoke-test.mjs` | `npm run smoke` — every page on phone/tablet/desktop in headless Chrome + the whole voice test; screenshots in `/tmp/smoke/` |
+| `scripts/smoke-test.mjs` | `npm run smoke` — every page on phone/tablet/desktop in headless Chrome + a placement test, a lesson and every listening exercise on a phone + the whole voice test; screenshots in `/tmp/smoke/` |
 | `AGENT.md`, `BACKLOG.md` | The scheduled improvement agents (developer, designer, content, researcher, organizer): their rules and their to-do lists |
 | `CHANGELOG.md`, `REPORT.md` | In Arabic, for the owner: every visible change, and the organizer's daily report |
 | `docs/research.md` | The researcher agent's notes on other English-learning sites |

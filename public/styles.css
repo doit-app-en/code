@@ -288,7 +288,7 @@ audio{width:100%;margin-bottom:16px}
 .mini .mo{position:absolute;font-size:28px;line-height:1;transform:translate(-50%,-50%)}
 .mo.p-on{left:50%;top:16%}.mo.p-under{left:50%;top:92%}.mo.p-under.t{top:70%}.mo.p-in{left:50%;top:52%;font-size:24px}.mo.p-next{left:92%;top:66%}
 .mo.p-on.t{top:30%}
-.mtxt{display:grid;place-items:center;font-size:34px;letter-spacing:2px;text-align:center;width:auto;height:auto;padding:8px}
+.mtxt{display:grid;place-items:center;font-size:var(--fs,34px);letter-spacing:2px;text-align:center;width:auto;height:auto;padding:8px}
 .lpal{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
 .lsw{width:58px;height:58px;border-radius:50%;border:4px solid #fff;box-shadow:0 0 0 2px #d7dcea;cursor:pointer;position:relative}
 .lsw span{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:800;color:var(--muted)}
@@ -314,14 +314,14 @@ audio{width:100%;margin-bottom:16px}
 .wqn{font:800 20px 'Poppins';color:#7b61ff;text-align:center}
 .wqq{font-weight:800;font-size:17px;color:var(--navy)}
 .wqa{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--navy)}
-.win{width:150px;font-size:18px;font-weight:800;text-align:center;border-style:dashed;border-width:3px}
-.win:disabled{background:#fff;color:#4a5578;border-style:solid}
+input.win{width:150px;font-size:18px;font-weight:800;text-align:center;border-style:dashed;border-width:3px}
+input.win:disabled{background:#fff;color:#4a5578;border-style:solid}
 .wq .lmark{position:static}
 .wscript{margin-top:16px;background:#fffaf0;border:2px dashed #ffcf70;border-radius:14px;padding:12px 16px}
 .wscript summary{font-weight:800;cursor:pointer}
 .wscript p{margin:6px 0}
 .wscript hr{border:0;border-top:1px dashed #f0d9a0}
-@media(max-width:640px){.wq{grid-template-columns:28px 1fr 30px}.wqa{grid-column:2/3}.win{width:120px}}
+@media(max-width:640px){.wq{grid-template-columns:28px 1fr 30px}.wqa{grid-column:2/3;flex-wrap:wrap;min-width:0}input.win{width:120px}}
 .lobjname{display:inline-flex;align-items:center;gap:6px}
 .lobjname .loe{font-size:26px;line-height:1}
 .lspot{width:8cqw;height:8cqw;border:3px dashed rgba(29,43,83,.55);border-radius:50%;background:rgba(255,255,255,.5);display:grid;place-items:center;padding:0}
@@ -412,6 +412,7 @@ audio{width:100%;margin-bottom:16px}
 .pt-hero .big{font-size:56px}.pt-hero h2{margin:0;font-size:34px;color:var(--navy)}.pt-hero p{margin:2px 0 0;color:var(--muted);font-weight:700}
 .sects{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 18px}
 .badge.zero{background:#ffe0e0;color:#b3261e}
+.badge.fin{background:#dff7ea;color:#157a45}
 .form{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:end}
 .form .err,.form>div:last-child{grid-column:1/-1}
 .field{display:flex;flex-direction:column;gap:6px;font-weight:800;font-size:14px;color:var(--navy)}
@@ -796,4 +797,17 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .vtwords{line-height:1.9}.vtwords .vtw{font-size:14px;padding:0 9px}
   .vtplay .btn{min-height:40px;flex:none}.vtplay audio{flex:1 1 100%;min-width:0;width:100%;height:40px!important}
   .vtsent .sptrans{padding:12px;font-size:16px;line-height:1.6}
+}
+/* Listening exercises on a phone: "Listen and tick" no longer wider than the screen (the number sits above its three pictures, which share the row),
+   and the small things to colour or fill in a picture have a bigger area to tap (the drawing itself is not changed). */
+@media(max-width:600px){
+  .tq{flex-direction:column;align-items:stretch;gap:8px;padding:10px}
+  .tq .tqn{min-width:0;text-align:left;padding-left:4px}
+  .tqb{min-width:0}
+  .topts{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .topt{padding:4px;min-width:0;min-height:96px}
+  .mini{width:100%;max-width:86px}
+  .mini .mo{font-size:24px}.mo.p-next{left:84%}.mo.p-in{font-size:20px}
+  .mini.mtxt{max-width:100%;padding:16px 2px 4px;letter-spacing:0;line-height:1.15;font-size:calc(var(--fs,34px)*.66);word-break:break-all}
+  .lthing::after,.dspot::after,.lspot::after{content:'';position:absolute;inset:-8px;border-radius:50%}
 }

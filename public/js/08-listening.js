@@ -682,7 +682,7 @@ function pieceHTML(it) {
 }
 function miniHTML(o) {
   if (typeof o === 'string') { const n = [...o.replace(/[️‍]/g, '')].length, fs = n <= 1 ? 56 : n <= 2 ? 44 : n <= 3 ? 30 : n <= 4 ? 24 : 20;   // one big picture, or a row of small ones
-    return `<div class="mini mtxt" style="font-size:${fs}px">${o}</div>`; }
+    return `<div class="mini mtxt" style="--fs:${fs}px">${o}</div>`; }
   const f = o.f === 'table' ? `<div class="mf mtable">${PIECES.table}</div>` : `<div class="mf">${o.f}</div>`;
   return `<div class="mini">${f}<div class="mo p-${o.p} ${o.f === 'table' ? 't' : ''}">${o.o}</div></div>`;
 }

@@ -366,7 +366,7 @@ function bindTest() {
     renderPlacement();
   };
   if (P.stage === 'test') {
-    const it = P.items[P.i];
+    const it = P.items[P.i], shown = Date.now();
     P.locked = false;
     syncMusic(); startPtClock();
     if (it.q.listen && !it.played) { it.played = true; setTimeout(() => say(it.q.listen, null, 0.85), 450); }
@@ -377,7 +377,7 @@ function bindTest() {
       if (b.dataset.pa === 'back' && P.i) { speechSynthesis.cancel(); P.i--; renderPlacement(); }
     });
     app.querySelectorAll('.opt').forEach(b => b.onclick = () => {
-      if (P.locked) return;
+      if (P.locked || Date.now() - shown < 350) return;   // a second quick tap on the answer before must not answer this new question
       P.locked = true; if (ptSet().timer === 'question') clearInterval(ptIv);
       P.ans[P.i] = +b.dataset.k;
       app.querySelectorAll('.opt').forEach(x => x.classList.toggle('chosen', x === b));
