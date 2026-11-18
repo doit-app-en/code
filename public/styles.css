@@ -939,3 +939,51 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .mxgame .tagn{width:24px;height:24px;top:-8px;right:-8px}
   .mxend .row .btn{flex:1 1 100%}
 }
+
+/* ---------- Test your speaking: sizes that were inline, and the phone layout ---------- */
+.sph.warn{background:none;border:0;border-radius:0;padding:0;margin:16px 0 6px;font-weight:800}
+.sprt{margin:10px 0 6px;font-size:32px;line-height:1.2;color:var(--navy)}
+.sprech b{font-size:22px;color:var(--navy)}
+.sprec .ring{width:150px;height:150px;flex:none}.sprec .ring span{width:116px;height:116px;font-size:28px}
+.sptop .ring{width:150px;height:150px;flex:none}.sptop .ring span{width:114px;height:114px;font-size:34px}
+.spverd{margin:0;font-size:38px;line-height:1.15}
+.sptask .btn{min-height:44px}
+.sphist td:last-child{text-align:right}.sphist .btn.sm{min-height:40px;padding:7px 16px}
+@media(max-width:560px){
+  .banner.spban{min-height:0;padding:18px 20px;border-radius:22px}.banner.spban h1{font-size:30px}.banner.spban p{font-size:15px;margin-top:4px;line-height:1.35}
+  .spwhat{padding:16px;border-radius:22px;margin-top:12px!important}
+  .spwhat .sec-t{font-size:19px!important;margin-bottom:6px}
+  .spchips{gap:6px;margin:0}.spchips span{padding:4px 10px;font-size:13px}
+  .spwhat .hint{font-size:14px;line-height:1.4}
+  .sptasks{grid-template-columns:1fr;gap:12px}
+  .sptask .spth{flex-wrap:nowrap;align-items:flex-start}.sptask .spth b{font-size:17px;line-height:1.3;min-width:0}.sptask .spth .chip{flex:none}
+  .sptask p{font-size:15px;line-height:1.4}
+  .sptask .btn{min-height:46px;font-size:15px;margin-top:2px}
+  .sphist th:nth-child(3),.sphist td:nth-child(3){display:none}
+  .sphist th,.sphist td{padding:10px 6px;font-size:14px}.sphist th{font-size:12px}.sphist td:first-child{white-space:nowrap}
+  .sprep,.sprec{padding:18px 16px;border-radius:22px}
+  .sprt{font-size:24px;margin:8px 0 4px}
+  .sprep .spprompt,.sprec .spprompt{font-size:17px;line-height:1.4;margin:0 0 4px}
+  .sprep .sph{font-size:16px;margin:10px 0 2px}.sprep ul{line-height:1.5;font-size:15px}
+  .sprep .note{margin-top:10px;padding:10px 12px;font-size:14px;line-height:1.4}
+  .sprep .hint{font-size:14px;line-height:1.4;margin-top:10px!important}
+  .spgo{margin-top:12px!important;gap:10px}.spgo .btn{flex:1 1 100%;min-height:48px}
+  .sprech{gap:8px}.sprech b{font-size:18px;line-height:1.3;min-width:0}
+  .sprec .sprow{flex-wrap:nowrap;gap:14px;margin:8px 0 4px}
+  .sprec .ring{width:96px;height:96px}.sprec .ring span{width:74px;height:74px;font-size:22px}
+  .sprec .grow{min-width:0}.sprec .spmeter{height:34px;gap:4px}.sprec .spmeter i{height:calc(6px + var(--lv)*28px)}
+  .sprec .spmeter i:nth-child(2n){height:calc(6px + var(--lv)*20px)}.sprec .spmeter i:nth-child(3n){height:calc(6px + var(--lv)*26px)}
+  .sprec .grow .lbl{line-height:1.35}
+  .sprec .grow .btn{width:100%;min-height:48px;padding:10px 8px;font-size:15px;line-height:1.25}
+  .sprec .sph{font-size:16px;margin-top:12px}.splive{min-height:70px;padding:12px;font-size:16px;line-height:1.5}
+  .spres .stud>.hint{flex:1 1 100%;text-align:left!important}
+  .sptop{flex-wrap:nowrap;gap:14px}
+  .sptop .ring{width:100px;height:100px}.sptop .ring span{width:76px;height:76px;font-size:26px}
+  .sptop .hint{font-size:13px;line-height:1.35}.spverd{font-size:25px}
+  .sptop p{font-size:14px;line-height:1.35}
+  .spres .sph{font-size:17px}.sptrans{padding:12px;font-size:16px;line-height:1.8}
+  .aibox{padding:12px;margin-top:16px}
+  .spfoot{gap:10px}.spfoot .btn{flex:1 1 100%;min-height:48px}
+}
+/* a hidden message must not peep over the phone tab bar */
+.toast{opacity:0;visibility:hidden}.toast.show{opacity:1;visibility:visible}

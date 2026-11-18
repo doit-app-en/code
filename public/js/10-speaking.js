@@ -210,17 +210,17 @@ function renderSpeaking(arg) {
   if (M === 'record') return spRecordPage(); if (M === 'busy') return spBusyPage(); if (M === 'result') return spResultPage(SPK.rec); if (M === 'prep') return spPrepPage(SPK.task);
   spPickPage();
 }
-const spBanner = (t, p) => `<div class="banner photo" style="--img:url(photos/level-b2.jpg)"><div><h1>${t}</h1><p>${p}</p></div></div>`;
+const spBanner = (t, p) => `<div class="banner photo spban" style="--img:url(photos/level-b2.jpg)"><div><h1>${t}</h1><p>${p}</p></div></div>`;
 function spPickPage() {
   const T = mode === 'teacher', tasks = state.speaking.tasks, levels = [...new Set(tasks.map(t => t.level))];
   app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › Test your speaking</div>
   ${spBanner('Test your speaking', 'Record yourself for up to 3 minutes. The AI checks your strengths and weaknesses.')}
-  <div class="panel" style="margin-top:16px"><h3 class="sec-t" style="font-size:24px">What is checked?</h3>
+  <div class="panel spwhat" style="margin-top:16px"><h3 class="sec-t" style="font-size:24px">What is checked?</h3>
     <div class="spchips"><span>⚡ Fluency</span><span>✅ Accuracy</span><span>📚 Level of vocabulary</span><span>🎩 Formal English</span><span>😊 Informal English</span></div>
     <p class="hint" style="margin:8px 0 0">Choose a topic, press record and speak. You can speak for up to <b>3 minutes</b>. Use Google Chrome or Microsoft Edge and allow the microphone.${SR ? '' : ' <b style="color:var(--coral)">This browser cannot write down your words, so please open the page in Chrome or Edge.</b>'}</p></div>
   ${levels.map(lv => `<h3 class="sph" style="margin:22px 0 8px">Level ${esc(lv)}</h3><div class="sptasks">${tasks.filter(t => t.level === lv).map(t => `
     <div class="sptask"><div class="spth"><b>${esc(t.title)}</b><span class="chip ${t.register}">${REG_LABEL[t.register] || ''}</span></div><p>${esc(t.prompt)}</p><button class="btn sun sm" data-sp="${t.id}">🎤 Choose this topic</button></div>`).join('')}</div>`).join('')}
-  ${spHistory.length ? `<h3 class="sph" style="margin:26px 0 8px">My recordings</h3><div class="panel"><div class="tablewrap"><table class="rtable"><thead><tr><th>Date</th><th>Topic</th><th>Time</th><th>Score</th><th></th></tr></thead><tbody>${spHistory.map(r => `<tr><td>${new Date(r.date).toLocaleDateString()}</td><td>${esc(r.task.title)}</td><td>${spTime(r.A.seconds)}</td><td><b style="color:${pcol(r.A.scores.overall)}">${r.A.scores.overall}%</b></td><td><a class="btn sm ghost" href="#/speaking/view/${r.id}">View</a></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+  ${spHistory.length ? `<h3 class="sph" style="margin:26px 0 8px">My recordings</h3><div class="panel"><div class="tablewrap"><table class="rtable sphist"><thead><tr><th>Date</th><th>Topic</th><th>Time</th><th>Score</th><th></th></tr></thead><tbody>${spHistory.map(r => `<tr><td>${new Date(r.date).toLocaleDateString()}</td><td>${esc(r.task.title)}</td><td>${spTime(r.A.seconds)}</td><td><b style="color:${pcol(r.A.scores.overall)}">${r.A.scores.overall}%</b></td><td><a class="btn sm ghost" href="#/speaking/view/${r.id}">View</a></td></tr>`).join('')}</tbody></table></div></div>` : ''}
   ${T ? spTeacherHTML() : ''}`;
   app.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { SPK = {mode: 'prep', task: spTask(b.dataset.sp)}; renderSpeaking(); window.scrollTo(0, 0); });
   if (T) bindSpTeacher();
@@ -228,21 +228,21 @@ function spPickPage() {
 function spPrepPage(task) {
   app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › <a href="#/speaking">Test your speaking</a> › ${esc(task.title)}</div>
   <div class="panel sprep"><div class="spth"><span class="chip ${task.register}">${REG_LABEL[task.register] || ''} style</span><span class="chip grey">Level ${esc(task.level)}</span></div>
-    <h2 class="baloo" style="margin:10px 0 6px;font-size:32px;color:var(--navy)">${esc(task.title)}</h2>
+    <h2 class="baloo sprt">${esc(task.title)}</h2>
     <p class="spprompt">${esc(task.prompt)}</p>
     <h4 class="sph">💡 You can talk about</h4><ul>${(task.ideas || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>
     <div class="note">${task.register === 'formal' ? '🎩 This is a <b>formal</b> situation: speak politely, use “I would like to…”, and avoid short forms like “I\'m” or “don\'t”.' : task.register === 'informal' ? '😊 This is an <b>informal</b> situation: speak naturally, like to a friend. Short forms like “I\'m” and “don\'t” are good.' : 'Use the style you think is best.'}</div>
     <p class="hint" style="margin:12px 0 0">Take a moment to think. When you press the button, the recording starts at once and lasts up to <b>3 minutes</b>. Speak for at least <b>1 minute</b> for a reliable result.</p>
-    <div class="row" style="margin-top:16px"><button class="btn red" id="spGo">🎙 Start recording</button><button class="btn ghost" id="spBack">← Choose another topic</button></div>
+    <div class="row spgo" style="margin-top:16px"><button class="btn red" id="spGo">🎙 Start recording</button><button class="btn ghost" id="spBack">← Choose another topic</button></div>
     <p class="lbl" id="spAiNote" style="margin-top:12px">${spAIOn() ? '🤖 AI teacher feedback is on for you.' : '🤖 AI teacher feedback is off. You will still get the automatic analysis.'}</p></div>`;
   $('#spGo').onclick = () => spBegin(task); $('#spBack').onclick = () => { SPK = {mode: 'pick'}; renderSpeaking(); };
 }
 function spRecordPage() {
   const r = SPK.rec, t = r.task;
   app.innerHTML = `<div class="crumbs">Test your speaking › ${esc(t.title)}</div>
-  <div class="panel sprec"><div class="row" style="justify-content:space-between"><b class="baloo" style="font-size:22px;color:var(--navy)">🔴 Recording… ${esc(t.title)}</b><span class="chip ${t.register}">${REG_LABEL[t.register] || ''}</span></div>
+  <div class="panel sprec"><div class="row sprech" style="justify-content:space-between"><b class="baloo">🔴 Recording… ${esc(t.title)}</b><span class="chip ${t.register}">${REG_LABEL[t.register] || ''}</span></div>
     <p class="spprompt" style="margin:8px 0">${esc(t.prompt)}</p>
-    <div class="sprow"><div class="ring" id="spRing" style="--p:0;--rc:#3a86ff;width:150px;height:150px"><span id="spTime" style="width:116px;height:116px;font-size:28px">0:00</span></div>
+    <div class="sprow"><div class="ring" id="spRing" style="--p:0;--rc:#3a86ff"><span id="spTime">0:00</span></div>
       <div class="grow"><div class="spmeter" id="spMeter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="lbl" style="margin:6px 0">Speak clearly. The bars move when I can hear you. Maximum time: 3:00.</div>
       <button class="btn red" id="spStop" disabled>⏹ Stop (speak at least ${SP_MIN} s)</button></div></div>
@@ -258,10 +258,10 @@ function spResultPage(rec) {
   const fBar = Math.round(100 * spClamp(A.f100 / 4)), iBar = Math.round(100 * spClamp(A.i100 / 8));
   const regTxt = task.register === 'formal' ? (sc.register >= 70 ? '✅ Good for a formal task.' : '⚠️ This was a formal task: use more formal phrases and fewer short forms.') : task.register === 'informal' ? (sc.register >= 70 ? '✅ Good for a chat with a friend.' : '⚠️ This was a chat with a friend: sound more natural and relaxed.') : 'Both styles are fine for this task.';
   app.innerHTML = `<div class="crumbs no-print"><a href="#/">Home</a> › <a href="#/speaking">Test your speaking</a> › Result</div>
-  <div class="panel res-card">
+  <div class="panel res-card spres">
     <div class="stud"><div><div class="lbl">SPEAKING TEST</div><b style="font-size:22px">${esc(task.title)}</b><div class="hint" style="margin:2px 0 0">Level ${esc(task.level)} · ${REG_LABEL[task.register]} style · ${spTime(A.seconds)} · ${A.words} words</div></div><div class="hint" style="margin:0;text-align:right">${new Date(rec.date).toLocaleString()}</div></div>
-    <div class="res-top"><div class="ring" style="--p:${sc.overall};--rc:${col};width:150px;height:150px"><span style="width:114px;height:114px;font-size:34px">${sc.overall}%</span></div>
-      <div><div class="hint" style="margin:0">Overall speaking score</div><h1 class="baloo" style="margin:0;font-size:38px;color:${col}">${sc.overall >= 90 ? 'Excellent!' : sc.overall >= 60 ? 'Good job!' : 'Keep practising'}</h1>
+    <div class="res-top sptop"><div class="ring" style="--p:${sc.overall};--rc:${col}"><span>${sc.overall}%</span></div>
+      <div><div class="hint" style="margin:0">Overall speaking score</div><h1 class="baloo spverd" style="color:${col}">${sc.overall >= 90 ? 'Excellent!' : sc.overall >= 60 ? 'Good job!' : 'Keep practising'}</h1>
       <p style="margin:4px 0 0;font-weight:700">Vocabulary level (estimate): <b>${A.cefr}</b></p>${A.seconds < 45 ? `<p class="hint" style="margin:4px 0 0">⚠️ You spoke for only ${spTime(A.seconds)}. Speak for 1–3 minutes for a more reliable result.</p>` : ''}</div></div>
     ${audio ? `<div style="margin-top:14px"><div class="lbl">🎧 Listen to your recording</div><audio controls src="${audio}" style="width:100%"></audio></div>` : ''}
     <h3 class="sph" style="margin-top:22px">Your skills</h3>
@@ -279,7 +279,7 @@ function spResultPage(rec) {
     <h3 class="sph" style="margin-top:22px">📝 What you said</h3><div class="sptrans">${spHighlight(rec)}</div>
     <div class="splegend"><mark class="hl-err">grammar to check</mark><mark class="hl-adv">strong word</mark><mark class="hl-for">formal</mark><mark class="hl-inf">informal</mark></div>
     <details class="setup"><summary>ℹ️ How are the scores calculated?</summary><p class="hint">The browser writes down your words and measures your voice. <b>Fluency</b> = speed, pauses, fillers and repeated words. <b>Accuracy</b> = common grammar mistake patterns (it cannot find every mistake) and how clearly the computer understood you. <b>Vocabulary</b> = variety of words and how many higher-level words you used. <b>Style</b> = whether your formal or informal phrases match the task. These are estimates to help you practise — your teacher's opinion is more important.</p></details>
-    <div class="row no-print" style="justify-content:center;margin-top:20px"><button class="btn sun" id="spAgain">🎙 Try this topic again</button><a class="btn ghost" href="#/speaking">Choose another topic</a><button class="btn ghost" id="spPrint">🖨 Print / save as PDF</button></div></div>`;
+    <div class="row no-print spfoot" style="justify-content:center;margin-top:20px"><button class="btn sun" id="spAgain">🎙 Try this topic again</button><a class="btn ghost" href="#/speaking">Choose another topic</a><button class="btn ghost" id="spPrint">🖨 Print / save as PDF</button></div></div>`;
   $('#spAgain').onclick = () => { SPK = {mode: 'prep', task: spTask(rec.task.id) || rec.task}; renderSpeaking(); window.scrollTo(0, 0); };
   $('#spPrint').onclick = () => window.print(); const b = $('#aiRetry'); if (b) b.onclick = () => spAsk(rec);
 }
