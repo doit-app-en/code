@@ -664,6 +664,26 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 .tstreak.lit{background:linear-gradient(160deg,#fff1cf,#ffe0d6);color:#a2541a}.tstreak.lit i{filter:none;opacity:1}
 .tweek{display:grid;gap:8px;min-width:0}.tweek strong{font-size:18px;color:var(--navy)}.tweek>small{font-weight:700;color:var(--muted)}
 .wk span.now{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--sun)}
+/* streak: rest day dot, milestone badges, celebration */
+.wk span.rest{background:#e6ecff;color:var(--navy);font-size:14px}
+.tstreak em{font-style:normal;font-weight:800;font-size:11px;margin-top:4px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.75);white-space:nowrap}
+.miles{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.miles span{min-width:40px;height:40px;padding:0 6px;border-radius:50%;display:grid;place-items:center;font:800 15px 'Poppins',sans-serif;background:#eef0f6;color:var(--muted);border:2px dashed #cfd5e3}
+.miles span.on{background:linear-gradient(160deg,#ffd166,#ff9f1c);color:#5a3200;border:2px solid #fff;box-shadow:0 3px 10px rgba(255,159,28,.4)}
+.miles small{font-weight:700;color:var(--muted)}
+.restline{display:block;margin-top:8px;font-weight:700;color:var(--muted)}
+.celeb{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:16px;background:rgba(15,27,60,.6)}
+.celebc{position:relative;overflow:hidden;width:min(400px,100%);background:#fff;border-radius:26px;padding:26px 22px 22px;text-align:center;box-shadow:0 20px 60px rgba(15,27,60,.35);animation:pop .45s}
+.celebc>i{position:absolute;top:-14px;left:var(--x);width:9px;height:14px;border-radius:3px;background:var(--c);animation:cfall 2.2s var(--d) ease-in infinite}
+@keyframes cfall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(460px) rotate(540deg);opacity:0}}
+.celebf{font-size:54px;line-height:1.15}
+.celebn{font:800 64px/1 'Poppins',sans-serif;color:#ff8a00}
+.celebc h2{margin:6px 0 4px;font-size:26px;color:var(--navy)}
+.celebc p{margin:0 0 6px;font-weight:600;color:var(--ink,#33415c)}
+.celebc .miles{justify-content:center;margin:12px 0 6px}
+.celebc>small{display:block;font-weight:700;color:var(--muted);margin-bottom:14px}
+.celebc .btn{width:100%;min-height:48px;justify-content:center}
+@media(prefers-reduced-motion:reduce){.celebc,.celebc>i{animation:none}.celebc>i{display:none}}
 .wgoal{display:grid;gap:6px;max-width:420px}.wgoal:empty{display:none}
 .wgline{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;color:var(--navy);font-size:16px}.wgline.wgdone{color:var(--green)}
 .wgchg{border:0;background:none;padding:10px 0;margin:-10px 0;font:inherit;font-size:13px;font-weight:800;color:var(--muted);text-decoration:underline;cursor:pointer}

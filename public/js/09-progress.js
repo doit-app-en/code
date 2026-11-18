@@ -34,7 +34,8 @@ function progressData() {
 }
 // Call after every finished activity: remembers when the student last practised, then updates the teacher.
 async function onActivity() {
-  activity.last = Date.now(); activity.days = activity.days || {}; activity.days[todayKey()] = (activity.days[todayKey()] || 0) + 1;
+  activity.last = Date.now(); activity.days = activity.days || {}; const first = !activity.days[todayKey()]; activity.days[todayKey()] = (activity.days[todayKey()] || 0) + 1;
+  if (first) { const n = streakInfo().streak; if (MILESTONES.includes(n)) setTimeout(() => celebrateStreak(n), 900); }   // after the result of the activity is on the screen
   await DB.put('kv', 'activity', activity); syncProgress();
 }
 async function markLessonDone(id) { if (!lessonsDone[id]) { lessonsDone[id] = Date.now(); await DB.put('kv', 'lessonsDone', lessonsDone); } onActivity(); }
@@ -61,13 +62,48 @@ function syncLineHTML() {
 function drawSyncLine() { const el = $('#syncLine'); if (!el) return; el.innerHTML = syncLineHTML(); const b = $('#syncRetry'); if (b) b.onclick = sendProgress; }
 // Practice streak and this week (Sunday first), from the per-day activity count already saved on this device.
 // A day counts when at least one activity was finished. Today not done yet does not break the streak.
+// Rest day: one missed day in each week (Sunday to Saturday) does not break the streak, as long as the day before it was
+// a practice day (so two missed days in a row always end it). A rest day keeps the streak but is not counted in it.
+const MILESTONES = [3, 7, 14, 30];
+function streakRun(n, now = new Date()) {   // the streak that ends n days ago: {streak, rests: [day keys], end: first n outside it}
+  const days = activity.days || {}, at = k => { const d = new Date(now); d.setDate(d.getDate() - k); return d; }, has = k => !!days[todayKey(at(k))];
+  let streak = 0; const rests = [], used = {};
+  while (n < 3660) {
+    if (has(n)) { streak++; n++; continue; }
+    const wk = todayKey(at(n + at(n).getDay()));   // the Sunday that starts that day's week
+    if (!used[wk] && has(n + 1)) { used[wk] = 1; rests.push(todayKey(at(n))); n++; continue; }
+    break;
+  }
+  return {streak, rests, end: n};
+}
 function streakInfo() {
   const days = activity.days || {}, has = d => !!days[todayKey(d)], now = new Date(), at = n => { const d = new Date(now); d.setDate(d.getDate() - n); return d; };
-  let streak = 0, n = has(now) ? 0 : 1; while (n < 3660 && has(at(n))) { streak++; n++; }
-  const dow = now.getDay(), week = [...Array(7)].map((_, i) => ({l: 'SMTWTFS'[i], on: i <= dow && has(at(dow - i)), today: i === dow}));
-  return {streak, today: has(now), week, weekDays: week.filter(d => d.on).length, total: Object.keys(days).length};
+  const run = streakRun(has(now) ? 0 : 1, now), streak = run.streak, rest = d => run.rests.includes(todayKey(d));
+  const dow = now.getDay(), week = [...Array(7)].map((_, i) => ({l: 'SMTWTFS'[i], on: i <= dow && has(at(dow - i)), rest: i <= dow && rest(at(dow - i)), today: i === dow}));
+  // The longest streak this device has seen (for the milestone badges), and the first day since the oldest saved one.
+  const keys = Object.keys(days).sort(), span = keys.length ? Math.min(3660, Math.round((new Date(todayKey(now)) - new Date(keys[0])) / DAY) + 1) : 0;
+  let best = streak; for (let n = 0; n <= span;) { if (!has(at(n))) { n++; continue; } const r = streakRun(n, now); best = Math.max(best, r.streak); n = r.end; }
+  return {streak, best, today: has(now), week, weekDays: week.filter(d => d.on).length, total: keys.length, rests: run.rests, restSaved: !has(now) && rest(at(1)),
+    restLeft: !week.some(d => d.rest), next: MILESTONES.find(m => m > streak) || 0};
 }
-const weekDotsHTML = s => `<div class="wk">${s.week.map(d => `<span class="${d.on ? 'on' : ''}${d.today ? ' now' : ''}">${d.l}</span>`).join('')}</div>`;
+// Streak milestones: a short celebration the first time today's practice takes the streak to 3, 7, 14 or 30 days.
+const MILE_TEXT = {3: ['Three days in a row!', 'A great start. Small steps every day make your English strong.'], 7: ['A whole week!', 'Seven days in a row. You are building a real habit.'],
+  14: ['Two weeks in a row!', 'Fourteen days of English. Your hard work is showing.'], 30: ['Thirty days in a row!', 'A whole month of English. You are a champion!']};
+function celebrateStreak(n) {
+  const old = $('#celebrate'); if (old) old.remove();
+  const t = MILE_TEXT[n], nx = MILESTONES.find(m => m > n), el = document.createElement('div'); el.id = 'celebrate'; el.className = 'celeb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'celebT');
+  el.innerHTML = `<div class="celebc">${[...Array(14)].map((_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i % 7) * .12}s;--c:${['var(--sun)', 'var(--green)', 'var(--coral,#ff6b6b)', 'var(--teal,#2ec4b6)'][i % 4]}"></i>`).join('')}
+    <div class="celebf">🔥</div><div class="celebn">${n}</div><h2 id="celebT">${t[0]}</h2><p>${t[1]}</p>
+    <div class="miles">${MILESTONES.map(m => `<span class="${m <= n ? 'on' : ''}">${m}</span>`).join('')}</div>
+    <small>${nx ? `Next: ${nx} days in a row.` : 'You have reached every streak badge!'}</small>
+    <button type="button" class="btn sun" id="celebOk">Keep going →</button></div>`;
+  document.body.appendChild(el);
+  const close = () => { el.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
+  $('#celebOk').onclick = close; el.onclick = e => { if (e.target === el) close(); }; document.addEventListener('keydown', key); $('#celebOk').focus();
+}
+const milesHTML = s => `<div class="miles" id="miles" role="img" aria-label="Streak badges: ${MILESTONES.filter(m => s.best >= m).join(', ') || 'none yet'}">${MILESTONES.map(m => `<span class="${s.best >= m ? 'on' : ''}" title="${m} days in a row">${m}</span>`).join('')}<small>${s.next ? `Next badge: ${s.next} days in a row` : 'Every streak badge is yours!'}</small></div>`;
+const restHTML = s => `<small class="restline" id="restLine">💤 ${s.restLeft ? 'One free rest day a week: if you miss one day, your streak is safe.' : 'Your rest day this week is used. Practise every day until Sunday to keep your streak.'}</small>`;
+const weekDotsHTML = s => `<div class="wk">${s.week.map(d => `<span class="${d.on ? 'on' : d.rest ? 'rest' : ''}${d.today ? ' now' : ''}"${d.rest ? ' title="Rest day"' : ''}>${d.rest ? '💤' : d.l}</span>`).join('')}</div>`;
 // Weekly goal: the student picks 2, 3 or 5 practice days a week (kept on this device in localStorage 'die_goal').
 // The week is Sunday to Saturday, the same as the week dots. `<div class="wgoal" id="wgoal"></div>` + drawGoal() shows it.
 const GOALS = [2, 3, 5];
@@ -113,9 +149,10 @@ function renderProgress() {
     <div class="grow">
       <h2 class="baloo" style="margin:0;font-size:30px;color:var(--navy)">Your progress: <span style="color:${col}">${p.overall}%</span></h2>
       <p class="hint" style="margin:2px 0 10px">${p.done} of ${p.total} activities done · Last practised: <b>${idleText(idle)}</b></p>
-      <div class="wk">${last7.map(d => `<span class="${activity.days && activity.days[d.k] ? 'on' : ''}" title="${d.k}">${d.l}</span>`).join('')}<small>${week} of the last 7 days</small></div>
+      <div class="wk">${last7.map(d => `<span class="${activity.days && activity.days[d.k] ? 'on' : sk.rests.includes(d.k) ? 'rest' : ''}" title="${sk.rests.includes(d.k) ? 'Rest day' : d.k}">${sk.rests.includes(d.k) ? '💤' : d.l}</span>`).join('')}<small>${week} of the last 7 days</small></div>
       <div class="wgoal" id="wgoal"></div>
-      <p class="pgstreak">🔥 <b>${sk.streak}</b> day${sk.streak === 1 ? '' : 's'} in a row${sk.streak && !sk.today ? ' — practise today to keep it!' : sk.streak ? ' — well done!' : ' — finish one activity today to start your streak.'}</p>
+      <p class="pgstreak">🔥 <b>${sk.streak}</b> day${sk.streak === 1 ? '' : 's'} in a row${sk.restSaved ? ' — your rest day kept it safe. Practise today!' : sk.streak && !sk.today ? ' — practise today to keep it!' : sk.streak ? ' — well done!' : ' — finish one activity today to start your streak.'}</p>
+      ${milesHTML(sk)}${restHTML(sk)}
       ${p.placement ? `<p style="margin:10px 0 0;font-weight:700">🎯 Placement test level: <b>${esc(p.placement)}</b></p>` : ''}
     </div>
   </div>

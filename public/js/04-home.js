@@ -20,8 +20,8 @@ function renderHome() {
     <div class="hero-photo"><img src="photos/hero.jpg" srcset="photos/hero-800.jpg 800w, photos/hero-1200.jpg 1200w, photos/hero.jpg 1600w" sizes="(max-width:860px) 100vw, 560px" alt="Students studying English together" loading="eager" fetchpriority="high" width="1600" height="1067"></div>
   </section>
   ${back ? `<section class="today" id="today">
-    <div class="tstreak${sk.streak ? ' lit' : ''}"><i>🔥</i><b>${sk.streak}</b><small>day${sk.streak === 1 ? '' : 's'} in a row</small></div>
-    <div class="tweek"><strong>${sk.today ? 'Done for today — great work! ✅' : sk.streak ? 'Practise today to keep your streak!' : 'Finish one activity today to start a streak.'}</strong>
+    <div class="tstreak${sk.streak ? ' lit' : ''}"><i>🔥</i><b>${sk.streak}</b><small>day${sk.streak === 1 ? '' : 's'} in a row</small>${sk.next && sk.streak ? `<em id="tnextm">🏅 ${sk.next - sk.streak} to go</em>` : ''}</div>
+    <div class="tweek"><strong>${sk.today ? 'Done for today — great work! ✅' : sk.restSaved ? 'Your rest day saved your streak 💤 Practise today!' : sk.streak ? 'Practise today to keep your streak!' : 'Finish one activity today to start a streak.'}</strong>
       ${weekDotsHTML(sk)}<div class="wgoal" id="wgoal"></div><small><span id="wkCount">${sk.weekDays} day${sk.weekDays === 1 ? '' : 's'} this week${pl || student ? ' · ' : ''}</span>${[pl ? `⭐ Your level: <b style="color:${pl.color}">${pl.name}</b>` : '', student ? `📈 ${progressData().overall}% done` : ''].filter(Boolean).join(' · ')}</small></div>
     ${next ? `<a class="tnext" href="${next.href}"><small>${sk.total ? 'Continue where you stopped' : 'Start here'}</small><span>${next.icon} ${esc(next.text)}</span><em>Go →</em></a>` : ''}
   </section>` : ''}

@@ -80,6 +80,21 @@ for (const screen of SCREENS) {
     await page.evaluate(() => { localStorage.removeItem('die_goal'); activity = window._keepAct; location.hash = '#/'; }); await page.waitForTimeout(300);
     if (g.opts !== 3 || !/1 of 3 days this week/.test(g.set) || !g.count || !/1 of 3 days this week/.test(g.kept) || g.bar !== '33%' || !(g.sunday ? /Pick a weekly goal/.test(g.hit) : /goal reached: 2 of 2 days/.test(g.hit)) || !g.progress.trim() || g.over > 1)
       problems.push(`${screen.name} home: the weekly goal is wrong ` + JSON.stringify(g)); }
+  // Streak: one rest day a week keeps it, two missed days in a row end it, and reaching 3 days shows the celebration once. Screenshots for the eye.
+  { const k = await page.evaluate(async () => { const keep = activity, a = {}, key = n => { const d = new Date(); d.setDate(d.getDate() - n); return todayKey(d); }, set = (...ns) => { activity = { last: Date.now(), days: Object.fromEntries(ns.map(n => [key(n), 1])) }; };
+      set(0, 1, 3, 4); a.rest = streakInfo().streak + '/' + streakInfo().rests.length; set(0, 1, 4, 5); a.two = streakInfo().streak; set(2, 3); a.saved = streakInfo().streak + '/' + streakInfo().restSaved; a.best = (set(0, 5, 6, 7, 8), streakInfo().best);
+      const wed = new Date(2026, 10, 18, 12), fix = (...ds) => { activity = { days: Object.fromEntries(ds.map(d => [todayKey(new Date(2026, 10, d)), 1])) }; return streakRun(0, wed); };
+      a.sameWeek = fix(18, 16, 14).streak; a.twoWeeks = fix(18, 16, 15, 14, 12).streak;   // Tue 17 + Sun 15 are in one week: only one is free; Tue 17 + Fri 13 are in two weeks
+      set(1, 2); await onActivity(); await new Promise(r => setTimeout(r, 1100)); const c = document.querySelector('#celebrate'); a.celeb = c ? c.querySelector('.celebn').textContent + ' ' + c.querySelectorAll('.miles .on').length : ''; a.over = document.documentElement.scrollWidth - innerWidth;
+      window._keepAct = keep; return a; });
+    await page.screenshot({ path: path.join(shots, `${screen.name}-streak-celebration.png`) });
+    k.closed = await page.evaluate(async () => { const b = document.querySelector('#celebOk'); if (b) b.click(); const gone = !document.querySelector('#celebrate'); await onActivity(); await new Promise(r => setTimeout(r, 1100)); const again = !!document.querySelector('#celebrate');
+      const key = n => { const d = new Date(); d.setDate(d.getDate() - n); return todayKey(d); }; activity = { last: Date.now(), days: { [key(0)]: 1, [key(1)]: 1, [key(3)]: 1, [key(4)]: 1 } }; location.hash = '#/progress'; return gone && !again; });
+    await page.waitForTimeout(300); k.badges = await page.evaluate(() => { const m = document.querySelector('#miles'); if (m) m.scrollIntoView({ block: 'center', behavior: 'instant' }); return document.querySelectorAll('#miles .on').length + '/' + document.querySelectorAll('.pgtop .wk .rest').length + '/' + !!document.querySelector('#restLine'); }); await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(shots, `${screen.name}-progress-streak-badges.png`) });
+    await page.evaluate(async () => { activity = window._keepAct; await DB.put('kv', 'activity', activity); location.hash = '#/'; }); await page.waitForTimeout(300);
+    if (k.rest !== '4/1' || k.two !== 2 || k.saved !== '2/true' || k.best !== 4 || k.sameWeek !== 2 || k.twoWeeks !== 5 || k.celeb !== '3 1' || !k.closed || k.badges !== '1/1/true' || k.over > 1)
+      problems.push(`${screen.name} streak: rest day, badges or celebration is wrong ` + JSON.stringify(k)); }
   for (const route of ROUTES) await visit(page, screen, route, 'student');
   await page.evaluate(() => { mode = 'teacher'; setModeButtons(); render(); });
   for (const route of TEACHER_ROUTES) await visit(page, screen, route, 'teacher');
