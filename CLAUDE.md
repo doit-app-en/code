@@ -46,6 +46,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
   without them the page falls back to the browser's speech recognition ("basic check"). `GET /api/voice` tells the page what is switched on.
   The teacher's Students page asks `POST /api/voice {action:'latest', key}` (teacher key) for each student's newest test and shows it in a "Voice test" column.
   `{action:'history', key, email}` lists all of one student's tests (the "Show all N tests" button); the table's class filter and order are `studentRows()` in `09-progress.js`.
+  Pronounce (`07-pronounce.js`): a letter's list, test and result share one address (`#/pronounce/B`; `PR.mode` says which), so "Back" from the test or result is handled by `pronLeave()`; the words a student has listened to are kept on the device (IndexedDB `pronHeard`).
   The Pronounce test (`07-pronounce.js`) uses the same service for one word at a time (`{action:'word'}`, `pronSvc()` / `prRecord()`), with its own daily counter (kind `pron`), and falls back to the browser's recognition when the service is off, refuses or the student is not registered.
   Paid calls need a registered student and are limited per day by `usage_take()` in the database. The owner has set the Azure keys in production and reported on 2026-11-18 that a real spoken test and the Students column work.
 - Database tables have Row Level Security on and **no policies**: only `api/` (service-role key) can reach them.

@@ -85,11 +85,12 @@ function render(keepScroll) {
   stopAll();
   const route = location.hash || '#/';
   markNav(route);
-  if (!keepScroll && route !== lastRoute) window.scrollTo(0, 0);
+  const arrived = route !== lastRoute;
+  if (!keepScroll && arrived) window.scrollTo(0, 0);
   lastRoute = route;
   const p = route.replace(/^#\/?/, '').split('/');
   if (p[0] === 'placement') return renderPlacement();
-  if (p[0] === 'pronounce') return renderPron(p[1]);
+  if (p[0] === 'pronounce') return renderPron(p[1], arrived);
   if (p[0] === 'listening') return renderListen(p[1]);
   if (p[0] === 'speaking') return renderSpeaking(p.slice(1).join('/'));
   if (p[0] === 'voicetest') return renderVoiceTest(p.slice(1).join('/'));

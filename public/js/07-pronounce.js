@@ -271,12 +271,23 @@ function scaleHTML(p, label, big) {
 let pronBest = {}, PR = {}, pronSlow = false;
 const pronSecs = () => state.pron.sections;
 const secWords = sec => [...new Map(sec.groups.flatMap(g => g.words).map(w => [w.toLowerCase(), w])).values()];
-const pronHeard = {};   // letter -> Set of words listened to (this visit)
+const pronHeard = {};   // letter -> Set of words listened to; kept on the device (IndexedDB 'pronHeard': {letter: [words]}) so a reload does not lose them
+const saveHeard = () => DB.put('kv', 'pronHeard', Object.fromEntries(Object.entries(pronHeard).filter(([, v]) => v.size).map(([k, v]) => [k, [...v]])));
+function loadHeard(o) { if (o && typeof o === 'object') for (const k in o) if (Array.isArray(o[k])) pronHeard[k] = new Set(o[k].map(String)); }
+// Back to the letter's own page from its test or result (same address, so the router does not see a change).
+function pronLeave() {
+  if (PR.mode === 'test' && PR.scores && PR.scores.length && !confirm('Leave the test? Your answers so far will not be saved.')) return;
+  stopAll(); PR = {sec: PR.sec, mode: 'listen'}; renderPron(PR.sec); window.scrollTo(0, 0);
+}
+app.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href]'); if (!a || !PR.sec || (PR.mode !== 'test' && PR.mode !== 'done')) return;
+  if (a.getAttribute('href') === '#/pronounce/' + PR.sec && location.hash === '#/pronounce/' + PR.sec) { e.preventDefault(); pronLeave(); }
+});
 
-function renderPron(id) {
+function renderPron(id, arrived) {   // arrived: the student came here from another page (not a redraw of this one)
   if (!id) return renderPronIndex();
   const sec = pronSecs().find(s => s.id === id); if (!sec) return go('#/pronounce');
-  if (PR.sec !== id) PR = {sec: id, mode: 'listen'};
+  if (PR.sec !== id || (arrived && PR.mode === 'done')) PR = {sec: id, mode: 'listen'};   // an old result is not shown again; an unfinished test goes on
   pronHeard[id] = pronHeard[id] || new Set();
   if (PR.mode === 'test') return renderPronTest(sec);
   if (PR.mode === 'done') return renderPronDone(sec);
@@ -298,7 +309,8 @@ function renderPronIndex() {
 }
 function renderPronListen(sec) {
   const words = secWords(sec), heard = pronHeard[sec.id], T = mode === 'teacher';
-  const left = words.filter(w => !heard.has(w.toLowerCase())).length, ready = !left || T, b = pronBest[sec.id];
+  const left = words.filter(w => !heard.has(w.toLowerCase())).length, b = pronBest[sec.id], none = !words.length;
+  const ready = !none && (!left || T || !!b);   // a letter tested before can be tested again without listening to every word again
   const all = pronSecs(), idx = all.indexOf(sec), prev = all[idx - 1], next = all[idx + 1];
   const nTest = Math.min(PRON_N, words.length);
   app.innerHTML = `
@@ -317,17 +329,17 @@ function renderPronListen(sec) {
   </div>
   <div class="panel pcta ${ready ? 'ready' : ''}" style="margin-top:16px">
     <div><h3 class="sec-t">🎤 Step 2 · AI pronunciation test</h3>
-      <p class="hint" style="margin:0">${ready ? `Say ${nTest} random words from this letter. The AI listens and gives you a score out of 100%.` : `Listen to all the words first — <b id="leftN">${left}</b> word${left === 1 ? '' : 's'} left.`}</p>
+      <p class="hint" style="margin:0">${none ? 'There are no words for this letter yet.' : ready ? `Say ${nTest} random words from this letter. The AI listens and gives you a score out of 100%.` : `Listen to all the words first — <b id="leftN">${left}</b> word${left === 1 ? '' : 's'} left.`}</p>
       ${b ? `<div style="margin-top:10px;max-width:420px">${scaleHTML(b.best, 'Your best score')}</div>` : ''}</div>
-    <button class="btn sun" id="startPT" ${ready ? '' : 'disabled'}>${ready ? '🎤 Start the test' : '🔒 Listen first'}</button>
+    <button class="btn sun" id="startPT" ${ready ? '' : 'disabled'}>${ready ? '🎤 Start the test' : none ? '🔒 No words yet' : '🔒 Listen first'}</button>
   </div>
   ${T ? pronEditor(sec) : ''}`;
   const markHeard = w => {
-    if (heard.has(w.toLowerCase())) return; heard.add(w.toLowerCase());
+    if (heard.has(w.toLowerCase())) return; heard.add(w.toLowerCase()); saveHeard();
     const n = words.filter(x => heard.has(x.toLowerCase())).length;
     $('#hcount').textContent = n; $('#hbar').style.width = n / words.length * 100 + '%';
     app.querySelectorAll('.pw').forEach(b => { if (b.dataset.w.toLowerCase() === w.toLowerCase()) b.classList.add('done'); });
-    if (n === words.length && !T) renderPronListen(sec);
+    if (n === words.length && !T && !ready) renderPronListen(sec);
     else if ($('#leftN')) $('#leftN').textContent = words.length - n;
   };
   const speakW = (w, cb) => { app.querySelectorAll('.pw').forEach(b => b.classList.toggle('now', b.dataset.w === w)); say(w, () => { markHeard(w); cb && cb(); }, pronSlow ? 0.6 : 0.85); };
@@ -425,12 +437,13 @@ function renderPronTest(sec) {
     recog = new SR(); recog.lang = LANG; recog.interimResults = false; recog.maxAlternatives = 5;
     recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… say the word now'; };
     recog.onresult = e => { got = true; show(scoreWord(w, [...e.results[0]].map(a => a.transcript))); };
-    recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + e.error + '). Try again.'; };
+    recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : e.error === 'aborted' ? 'Press the microphone and say the word' : 'Something went wrong (' + e.error + '). Try again.'; };
     recog.onend = () => { mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and say the word'; };
     try { recog.start(); } catch (e) { recog = null; }
   };
 }
 async function finishPron(sec) {
+  if (!PR.scores.length) { PR = {sec: sec.id, mode: 'listen'}; return renderPron(sec.id); }
   const avg = Math.round(PR.scores.reduce((a, b) => a + b, 0) / PR.scores.length);
   const prev = pronBest[sec.id];
   pronBest[sec.id] = {best: Math.max(avg, prev ? prev.best : 0), last: avg, date: new Date().toISOString()};

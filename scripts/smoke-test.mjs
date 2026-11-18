@@ -397,6 +397,53 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// A whole Pronounce letter on a phone with a pretend voice and a pretend speech recogniser: listening unlocks the test, a reload keeps the
+// listened words, the test gives a result, and "Back" leaves the result and an unfinished test (they have the letter's own address).
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage(), L = 'pronounce letter';
+  watch(page, L);
+  try {
+    await page.addInitScript(() => {
+      window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { setTimeout(() => { if (this.onstart) this.onstart(); setTimeout(() => { if (this.onresult) this.onresult({ results: [[{ transcript: window._heard || '' }]] }); if (this.onend) this.onend(); }, 40); }, 10); } stop() {} abort() {} };
+      Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { speaking: false, pending: false, getVoices: () => [{ name: 'UK', lang: 'en-GB', localService: true }], cancel() {}, resume() {}, pause() {}, addEventListener() {}, speak(u) { setTimeout(() => u.onend && u.onend(), 10); } } });
+      window.SpeechSynthesisUtterance = class { constructor(t) { this.text = t; } };
+    });
+    await page.goto(base + '/#/pronounce/B', { waitUntil: 'load' }); await page.waitForSelector('#startPT', { timeout: 10000 });
+    if (!await page.$eval('#startPT', b => b.disabled)) problems.push(L + ': the test can be started before any word was listened to');
+    await page.click('.pw'); await page.waitForSelector('.pw.done', { timeout: 5000 }); await page.waitForTimeout(150);
+    await page.reload({ waitUntil: 'load' }); await page.waitForSelector('#startPT', { timeout: 10000 });
+    if (await page.$eval('#hcount', b => b.innerText.trim()) !== '1') problems.push(L + ': a listened word was forgotten after a reload');
+    await page.click('#playAll'); await page.waitForFunction(() => !document.querySelector('#startPT').disabled, null, { timeout: 30000 });
+    await page.click('#startPT'); await page.waitForSelector('#pMic', { timeout: 5000 });
+    const n = await page.evaluate(() => PR.words.length);
+    for (let i = 0; i < n; i++) {
+      if (i === 1) { await page.click('#pSkip'); await page.waitForTimeout(60); continue; }
+      await page.evaluate(() => { window._heard = PR.words[PR.i]; }); await page.click('#pMic');
+      await page.waitForFunction(() => /100%/.test((document.querySelector('#pRes .ring') || {}).innerText || ''), null, { timeout: 5000 });
+      if (i === 0) await page.screenshot({ path: path.join(shots, 'phone-pronounce-test.png'), fullPage: true });
+      await page.click('#pNext'); await page.waitForTimeout(60);
+    }
+    await page.waitForSelector('#again', { timeout: 5000 });
+    const done = await page.evaluate(() => ({ best: (pronBest.B || {}).best, over: document.documentElement.scrollWidth - innerWidth }));
+    if (done.best !== Math.round((n - 1) * 100 / n) || done.over > 1) problems.push(L + ': wrong result after the test ' + JSON.stringify(done));
+    await page.screenshot({ path: path.join(shots, 'phone-pronounce-result.png'), fullPage: true });
+    await page.click('.backbtn'); await page.waitForTimeout(250);
+    if (!await page.$('#playAll')) problems.push(L + ': "Back" on the result page does not go back to the letter');
+    if (await page.$eval('#startPT', b => b.disabled)) problems.push(L + ': a letter tested before cannot be tested again');
+    await page.click('#startPT'); await page.waitForSelector('#pMic', { timeout: 5000 });
+    await page.click('.backbtn'); await page.waitForTimeout(250);
+    if (!await page.$('#playAll')) problems.push(L + ': "Back" in the test does not go back to the letter');
+    // The result is not shown again when the letter is opened later from the list.
+    await page.evaluate(() => { PR = { sec: 'B', mode: 'done', avg: 50, log: [] }; location.hash = '#/pronounce'; }); await page.waitForSelector('.pcard', { timeout: 5000 });
+    await page.click('.pcard[data-go="#/pronounce/B"]'); await page.waitForTimeout(250);
+    if (!await page.$('#playAll')) problems.push(L + ': opening the letter from the list shows the old result');
+    // A letter with no words (a teacher emptied it) cannot start a test.
+    await page.evaluate(() => { pronSecs().find(s => s.id === 'B').groups = []; renderPron('B'); });
+    if (!await page.$eval('#startPT', b => b.disabled)) problems.push(L + ': a letter with no words can start a test');
+  } catch (e) { problems.push(L + ': could not check — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, a whole pronounce letter, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

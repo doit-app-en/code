@@ -12,7 +12,7 @@
   results = (await DB.get('kv', 'results')) || [];
   await loadMedia(ptSet().musicM);
   if (!state.pron || !Array.isArray(state.pron.sections)) { state.pron = {sections: defaultPron()}; await save(); }
-  pronBest = (await DB.get('kv', 'pron')) || {};
+  pronBest = (await DB.get('kv', 'pron')) || {}; loadHeard(await DB.get('kv', 'pronHeard'));
   if (!state.listen || !Array.isArray(state.listen.exercises)) { state.listen = {exercises: defaultListen(), v: LISTEN_V}; await save(); }
   if (upgradeListen() | groupListen()) await save();
   listenBest = (await DB.get('kv', 'listenById')) || {};
