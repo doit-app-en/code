@@ -30,7 +30,7 @@ function renderHome() {
     ${step(2, sk.total > 0 && !!pl, pl ? '#/level/' + pl.id : '#levels', 'Open your level', 'Videos, picture stories and games')}
     ${step(3, sk.streak >= 3, next ? next.href : '#/listening', 'Practise every day', '5 minutes a day builds your streak 🔥')}
   </div></section>` : ''}
-  ${mistLinkHTML()}
+  ${mistLinkHTML()}${mixLinkHTML()}
   <section class="features">
     <div class="feat"><div class="fi" style="background:#ffe6e6">🎬</div><div><b>Video lessons</b><small>Meet new phrases on screen</small></div></div>
     <div class="feat"><div class="fi" style="background:#fff2cc">🎧</div><div><b>Listen & See</b><small>Voice tracks with pictures</small></div></div>

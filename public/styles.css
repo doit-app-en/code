@@ -144,6 +144,9 @@ audio{width:100%;margin-bottom:16px}
 .chip:hover{background:#e3e9ff}
 .chip.over{border-color:var(--sky)}
 .chip.done{background:var(--pc);color:#fff}
+/* The Students page has small status labels that are also called .chip (further down): without these two lines the words to match were white on white and tiny. */
+.mwords .chip{display:block;padding:15px 16px;border-radius:16px;font-size:18px;color:var(--navy);white-space:normal}
+.mwords .chip.done{color:#fff}
 .shake{animation:shake .45s}
 @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 .bad{border-color:var(--coral)!important}
@@ -915,4 +918,24 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .pgst b{font-size:26px}.pgst b.w{font-size:16px}.pgst small{font-size:12px}
   .pggrid .panel{padding:18px 16px;border-radius:22px}
   .pgletters a{height:44px}
+}
+
+/* Mixed match (09c-mixed-match.js): the link, the 60-second round and its result */
+.mistk.mixk{background:#e6f8f5;border-color:#b9ebe4}.mistk.mixk>i{background:var(--teal)}.mistk.mixk>em{color:#0b7d72}.mistk.mixk small strong{color:var(--navy)}
+.mxintro{margin-top:0}.mxintro .btn{min-width:200px;min-height:48px;font-size:18px}.mxbest{font-size:17px}.mxbest b{color:var(--navy)}
+.mxtop{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;font-weight:800;color:var(--navy)}
+.mxtime{font-size:22px;font-variant-numeric:tabular-nums;background:#e6f8f5;border-radius:99px;padding:4px 14px}.mxtime.low{background:#ffecec;color:#b93232}
+.mxscore{font-size:18px;margin-left:auto}.mxscore b{font-size:24px}.mxb{font-size:15px;color:var(--muted)}.mxb b{color:var(--navy)}
+.mxbar{margin:10px 0 18px}.mxbar i{background:var(--teal);transition:width .2s linear}
+.mxgame .tagn{font-size:15px}
+.mxend .mxsum{margin:0 0 6px;font-size:20px;color:var(--navy)}.mxend .mxsum b{font-size:28px}.mxend .btn{min-height:48px}
+@media(max-width:560px){
+  #mxBody{padding:14px 12px}.mxintro{padding:20px 12px}.mxintro .btn{width:100%}
+  .mxtime{font-size:19px;padding:4px 12px}.mxscore{font-size:16px}.mxscore b{font-size:21px}.mxb{font-size:14px}.mxbar{margin:8px 0 12px}
+  .mxgame .match{gap:14px}.mxgame .mpics{grid-template-columns:1fr 1fr;gap:10px}.mxgame .mcard{height:104px;padding:6px;border-width:3px}
+  .mxgame .mcard .emo{font-size:56px}.mxgame .mcard .pic img{max-height:84px}
+  .mxgame .mwords{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mxgame .chip{min-height:58px;padding:8px 6px;font-size:16px;line-height:1.2;border-width:3px;display:grid;place-items:center}
+  .mxgame .tagn{width:24px;height:24px;top:-8px;right:-8px}
+  .mxend .row .btn{flex:1 1 100%}
 }

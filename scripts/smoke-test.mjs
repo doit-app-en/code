@@ -191,6 +191,47 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Mixed match on a phone: locked until two lessons are finished, then a short round (MIX_SECS shortened) with one wrong pair,
+// the result, the student's own best kept on the device, and a second round that does not beat it.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage();
+  watch(page, 'mixed match');
+  try {
+    await page.goto(base + '/#/', { waitUntil: 'load' }); await page.waitForSelector('.lvl', { timeout: 10000 });
+    const finish = n => page.evaluate(async n => { state.levels.a1.lessons.slice(0, n).forEach(s => { lessonsDone[s.id] = Date.now(); }); await DB.put('kv', 'lessonsDone', lessonsDone); renderHome(); return !!document.querySelector('#mixGo'); }, n);
+    const a = { none: await page.evaluate(() => !document.querySelector('#mixGo')), one: await finish(1) };
+    await page.evaluate(() => { location.hash = '#/mixmatch'; }); await page.waitForSelector('#mxLocked', { timeout: 5000 });
+    await page.evaluate(() => { location.hash = '#/'; }); await page.waitForSelector('.lvl'); a.two = await finish(2);
+    a.home = await page.evaluate(() => { const e = document.querySelector('#mixGo'); e.scrollIntoView({ block: 'center', behavior: 'instant' }); return e.innerText.replace(/\s+/g, ' '); }); await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(shots, 'phone-home-mixed-match.png') });
+    await page.click('#mixGo'); await page.waitForSelector('#mxIntro', { timeout: 5000 }); await page.waitForTimeout(150);
+    await page.screenshot({ path: path.join(shots, 'phone-mixed-match-intro.png') });
+    // One round: `wrong` wrong pairs first, then `right` correct ones through the real cards. Returns what the end box says.
+    const round = async (secs, right, wrong, shot) => {
+      await page.evaluate(s => { MIX_SECS = s; }, secs); await page.click('[data-act=start]'); await page.waitForSelector('#mxGame', { timeout: 5000 });
+      for (let n = 0; n < wrong; n++) { await page.click('#mxGame .mcard[data-mi="0"]'); await page.click('#mxGame .chip[data-wi="1"]'); }
+      for (let n = 0; n < right; n++) {
+        const i = await page.evaluate(() => MX.board.findIndex((_, i) => MX.done[i] === undefined));
+        await page.click(`#mxGame .mcard[data-mi="${i}"]`); await page.click(`#mxGame .chip[data-wi="${i}"]`);
+        if (shot && n === 1) { await page.waitForTimeout(150); await page.screenshot({ path: path.join(shots, 'phone-mixed-match-game.png') });
+          const g = await page.evaluate(() => ({ over: document.documentElement.scrollWidth - innerWidth, low: Math.round(document.querySelector('#mxGame').getBoundingClientRect().bottom - document.querySelector('.tabbar').getBoundingClientRect().top), small: [...document.querySelectorAll('#mxGame .chip')].filter(c => c.getBoundingClientRect().height < 44).length, white: [...document.querySelectorAll('#mxGame .chip:not(.done)')].filter(c => getComputedStyle(c).color === 'rgb(255, 255, 255)').length }));   // white: a word nobody can read (it happened in the lesson Match)
+          if (g.over > 1 || g.low > 0 || g.small || g.white) problems.push('mixed match: the game does not fit a phone screen ' + JSON.stringify(g)); }
+      }
+      await page.waitForSelector('#mxEnd', { timeout: secs * 1000 + 4000 });
+      return page.evaluate(async () => document.querySelector('#mxEnd').innerText.replace(/\s+/g, ' ') + ' | saved ' + ((await DB.get('kv', 'mixBest')) || {}).best + ' | over ' + (document.documentElement.scrollWidth - innerWidth));
+    };
+    const r1 = await round(4, 6, 1, true); await page.waitForTimeout(150); await page.screenshot({ path: path.join(shots, 'phone-mixed-match-result.png') });
+    const mid = await page.evaluate(() => ({ mist: Object.keys(mistakes).length, days: activity.days[todayKey()] || 0, link: !!document.querySelector('#mxBody #mistGo') }));
+    const r2 = await round(2, 2, 0);
+    await page.evaluate(() => { MIX_SECS = 60; location.hash = '#/'; }); await page.waitForSelector('#mixGo', { timeout: 5000 });
+    const end = await page.evaluate(() => { const home = document.querySelector('#mixGo').innerText.replace(/\s+/g, ' '); mode = 'teacher'; renderHome(); const teacher = !!document.querySelector('#mixGo'); mode = 'student'; renderProgress(); return { home, teacher, progress: !!document.querySelector('#mixGo') }; });
+    if (!a.none || a.one || !a.two || !/Mixed match · 60 seconds/.test(a.home) || /best/i.test(a.home) || !/New best!.*You matched 6 pairs.*Mistakes: 1 .*\| saved 6 \| over 0/.test(r1) || mid.mist !== 1 || mid.days < 1 || !mid.link
+      || !/Time is up!.*You matched 2 pairs.*Your best: 6 .*\| saved 6 \| over 0/.test(r2) || !/Your best: 6/.test(end.home) || end.teacher || !end.progress)
+      problems.push('mixed match: the round, the best score or the link is wrong ' + JSON.stringify({ a, r1, mid, r2, end }));
+  } catch (e) { problems.push('mixed match: could not finish — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 // The whole Voice level test with a fake microphone (the fake microphone says no words, so every score is 0).
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, permissions: ['microphone'] }), page = await ctx.newPage();
@@ -302,4 +343,4 @@ for (const screen of SCREENS) {
 
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes and every listening exercise on a phone, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

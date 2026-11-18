@@ -16,7 +16,7 @@
   if (!state.listen || !Array.isArray(state.listen.exercises)) { state.listen = {exercises: defaultListen(), v: LISTEN_V}; await save(); }
   if (upgradeListen() | groupListen()) await save();
   listenBest = (await DB.get('kv', 'listenById')) || {};
-  student = (await DB.get('kv', 'student')) || null; activity = (await DB.get('kv', 'activity')) || {last: null, days: {}}; lessonsDone = (await DB.get('kv', 'lessonsDone')) || {}; mistakes = (await DB.get('kv', 'mistakes')) || {}; tkey = (await DB.get('kv', 'tkey')) || '';
+  student = (await DB.get('kv', 'student')) || null; activity = (await DB.get('kv', 'activity')) || {last: null, days: {}}; lessonsDone = (await DB.get('kv', 'lessonsDone')) || {}; mistakes = (await DB.get('kv', 'mistakes')) || {}; mixBest = (await DB.get('kv', 'mixBest')) || {best: 0, plays: 0}; tkey = (await DB.get('kv', 'tkey')) || '';
   if (!state.speaking || !Array.isArray(state.speaking.tasks)) { state.speaking = {tasks: SP_TASKS_DEFAULT()}; await save(); }
   spHistory = (await DB.get('kv', 'speakHistory')) || []; await Promise.all(spHistory.map(r => loadMedia(r.media)));
   await autoLoadCourse();
