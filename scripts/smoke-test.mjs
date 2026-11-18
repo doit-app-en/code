@@ -444,6 +444,39 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Test your speaking on a phone with a pretend recogniser: topic → "← Back" → topic → record → result → "Choose another topic" → an old
+// recording → "← Back". The topic page and a fresh result have the list's own address, so these links once did nothing or showed the old result.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, permissions: ['microphone'] }), page = await ctx.newPage(), L = 'test your speaking';
+  watch(page, L);
+  try {
+    await page.addInitScript(() => { window.SpeechRecognition = window.webkitSpeechRecognition = class {
+      start() { this._t = setTimeout(() => { const parts = 'Hello my name is Sam and I live in a small town with my family. My mother is a teacher and he go to work by car every day. We like playing football together at the weekend because it is really good'.split('. '); if (this.onresult) this.onresult({ results: parts.map(p => Object.assign([{ transcript: p, confidence: 0.9 }], { isFinal: true })) }); }, 60); }
+      stop() { clearTimeout(this._t); setTimeout(() => this.onend && this.onend(), 20); } abort() { clearTimeout(this._t); } }; });
+    await page.goto(base + '/#/speaking', { waitUntil: 'load' }); await page.waitForSelector('[data-sp]', { timeout: 10000 });
+    const mode = () => page.evaluate(() => SPK.mode);
+    await page.click('[data-sp]'); await page.waitForSelector('#spGo', { timeout: 5000 });
+    await page.click('.backbtn'); await page.waitForTimeout(200);
+    if (await mode() !== 'pick') problems.push(L + ': "← Back" on a topic page does not return to the topics');
+    await page.click('[data-sp]'); await page.click('#spGo'); await page.waitForSelector('#spStop', { timeout: 5000 }); await page.waitForTimeout(300);
+    await page.evaluate(() => { SPK.rec.t0 -= 70000; }); await page.waitForTimeout(250);   // pretend 70 seconds have passed
+    await page.click('#spStop'); await page.waitForSelector('#spAgain', { timeout: 8000 });
+    const r = await page.evaluate(() => ({ words: SPK.rec.A.words, errs: SPK.rec.A.errors.length, n: spHistory.length, over: document.documentElement.scrollWidth - innerWidth }));
+    if (r.words < 30 || r.errs !== 1 || r.n !== 1) problems.push(L + ': the result is not what the recording said (' + JSON.stringify(r) + ')');
+    if (r.over > 1) problems.push(L + ': the result is ' + r.over + 'px wider than the screen');
+    await page.screenshot({ path: path.join(shots, 'phone-speaking-result.png') });
+    await page.click('.spfoot a[href="#/speaking"]'); await page.waitForTimeout(200);
+    if (await mode() !== 'pick' || !await page.$('.sphist')) problems.push(L + ': "Choose another topic" on a new result does not return to the topics');
+    await page.click('.sphist a'); await page.waitForSelector('#spAgain', { timeout: 5000 });
+    await page.click('.backbtn'); await page.waitForTimeout(300);
+    if (await mode() !== 'pick') problems.push(L + ': "← Back" from an old recording shows the recording again');
+    // A topic a teacher has not finished writing is not shown to students.
+    const cards = await page.evaluate(() => { state.speaking.tasks.push({ id: 'half', level: 'B1', register: 'informal', title: '', prompt: '', ideas: [] }); renderSpeaking(); return [...document.querySelectorAll('.sptask b')].filter(b => !b.innerText.trim()).length; });
+    if (cards) problems.push(L + ': a topic with no title is shown to students');
+  } catch (e) { problems.push(L + ': could not check — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, a whole pronounce letter, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

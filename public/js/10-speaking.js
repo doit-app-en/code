@@ -21,8 +21,8 @@ const SP_RULES = [
   {re: /\b(?:(he|she|it)\s+(don't|dont)|(i|you|we|they)\s+(doesn't|doesnt))\b/g, msg: "Use he / she / it doesn't, but I / you / we / they don't."},
   {re: /\b(doesn't|does not|don't|do not|didn't|did not|can't|cannot|couldn't|won't|wouldn't)\s+(goes|has|likes|wants|lives|works|plays|eats|comes|makes|takes|needs|thinks|knows|went|saw|ate|came|made|took|had)\b/g, msg: "After don't / doesn't / didn't / can't use the base verb (he doesn't go)."},
   {re: /\bmore\s+(better|bigger|easier|faster|cheaper|smaller|older|younger|happier|worse|harder|taller|stronger)\b|\bmost\s+(best|biggest|easiest|worst)\b/g, msg: "Use 'more' or '-er', not both (better, not 'more better')."},
-  {re: /\ba\s+([aeio][a-z]*)\b/g, ok: m => !/^(one|once|ouija)$/.test(m[1]), msg: "Use 'an' before a vowel sound (an apple, an hour)."},
-  {re: /\ban\s+([bcdfgjklmnpqrstvwxyz][a-z]*)\b/g, ok: m => !/^(hour|hours|hourly|honest|honour|honor|heir|mba|mp|sms|fbi|x|html|lcd|mri|nhs|sos|tv|hr)$/.test(m[1]), msg: "Use 'a' before a consonant sound (a book, a university)."},
+  {re: /\ba\s+([aeio][a-z]*)\b/g, ok: m => !/^(one|ones|once|ouija|eu[a-z]+|ewes?)$/.test(m[1]), msg: "Use 'an' before a vowel sound (an apple, an hour)."},
+  {re: /\ban\s+([bcdfgjklmnpqrstvwxyz][a-z]*)\b/g, ok: m => !/^(hours?|hourly|honest[a-z]*|honou?r[a-z]*|heir[a-z]*|mba|mp|sms|fbi|x|html|lcd|mri|nhs|sos|tv|hr)$/.test(m[1]), msg: "Use 'a' before a consonant sound (a book, a university)."},
   {re: /\ban\s+(university|uniform|union|unit|united|used|useful|user|usual|european|unique|universe|one)\b|\ba\s+(hour|honest|honour|honor|heir)\b/g, msg: "Check a / an before this word (a university, an hour)."},
   {re: /\b(yesterday|last\s+(?:night|week|month|year|summer|weekend|friday|saturday|sunday)|(?:two|three|four|five|few|several|\d+)\s+(?:days|weeks|months|years)\s+ago)\b(?:\s+\w+){0,3}?\s+(i|we|they|he|she)\s+(go|eat|see|have|come|make|take|buy|get|meet|visit|play|watch|spend|stay|travel|do)\b/g, msg: 'Use the past tense for finished time (I went, we visited).'},
   {re: /\b(i|we|they|he|she)\s+(go|eat|see|have|come|make|take|buy|get|meet|visit|play|watch|spend|stay|travel)\b(?:\s+\w+){0,4}?\s+(yesterday|last\s+(?:night|week|month|year|summer|weekend))\b/g, msg: 'Use the past tense for finished time (I went, we visited).'},
@@ -51,6 +51,8 @@ let SPK = {mode: 'pick'}, spHistory = [];
 const spClamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 const spTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 const spTask = id => state.speaking.tasks.find(t => t.id === id);
+const spOk = t => !!t && !!String(t.title || '').trim() && !!String(t.prompt || '').trim();   // a topic a teacher has finished writing: students see only these
+const spHere = () => (location.hash.split('/')[1] || '') === 'speaking';
 const spAIOn = () => !!syncUrl() && !!student && !!student.email;
 const REG_LABEL = {formal: 'Formal', informal: 'Informal', any: 'Any style'};
 
@@ -127,7 +129,7 @@ function spHighlight(rec) {
 }
 
 /* ---------- recording ---------- */
-function spAbort() { const r = SPK.rec; if (!r || r.ended) return; r.ended = true; spCleanup(r); SPK = {mode: 'pick'}; }
+function spAbort() { if (SPK.mode !== 'record') return; const r = SPK.rec; if (!r || r.ended) return; r.ended = true; spCleanup(r); SPK = {mode: 'pick'}; }
 function spCleanup(r) {
   clearInterval(r.timer); try { r.sr && (r.sr.onend = null, r.sr.abort()); } catch (e) {}
   try { r.mr && r.mr.state !== 'inactive' && (r.mr.onstop = null, r.mr.stop()); } catch (e) {}
@@ -170,13 +172,17 @@ async function spStop() {
   spCleanup(r);
   const span = r.first !== null ? Math.max(5, r.last - r.first) : seconds, M = {seconds, span, pauses: r.pauses, speechRatio: r.first !== null ? spClamp(r.speechT / span, 0, 1) : 0.7, confidence: r.confN ? r.confSum / r.confN : null};
   const A = spAnalyse(transcript, M, r.task);
-  if (A.words < 8) { SPK = {mode: 'pick'}; renderSpeaking(); toast(r.netErr ? '🌐 Speech recognition needs an internet connection.' : '🤔 I could hardly hear any words. Check your microphone and try again.'); return; }
-  const rec = {id: uid(), date: new Date().toISOString(), task: {id: r.task.id, title: r.task.title, level: r.task.level, register: r.task.register, prompt: r.task.prompt}, transcript, A, notes: spNotes(A, r.task), media: blob ? await storeMedia(blob) : null, ai: null, aiState: spAIOn() ? 'loading' : 'off'};
+  const here = () => SPK.rec === r && spHere();   // the student may have left the page while the recording was being analysed
+  if (A.words < 8) { if (SPK.rec === r) SPK = {mode: 'pick'}; if (!spHere()) return; renderSpeaking(); toast(r.netErr ? '🌐 Speech recognition needs an internet connection.' : '🤔 I could hardly hear any words. Check your microphone and try again.'); return; }
+  const rec = {id: uid(), date: new Date().toISOString(), task: {id: r.task.id, title: r.task.title, level: r.task.level, register: r.task.register, prompt: r.task.prompt}, transcript, A, notes: spNotes(A, r.task), media: blob ? await storeMedia(blob) : null, ai: null, aiState: 'off'};
   spHistory.unshift(rec); spHistory.slice(SP_KEEP).forEach(o => { if (o.media) DB.put('media', o.media, null); }); spHistory = spHistory.slice(0, SP_KEEP); await DB.put('kv', 'speakHistory', spHistory);
-  onActivity(); SPK = {mode: 'result', rec}; renderSpeaking(); window.scrollTo(0, 0);
+  onActivity();
+  if (here()) { SPK = {mode: 'result', rec}; renderSpeaking(); window.scrollTo(0, 0); } else { if (SPK.rec === r) SPK = {mode: 'pick'}; toast('✅ Your recording is saved in “My recordings”'); }
   if (spAIOn()) spAsk(rec);
 }
+const spAsking = new Set();   // recordings whose AI feedback is on its way now
 async function spAsk(rec) {
+  if (spAsking.has(rec.id)) return; spAsking.add(rec.id);
   rec.aiState = 'loading'; spAiBox(rec);
   const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 75000);
   try {
@@ -185,11 +191,13 @@ async function spAsk(rec) {
     const d = await r.json();
     if (d && d.ok && d.feedback) { rec.ai = d.feedback; rec.aiState = 'done'; } else { rec.aiState = 'error'; rec.aiErr = (d && d.error) || 'unknown'; }
   } catch (e) { rec.aiState = 'error'; rec.aiErr = e.name === 'AbortError' ? 'timeout' : 'offline'; }
-  clearTimeout(to); await DB.put('kv', 'speakHistory', spHistory); spAiBox(rec);
+  clearTimeout(to); spAsking.delete(rec.id); await DB.put('kv', 'speakHistory', spHistory); spAiBox(rec);
 }
 function spAiBox(rec) { if (SPK.mode === 'result' && SPK.rec === rec && $('#aiBox')) $('#aiBox').innerHTML = spAiHTML(rec); const b = $('#aiRetry'); if (b) b.onclick = () => spAsk(rec); }
-const AI_ERR = {'no key': 'Your teacher has not added the AI key yet.', 'not registered': 'Save your name and email on the “My progress” page first.', 'daily limit': 'The AI has reached its limit for today. Try again tomorrow.', 'student limit': 'You have used all your AI feedback for today. Try again tomorrow.', 'too short': 'Speak a little longer (at least 15 words) to get AI feedback.', timeout: 'The AI took too long to answer.', offline: 'Could not reach the class server. Check your internet connection.', busy: 'The AI is busy right now. Try again in a minute.', refusal: 'The AI could not give feedback for this recording.'};
+const AI_ERR = {'no key': 'Your teacher has not added the AI key yet.', 'not registered': 'Save your name and email on the “My progress” page first.', 'daily limit': 'The AI has reached its limit for today. Try again tomorrow.', 'student limit': 'You have used all your AI feedback for today. Try again tomorrow.', 'too short': 'Speak a little longer (at least 15 words) to get AI feedback.', timeout: 'The AI took too long to answer.', stopped: 'The page was closed before the AI answered.', offline: 'Could not reach the class server. Check your internet connection.', busy: 'The AI is busy right now. Try again in a minute.', refusal: 'The AI could not give feedback for this recording.'};
 function spAiHTML(rec) {
+  if (rec.aiState === 'loading' && !spAsking.has(rec.id)) { rec.aiState = 'error'; rec.aiErr = 'stopped'; }   // saved as "loading" and the page was closed: offer Try again, not an endless spinner
+  if (rec.aiState === 'off' && spAIOn()) return `<div class="aioff">🤖 <b>AI teacher feedback</b> is on for you. <button class="btn sm ghost" id="aiRetry">🤖 Get AI feedback</button></div>`;
   if (rec.aiState === 'off') return `<div class="aioff">🤖 <b>AI teacher feedback</b> is not on yet. ${!syncUrl() ? 'Ask your teacher to connect the class server.' : 'Save your name and email on the <a href="#/progress">My progress</a> page to turn it on.'} The automatic analysis above still works.</div>`;
   if (rec.aiState === 'loading') return `<div class="aiload"><span class="spin"></span> <b>The AI teacher is reading your answer…</b> This takes about 20–40 seconds.</div>`;
   if (rec.aiState === 'error') return `<div class="aioff">🤖 AI feedback is not available: ${esc(AI_ERR[rec.aiErr] || 'Something went wrong (' + rec.aiErr + ').')} <button class="btn sm ghost" id="aiRetry">↻ Try again</button></div>`;
@@ -204,20 +212,31 @@ function spAiHTML(rec) {
 }
 
 /* ---------- pages ---------- */
-function renderSpeaking(arg) {
-  if (arg && arg.startsWith('view/')) { const rec = spHistory.find(r => r.id === arg.slice(5)); if (rec) { SPK = {mode: 'result', rec}; loadMedia(rec.media).then(() => SPK.rec === rec && renderSpeaking()); } }
+// arrived = the student has just come from another address: an old result or a chosen topic is not shown again (a recording being analysed still is).
+function renderSpeaking(arg, arrived) {
+  if (arg && arg.startsWith('view/')) { const rec = spHistory.find(r => r.id === arg.slice(5));
+    if (rec) { SPK = {mode: 'result', rec}; if (rec.media && !urlCache[rec.media]) loadMedia(rec.media).then(() => SPK.mode === 'result' && SPK.rec === rec && location.hash === '#/speaking/' + arg && renderSpeaking()); }
+    else if (SPK.mode !== 'busy') { SPK = {mode: 'pick'}; toast('This recording is not on this device any more'); } }
+  else if (arrived && (SPK.mode === 'prep' || SPK.mode === 'result')) SPK = {mode: 'pick'};
   const M = SPK.mode;
   if (M === 'record') return spRecordPage(); if (M === 'busy') return spBusyPage(); if (M === 'result') return spResultPage(SPK.rec); if (M === 'prep') return spPrepPage(SPK.task);
   spPickPage();
 }
+// The topic page and a fresh result share the address #/speaking with the topic list: a link to it (phone "← Back", the breadcrumb,
+// "Choose another topic", the Speaking tab) would do nothing, so it is handled here.
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href="#/speaking"]'); if (!a || location.hash !== '#/speaking' || (SPK.mode !== 'prep' && SPK.mode !== 'result')) return;
+  e.preventDefault(); SPK = {mode: 'pick'}; renderSpeaking(); window.scrollTo(0, 0);
+});
 const spBanner = (t, p) => `<div class="banner photo spban" style="--img:url(photos/level-b2.jpg)"><div><h1>${t}</h1><p>${p}</p></div></div>`;
 function spPickPage() {
-  const T = mode === 'teacher', tasks = state.speaking.tasks, levels = [...new Set(tasks.map(t => t.level))];
+  const T = mode === 'teacher', tasks = state.speaking.tasks.filter(spOk), levels = [...new Set(tasks.map(t => t.level))];
   app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › Test your speaking</div>
   ${spBanner('Test your speaking', 'Record yourself for up to 3 minutes. The AI checks your strengths and weaknesses.')}
   <div class="panel spwhat" style="margin-top:16px"><h3 class="sec-t" style="font-size:24px">What is checked?</h3>
     <div class="spchips"><span>⚡ Fluency</span><span>✅ Accuracy</span><span>📚 Level of vocabulary</span><span>🎩 Formal English</span><span>😊 Informal English</span></div>
     <p class="hint" style="margin:8px 0 0">Choose a topic, press record and speak. You can speak for up to <b>3 minutes</b>. Use Google Chrome or Microsoft Edge and allow the microphone.${SR ? '' : ' <b style="color:var(--coral)">This browser cannot write down your words, so please open the page in Chrome or Edge.</b>'}</p></div>
+  ${tasks.length ? '' : `<div class="note" id="spNone">🎤 There are no topics yet. ${T ? 'Add one in the teacher tools below.' : 'Your teacher will add some soon.'}</div>`}
   ${levels.map(lv => `<h3 class="sph" style="margin:22px 0 8px">Level ${esc(lv)}</h3><div class="sptasks">${tasks.filter(t => t.level === lv).map(t => `
     <div class="sptask"><div class="spth"><b>${esc(t.title)}</b><span class="chip ${t.register}">${REG_LABEL[t.register] || ''}</span></div><p>${esc(t.prompt)}</p><button class="btn sun sm" data-sp="${t.id}">🎤 Choose this topic</button></div>`).join('')}</div>`).join('')}
   ${spHistory.length ? `<h3 class="sph" style="margin:26px 0 8px">My recordings</h3><div class="panel"><div class="tablewrap"><table class="rtable sphist"><thead><tr><th>Date</th><th>Topic</th><th>Time</th><th>Score</th><th></th></tr></thead><tbody>${spHistory.map(r => `<tr><td>${new Date(r.date).toLocaleDateString()}</td><td>${esc(r.task.title)}</td><td>${spTime(r.A.seconds)}</td><td><b style="color:${pcol(r.A.scores.overall)}">${r.A.scores.overall}%</b></td><td><a class="btn sm ghost" href="#/speaking/view/${r.id}">View</a></td></tr>`).join('')}</tbody></table></div></div>` : ''}
@@ -285,9 +304,10 @@ function spResultPage(rec) {
 }
 /* ---------- teacher: topics ---------- */
 function spTeacherHTML() {
-  const T = state.speaking.tasks;
+  const T = state.speaking.tasks, half = T.filter(t => !spOk(t)).length;
   return `<div class="edit"><h4>🧑‍🏫 Teacher tools · Speaking topics</h4>
     <p class="lbl" style="margin:0 0 10px">Write your own topics. “Style” tells the AI whether the student should speak formally (interview, presentation) or informally (chatting to a friend). Changes are saved automatically.</p>
+    ${half ? `<p class="lbl" id="spHalf" style="margin:0 0 10px;color:var(--coral)">⚠️ ${half} topic${half === 1 ? ' has' : 's have'} no title or no text yet. Students do not see ${half === 1 ? 'it' : 'them'}.</p>` : ''}
     ${T.map((t, i) => `<div class="erow" style="align-items:flex-start"><div class="grow" style="display:grid;gap:6px">
       <div class="row" style="gap:6px"><input class="in grow" data-tf="title" data-ti="${i}" value="${esc(t.title)}" placeholder="Topic title">
         <select class="in" data-tf="level" data-ti="${i}">${['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map(l => `<option ${t.level === l ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -298,7 +318,7 @@ function spTeacherHTML() {
     <div class="row"><button class="btn sm" id="tAdd">➕ Add a topic</button><button class="btn sm ghost" id="tReset">↺ Restore the original topics</button></div></div>`;
 }
 function bindSpTeacher() {
-  app.querySelectorAll('[data-tf]').forEach(el => el.onchange = async () => { const t = state.speaking.tasks[+el.dataset.ti], f = el.dataset.tf; t[f] = f === 'ideas' ? el.value.split('|').map(s => s.trim()).filter(Boolean) : el.value.trim(); await save(); });
+  app.querySelectorAll('[data-tf]').forEach(el => el.onchange = async () => { const t = state.speaking.tasks[+el.dataset.ti], f = el.dataset.tf; const was = spOk(t); t[f] = f === 'ideas' ? el.value.split('|').map(s => s.trim()).filter(Boolean) : el.value.trim(); await save(); if (f === 'level' || was !== spOk(t)) { const y = scrollY; spPickPage(); window.scrollTo(0, y); } });
   app.querySelectorAll('[data-tdel]').forEach(b => b.onclick = async () => { if (!confirm('Delete this topic?')) return; state.speaking.tasks.splice(+b.dataset.tdel, 1); await save(); spPickPage(); });
   $('#tAdd').onclick = async () => { state.speaking.tasks.push({id: uid(), level: 'B1', register: 'informal', title: 'New topic', prompt: 'Write what the student must talk about.', ideas: []}); await save(); spPickPage(); };
   $('#tReset').onclick = async () => { if (!confirm('Replace all topics with the original ones?')) return; state.speaking.tasks = SP_TASKS_DEFAULT(); await save(); spPickPage(); };
