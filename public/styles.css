@@ -603,6 +603,15 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 @media(max-width:860px){body.teacher .navlinks a.tonly{display:none!important}}   /* it is in the tab bar */
 @media(max-width:700px){.setg{grid-template-columns:1fr!important}}
 
+/* ---------- home page on tablets (561–860px): a shorter photo so the title and the main button are on the first screen ---------- */
+@media(min-width:561px) and (max-width:860px){
+  .hero-photo{min-height:0;height:clamp(230px,36vw,300px)}
+  .hero-photo img{object-position:center 24%}
+  .hero>div:first-child{padding:26px 28px 30px}
+  .hero .lead{max-width:none}
+  .hero .row .btn{min-height:48px}
+}
+
 /* ---------- home page on phones: first screen, one main button, compact banners and level cards ---------- */
 @media(max-width:560px){
   main{padding-top:16px}
