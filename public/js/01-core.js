@@ -55,10 +55,12 @@ function newLesson(title, s) {
 }
 // Lessons added to the default course after version 1. Default lessons are copied into each device once, so bump LESSON_V when
 // you add one here (with {v: N} and a fixed id, the same on every device): upgradeLessons() gives it to devices that already have a course.
-const LESSON_V = 2;
+const LESSON_V = 3;
 const SEED_MORE = [
   {v:2, level:'a1', id:'a1-after-school', title:'After School', items:[['have lunch','🍽️','I have lunch at one o\'clock.'],['do my homework','📝','I do my homework in the afternoon.'],['play football','⚽','I play football with my friends.'],['go to bed','🛏️','I go to bed at nine o\'clock.']]},
   {v:2, level:'a1', id:'a1-things-i-like', title:'Things I Like', items:[['reading','📖','I like reading books.'],['swimming','🏊','My sister likes swimming.'],['pizza','🍕','Do you like pizza? Yes, I do.'],['spiders','🕷️','I don\'t like spiders.']]},
+  {v:3, level:'a2', id:'a2-at-the-shops', title:'At the Shops', items:[['trainers','👟','How much are these trainers?'],['cash','💷','Can I pay in cash, please?'],['receipt','🧾','I kept the receipt in my bag.'],['shopping bags','🛍️','She carried two heavy shopping bags.']]},
+  {v:3, level:'a2', id:'a2-weekend-plans', title:'Weekend Plans', items:[['cinema','🎬','We\'re going to the cinema on Saturday.'],['picnic','🧺','We\'re going to have a picnic in the park.'],['visit my grandparents','👵','I\'m going to visit my grandparents next week.'],['stay at home','🏠','I think I\'ll stay at home on Sunday.']]},
 ];
 function seedLesson(m) { const s = newLesson(m.title, m); s.id = m.id; return s; }
 function seedState() {
