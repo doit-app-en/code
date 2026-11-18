@@ -209,6 +209,13 @@ for (const screen of SCREENS) {
     if (r.tasks !== 2 || r.sentences !== 4 || !r.audio) problems.push('voice test: the result is incomplete ' + JSON.stringify(r));
     if (r.over > 1) problems.push(`voice test result: ${r.over}px wider than the phone screen`);
     await page.screenshot({ path: path.join(shots, 'phone-voice-result.png'), fullPage: true });
+    // The next tests must not ask what this device was asked before: four more starts, nothing twice, and every picture has its size.
+    const again = await page.evaluate(async () => { const first = VT.rec, all = [first.tasks[0].prompt, first.tasks[1].image, ...first.sentences.map(s => s.text)];
+      for (let i = 0; i < 4; i++) { vtStart(); all.push(VT.question, VT.picture, ...VT.sentences.map(s => s.text)); }
+      vtAbort(); location.hash = '#/voicetest'; await new Promise(r => setTimeout(r, 300));
+      return { asked: all.length, different: new Set(all).size, saved: ((await DB.get('kv', 'voiceSeen')) || []).length, nosize: VT_PICTURES.filter(p => !VT_PIC_SIZE[p]), counts: [VT_QUESTIONS.length, VT_PICTURES.length, ...Object.values(VT_SENTENCES).map(a => a.length)] }; });
+    if (again.asked !== 30 || again.different !== 30 || again.saved !== 30) problems.push('voice test: a question, picture or sentence came back in the next tests ' + JSON.stringify(again));
+    if (again.nosize.length) problems.push('voice test: no size for the picture ' + again.nosize.join(', '));
   } catch (e) { problems.push('voice test: could not finish — ' + e.message.split('\n')[0]); }
   await ctx.close();
 }

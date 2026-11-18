@@ -40,6 +40,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - The page talks to `/api/class` with the same JSON messages the old Apps Script used (see the top of `api/class.js`).
   `syncUrl()` in `09-progress.js` defaults to `/api/class`; a teacher may still type an Apps Script URL.
 - Voice level test (`public/js/10b-voice-test.js`, route `#/voicetest`): 45 s answer + 45 s picture description + 4 listen-and-repeat sentences.
+  The questions, pictures and sentences are lists at the top of that file; `vtFresh()` avoids what the device was asked before (IndexedDB `voiceSeen`).
   The browser records WAV (16 kHz mono). With `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` set, `/api/voice` transcribes and scores pronunciation;
   without them the page falls back to the browser's speech recognition ("basic check"). `GET /api/voice` tells the page what is switched on.
   The teacher's Students page asks `POST /api/voice {action:'latest', key}` (teacher key) for each student's newest test and shows it in a "Voice test" column.

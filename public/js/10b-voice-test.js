@@ -12,23 +12,50 @@ const VT_QUESTIONS = [
   'Tell me about your town or city. What do you like about it?',
   'What would you like to do in the future? Why?',
   'Tell me about a place you would like to visit, and why.',
+  'What do you usually eat for breakfast, lunch and dinner? What is your favourite food?',
+  'Describe your home. Which room do you like best, and why?',
+  'Tell me about your favourite sport or game. How do you play it?',
+  'What do you do after school on a normal day?',
+  'Tell me about a film, a book or a game you like. What is it about?',
+  'Tell me about your last holiday. Where did you go and what did you do?',
+  'Tell me about a person you admire. Why do you admire them?',
+  'What is the weather like where you live? Which season do you like best, and why?',
+  'How do you use your phone or computer? What do you like doing online?',
+  'Tell me about a happy day you remember. What happened?',
+  'What job would you like to do one day? Why?',
+  'What do you do to learn English? What is easy and what is difficult for you?',
+  'Tell me about your favourite teacher or lesson. What makes it good?',
+  'What do you like doing with your friends?',
+  'If you could change one thing about your school, what would it be, and why?',
+  'What are you good at? How did you learn it?',
 ];
-const VT_PICTURES = ['photos/students.jpg', 'photos/hero.jpg', 'photos/lessons.jpg', 'photos/level-a2.jpg', 'photos/level-b1.jpg', 'photos/listening.jpg'];
+const VT_PICTURES = ['photos/students.jpg', 'photos/hero.jpg', 'photos/lessons.jpg', 'photos/level-a2.jpg', 'photos/level-b1.jpg', 'photos/listening.jpg',
+  'photos/level-a1.jpg', 'photos/level-b2.jpg', 'photos/level-f1.jpg', 'photos/level-f2.jpg', 'photos/pronounce.jpg'];
 // Real size of each picture (width, height), so the page keeps its place while the picture loads.
-const VT_PIC_SIZE = {'photos/students.jpg': [1000, 622], 'photos/hero.jpg': [1200, 800], 'photos/lessons.jpg': [1000, 667], 'photos/level-a2.jpg': [1000, 646], 'photos/level-b1.jpg': [1000, 667], 'photos/listening.jpg': [1000, 671]};
+const VT_PIC_SIZE = {'photos/students.jpg': [1000, 622], 'photos/hero.jpg': [1200, 800], 'photos/lessons.jpg': [1000, 667], 'photos/level-a2.jpg': [1000, 646], 'photos/level-b1.jpg': [1000, 667], 'photos/listening.jpg': [1000, 671],
+  'photos/level-a1.jpg': [1000, 667], 'photos/level-b2.jpg': [1000, 667], 'photos/level-f1.jpg': [1000, 665], 'photos/level-f2.jpg': [1000, 667], 'photos/pronounce.jpg': [1000, 667]};
 const vtPicAttr = p => { const z = VT_PIC_SIZE[p] || [1000, 667]; return `src="${p === 'photos/hero.jpg' ? 'photos/hero-1200.jpg' : p}" width="${z[0]}" height="${z[1]}"`; };
 const VT_PIC_PROMPT = 'Describe this picture. What can you see? What are the people doing? How do they feel?';
 const VT_SENTENCES = {
-  A1: ['My brother is ten years old.', 'I get up at seven every morning.', 'She likes tea, but she does not like coffee.'],
-  A2: ['We visited my grandparents last weekend.', 'I am going to buy a new phone tomorrow.', 'There is a small park near my house.'],
-  B1: ['If it rains tomorrow, we will stay at home and watch a film.', 'I have been learning English for about three years.', 'She told me that she had already finished her homework.'],
-  B2: ['Although the weather was terrible, we thoroughly enjoyed the trip.', 'I would rather work in a team than on my own.', 'The film was much more interesting than I had expected.'],
+  A1: ['My brother is ten years old.', 'I get up at seven every morning.', 'She likes tea, but she does not like coffee.',
+    'This is my friend, and her name is Sara.', 'We have English on Monday and Wednesday.', 'There are two books on the table.', 'I go to school by bus.', 'My father works in a big hospital.'],
+  A2: ['We visited my grandparents last weekend.', 'I am going to buy a new phone tomorrow.', 'There is a small park near my house.',
+    'I usually do my homework before dinner.', 'My sister is taller than me, but I am faster.', 'We were playing football when it started to rain.', 'You should drink more water when it is hot.', 'I have never been to London.'],
+  B1: ['If it rains tomorrow, we will stay at home and watch a film.', 'I have been learning English for about three years.', 'She told me that she had already finished her homework.',
+    'I used to be afraid of the dark when I was a child.', 'The museum, which opened last year, is free for students.', 'We may be late, so please start the lesson without us.', 'I enjoy reading, especially stories about travelling to other countries.', 'The windows were cleaned while we were at school.'],
+  B2: ['Although the weather was terrible, we thoroughly enjoyed the trip.', 'I would rather work in a team than on my own.', 'The film was much more interesting than I had expected.',
+    'If I had known about the test, I would have studied harder.', 'Despite feeling nervous, she gave an excellent presentation.', 'By the end of this year, I will have finished secondary school.', 'It is worth practising every day, even if only for ten minutes.', 'Not only did he apologise, but he also offered to help.'],
 };
 const VT_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 const VT_ERR = {'not registered': 'Save your name and email on the “My progress” page first.', 'student limit': 'You have reached today\'s limit. Try again tomorrow.', 'daily limit': 'The class has reached today\'s limit. Try again tomorrow.', 'no key': 'The AI teacher is not switched on yet.', 'too short': 'There was not enough speech for the AI teacher.', busy: 'The AI teacher is busy right now.', refusal: 'The AI teacher could not write a summary for this test.',
   unsaved: 'the server could not be reached at the end of the test, so this result is saved only on this device — your teacher cannot see it. Check your internet connection and take the test again later.'};
 let VT = {mode: 'intro'}, vtHistory = null, vtCaps = null;
 const vtPick = a => a[Math.floor(Math.random() * a.length)];
+// What this device was asked before (questions, pictures and sentences, newest first; IndexedDB 'voiceSeen'), so the next test brings
+// something new. When everything in a list has been used, the one used longest ago comes back first.
+let vtSeen = [];
+const vtFresh = (pool, seen = vtSeen) => { const fresh = pool.filter(x => !seen.includes(x)); return fresh.length ? vtPick(fresh) : pool.slice().sort((a, b) => seen.indexOf(b) - seen.indexOf(a))[0]; };
+const vtRemember = used => { vtSeen = [...used, ...vtSeen.filter(x => !used.includes(x))].slice(0, 150); return DB.put('kv', 'voiceSeen', vtSeen); };
 const vtAvg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : null;
 const vtRegistered = () => !!student && !!student.email;
 const vtSpeechOn = () => !!vtCaps && vtCaps.speech && vtRegistered();
@@ -145,8 +172,9 @@ function vtTotals(tasks, sentences) {
 
 /* ---------- the test, step by step ---------- */
 function vtStart() {
-  const s = VT_LEVELS.slice(0, 4).map(lv => ({level: lv, text: vtPick(VT_SENTENCES[lv])}));
-  VT = {mode: 'talk', step: 0, question: vtPick(VT_QUESTIONS), picture: vtPick(VT_PICTURES), sentences: s, tasks: [], done: [], si: 0, plays: 0};
+  const s = VT_LEVELS.slice(0, 4).map(lv => ({level: lv, text: vtFresh(VT_SENTENCES[lv])}));
+  VT = {mode: 'talk', step: 0, question: vtFresh(VT_QUESTIONS), picture: vtFresh(VT_PICTURES), sentences: s, tasks: [], done: [], si: 0, plays: 0};
+  vtRemember([VT.question, VT.picture, ...s.map(x => x.text)]);
   renderVoiceTest(); window.scrollTo(0, 0);
 }
 const vtHead = (n, title) => `<div class="crumbs"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Step ${n} of 3</div><div class="vtsteps">${[1, 2, 3].map(i => `<span class="${i < n ? 'done' : i === n ? 'on' : ''}">${i < n ? '✓' : i}</span>`).join('<i></i>')}</div><h2 class="baloo vth">${title}</h2>`;
@@ -196,7 +224,9 @@ async function vtFinish() {
 
 /* ---------- pages ---------- */
 async function renderVoiceTest(arg) {
-  if (vtHistory === null) { vtHistory = []; vtHistory = (await DB.get('kv', 'voiceHistory')) || []; }
+  if (vtHistory === null) { vtHistory = []; vtHistory = (await DB.get('kv', 'voiceHistory')) || [];
+    // Tests taken before 'voiceSeen' existed: what they asked is read from the saved results.
+    const seen = await DB.get('kv', 'voiceSeen'); vtSeen = Array.isArray(seen) ? seen.map(String) : vtHistory.flatMap(r => [...(r.tasks || []).flatMap(t => [t.kind === 'picture' ? '' : t.prompt, t.image]), ...(r.sentences || []).map(x => x.text)]).filter(Boolean).map(String); }
   if (arg && arg.startsWith('view/')) { const rec = vtHistory.find(r => r.id === arg.slice(5)); if (rec) VT = {mode: 'result', rec}; }
   else if (arg && arg.startsWith('result/')) return vtSharedPage(arg.slice(7));
   else if (arg === '' && VT.mode === 'result') VT = {mode: 'intro'};
