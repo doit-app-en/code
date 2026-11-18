@@ -320,7 +320,7 @@ function ptTest() {
   if (P.stage === 'test') {
     const it = P.items[P.i], tp = TP(it.q.t), N = P.items.length, s = ptSet(), timed = s.timer !== 'off';
     return `<div class="panel">
-      <div class="tbar">
+      <div class="tbar${timed ? ' timed' : ''}">
         <div><span class="tbadge">${tp.icon} ${tp.cat} · ${esc(tp.name)}${it.q.tag ? ' · ' + esc(it.q.tag) : ''}</span><div class="prog" style="margin-top:8px">Question ${P.i + 1} of ${N}</div></div>
         ${timed ? `<div class="row" style="gap:8px">${watchHTML()}${s.music !== 'off' ? `<button class="btn ghost sm" id="muteBtn" title="Countdown music on/off">${musicMuted ? '🔇' : '🎵'}</button>` : ''}</div>` : ''}
       </div>
@@ -330,7 +330,7 @@ function ptTest() {
       ${it.q.pic ? `<div class="qpic">${esc(it.q.pic)}</div>` : ''}
       <div class="q">${esc(it.q.q)}</div>
       <div class="opts">${it.opts.map((o, k) => `<button class="opt ${P.ans[P.i] === k ? 'chosen' : ''}" data-k="${k}"><span class="k">${'ABCD'[k]}</span>${esc(o.t)}</button>`).join('')}</div>
-      <div class="row" style="justify-content:space-between;margin-top:18px"><button class="btn ghost sm" data-pa="back" ${P.i && ptSet().timer !== 'question' ? '' : 'disabled'}>← Back</button><span class="hint" style="margin:0">👤 ${esc(P.info.name)} · ${esc(P.info.cls)}</span></div>
+      <div class="row ptfoot" style="justify-content:space-between;margin-top:18px"><button class="btn ghost sm" data-pa="back" ${P.i && ptSet().timer !== 'question' ? '' : 'disabled'}>← Back</button><span class="hint" style="margin:0">👤 ${esc(P.info.name)} · ${esc(P.info.cls)}</span></div>
     </div>`;
   }
   const inf = P.info || {};
@@ -367,7 +367,7 @@ function bindTest() {
   };
   if (P.stage === 'test') {
     const it = P.items[P.i], shown = Date.now();
-    P.locked = false;
+    P.locked = false; ptTop();
     syncMusic(); startPtClock();
     if (it.q.listen && !it.played) { it.played = true; setTimeout(() => say(it.q.listen, null, 0.85), 450); }
     if ($('#muteBtn')) $('#muteBtn').onclick = () => { musicMuted = !musicMuted; ls('die_mute', musicMuted ? '1' : '0'); $('#muteBtn').textContent = musicMuted ? '🔇' : '🎵'; syncMusic(); };
@@ -384,7 +384,14 @@ function bindTest() {
       setTimeout(() => { speechSynthesis.cancel(); if (P.i < P.items.length - 1) { P.i++; renderPlacement(); } else finishTest(); }, 280);
     });
   }
-  if (P.stage === 'done') bindResultButtons();
+  if (P.stage === 'done') { ptTop(); bindResultButtons(); }
+}
+// The page stays scrolled to where the last tap was (the Start button, the last answer). If that leaves the top of the question or
+// of the result hidden above the screen, bring it back to just under the header.
+function ptTop() {
+  const p = app.querySelector('.pt-wrap .panel'), h = document.querySelector('header.top'); if (!p) return;
+  const y = p.getBoundingClientRect().top, min = (h ? h.getBoundingClientRect().bottom : 0) + 8;
+  if (y < min) window.scrollTo(0, Math.max(0, window.scrollY + y - min));
 }
 async function finishTest() {
   if (P.stage !== 'test') return;
@@ -403,20 +410,20 @@ function ptResultHTML(rec, student) {
   const rows = TOPICS.filter(t => rec.topics[t.id]).map(t => { const [c, n] = rec.topics[t.id], p = Math.round(c / n * 100);
     return {t, c, n, p, html: `<div class="brow"><span>${t.icon} ${esc(t.name)}</span><div class="bt"><i style="width:${p}%;background:${p >= 80 ? 'var(--green)' : p >= 50 ? 'var(--sun)' : 'var(--coral)'}"></i></div><b>${c}/${n}</b></div>`}; });
   const weak = rows.filter(r => r.p < 60).map(r => r.t.name);
-  return `<div class="panel res-card" style="--c:${L.color}">
+  return `<div class="panel res-card ptres" style="--c:${L.color}">
     <div class="stud"><div><div class="lbl">STUDENT</div><b style="font-size:22px">${esc(rec.name)}</b><div class="hint" style="margin:2px 0 0">🏫 Class ${esc(rec.cls)} · 📞 ${esc(rec.phone)}</div></div>
       <div class="hint" style="margin:0;text-align:right">A1 Placement Test<br>${new Date(rec.date).toLocaleString()}</div></div>
     <div class="res-top">
-      <div class="ring" style="--p:${rec.pct};--rc:${col};width:140px;height:140px"><span style="width:108px;height:108px;font-size:34px">${rec.pct}%</span></div>
-      <div><div class="hint" style="margin:0">${rec.score} of ${rec.total} correct · Recommended level</div>
-        <h1 class="baloo" style="margin:0;color:${L.color};font-size:44px;line-height:1.05">${L.icon} ${L.name}</h1>
+      <div class="ring" style="--p:${rec.pct};--rc:${col}"><span>${rec.pct}%</span></div>
+      <div><div class="hint" style="margin:0">${rec.score} of ${rec.total} correct<span class="rsep"> · </span><span class="rlab">Recommended level</span></div>
+        <h1 class="baloo ptlv" style="color:${L.color}">${L.icon} ${L.name}</h1>
         <p style="margin:4px 0 0;font-weight:700">${levelNote(rec.pct)}</p>
         ${rec.time !== undefined ? `<p class="hint" style="margin:6px 0 0">⏱ Time taken: <b>${fmtDur(rec.time)}</b>${rec.unanswered ? ` · <b style="color:var(--coral)">${rec.unanswered} not answered</b> (time ran out)` : ''}</p>` : ''}</div>
     </div>
     <h3 class="baloo" style="margin:22px 0 8px;font-size:22px;color:var(--navy)">Skills breakdown</h3>
     <div class="bars">${rows.map(r => r.html).join('')}</div>
     ${weak.length ? `<div class="note">📌 Practise more: <b>${weak.map(esc).join(', ')}</b></div>` : `<div class="note">🌟 Great work in every section!</div>`}
-    ${student ? `<div class="row no-print" style="justify-content:center;margin-top:20px">
+    ${student ? `<div class="row no-print ptgo" style="justify-content:center;margin-top:20px">
       <a class="btn sun" href="#/level/${L.id}">Start learning →</a>
       <button class="btn ghost" data-ra="print">🖨 Print / save as PDF</button>
       <button class="btn ghost" data-ra="new">👤 Next student</button></div>` : ''}
@@ -550,7 +557,7 @@ function bindBank() {
 /* ---- teacher: results ---- */
 let viewRes = null;
 function ptResults() {
-  if (viewRes) { const r = results.find(x => x.id === viewRes); if (r) return `<div class="row no-print" style="margin-bottom:12px"><button class="btn ghost sm" id="backRes">← All results</button><button class="btn ghost sm" id="printRes">🖨 Print / save as PDF</button></div>` + ptResultHTML(r, false); viewRes = null; }
+  if (viewRes) { const r = results.find(x => x.id === viewRes); if (r) return `<div class="row no-print ptback" style="margin-bottom:12px"><button class="btn ghost sm" id="backRes">← All results</button><button class="btn ghost sm" id="printRes">🖨 Print / save as PDF</button></div>` + ptResultHTML(r, false); viewRes = null; }
   return `<div class="panel">
     <div class="row" style="justify-content:space-between"><h2 class="sec-t">📊 Test results</h2>
       <div class="row"><button class="btn sun sm" id="csvBtn" ${results.length ? '' : 'disabled'}>⬇ Download Excel (CSV)</button><button class="btn ghost sm" id="clearRes" ${results.length ? '' : 'disabled'}>🗑 Clear all</button></div></div>

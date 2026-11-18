@@ -811,3 +811,46 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .mini.mtxt{max-width:100%;padding:16px 2px 4px;letter-spacing:0;line-height:1.15;font-size:calc(var(--fs,34px)*.66);word-break:break-all}
   .lthing::after,.dspot::after,.lspot::after{content:'';position:absolute;inset:-8px;border-radius:50%}
 }
+/* Placement test. Sizes that used to be inline styles live here so a phone can change them. */
+.ptres .ring{width:140px;height:140px;flex:none}.ptres .ring span{width:108px;height:108px;font-size:34px}
+.ptlv{margin:0;font-size:44px;line-height:1.05}
+/* Placement test on a phone: the bar that stays on screen (topic, question number, stopwatch) is short, so it never covers the question,
+   the picture or the Play button; answers and buttons are easy to tap; the result shows the score ring beside the level. */
+@media(max-width:560px){
+  .pt-wrap .panel{padding:18px 16px;border-radius:22px}
+  .pt-hero{margin-bottom:10px}.pt-hero h2{font-size:26px;line-height:1.15}.pt-hero p{font-size:14px;line-height:1.4;margin-top:6px}
+  .pt-wrap .sects{margin:4px 0 14px}
+  #infoForm .in{min-height:46px;font-size:16px}
+  #infoForm .btn{width:100%;min-height:50px;font-size:17px}
+  .tbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;top:60px;padding:8px 0;margin:-8px 0 0}
+  .tbar>div:first-child{display:contents}
+  .tbadge{justify-self:start;max-width:100%;font-size:12.5px;padding:5px 11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tbar.timed .tbadge{grid-column:1/-1}
+  .tbar .prog{margin-top:0!important;font-size:14px;line-height:1.25}
+  .tbar .row{flex-wrap:nowrap;gap:8px}
+  .tbar .watch{gap:8px;padding:3px 12px 3px 6px;border-width:2px;border-radius:14px}
+  .tbar .watch svg{width:34px;height:38px}
+  .tbar .watch .wt{font-size:22px;min-width:54px}.tbar .watch .wl{display:none}   /* the note before the test says what the clock counts */
+  #muteBtn{min-width:44px;min-height:44px;padding:0;font-size:18px}
+  .pt-wrap .pbar{height:10px;margin:8px 0 14px;background:#eef1f7;box-shadow:none}
+  .pt-wrap .listenbox{gap:8px 10px;padding:12px;margin-bottom:10px}
+  .pt-wrap .listenbox .btn{min-height:46px}.pt-wrap .listenbox .btn.teal{flex:1 1 auto}
+  .pt-wrap .listenbox .hint{flex:1 1 100%;font-size:14px;line-height:1.35}
+  .pt-wrap .qpic{font-size:64px}
+  .pt-wrap .q{font-size:22px;line-height:1.25;margin:4px 0 14px}
+  .pt-wrap .opts{gap:10px}
+  .pt-wrap .opt{padding:11px 14px;font-size:17px;min-height:58px}
+  .ptfoot{flex-wrap:nowrap;margin-top:14px!important}
+  .ptfoot .btn{flex:none;min-height:44px;padding:8px 16px}
+  .ptfoot .hint{min-width:0;text-align:right;font-size:13px;line-height:1.3}
+  .ptres .stud>.hint{flex:1 1 100%;text-align:left!important}
+  .ptres .res-top{flex-wrap:nowrap;gap:14px}
+  .ptres .ring{width:96px;height:96px}.ptres .ring span{width:74px;height:74px;font-size:24px}
+  .ptres .res-top .hint{font-size:13px;line-height:1.35}
+  .ptres .rsep{display:none}.ptres .rlab{display:block}
+  .ptlv{font-size:28px;line-height:1.15;margin:2px 0}
+  .ptres .res-top p{font-size:14px;line-height:1.35}
+  .ptres .brow b{text-align:right}
+  .ptgo{margin-top:16px!important}.ptgo .btn{flex:1 1 100%;min-height:48px}
+  .ptback .btn{min-height:44px}
+}
