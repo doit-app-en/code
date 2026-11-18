@@ -341,6 +341,48 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Pronounce with the speech service: a pretend server says the service is on, scores one word, then says "student limit".
+// The word must be recorded and sent as WAV, the score shown, and after the limit the browser's own recognition must take over.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, permissions: ['microphone'] }), page = await ctx.newPage();
+  watch(page, 'pronounce with the speech service');
+  try {
+    const posts = [];
+    await page.addInitScript(() => { window.SpeechRecognition = window.webkitSpeechRecognition = class { start() { setTimeout(() => { if (this.onstart) this.onstart(); setTimeout(() => { if (this.onresult) this.onresult({ results: [[{ transcript: window._heard || '' }]] }); if (this.onend) this.onend(); }, 40); }, 10); } stop() {} abort() {} }; });
+    await page.route('**/api/voice', r => {
+      if (r.request().method() !== 'POST') return r.fulfill({ json: { ok: true, speech: true, ai: false, save: true } });
+      const d = JSON.parse(r.request().postData() || '{}'); posts.push(d);
+      return r.fulfill({ json: posts.length === 1 ? { ok: true, heard: 'Something.', scores: { pron: 80, accuracy: 84, fluency: 100, completeness: 100, prosody: null }, words: [{ w: 'something', score: 84, err: '' }] } : { ok: false, error: 'student limit' } });
+    });
+    await page.goto(base + '/#/pronounce', { waitUntil: 'load' }); await page.waitForSelector('.pcard', { timeout: 10000 });
+    const word = await page.evaluate(() => { student = { id: 'smoke', name: 'Sara Test', cls: '9A', email: 'sara@example.com' }; const sec = pronSecs()[0], words = secWords(sec).slice(0, 2);
+      PR = { sec: sec.id, mode: 'test', words, i: 0, scores: [], tries: 0, best: null }; location.hash = '#/pronounce/' + sec.id; return words[0]; });
+    await page.waitForFunction(() => /Full pronunciation check/.test((document.querySelector('#pHow') || {}).innerText || ''), null, { timeout: 8000 });
+    await page.click('#pMic'); await page.waitForSelector('#pMic.rec', { timeout: 5000 });
+    await page.waitForSelector('#pRes .ring', { timeout: 15000 });   // the recording stops by itself
+    const one = await page.evaluate(() => ({ ring: document.querySelector('#pRes .ring').innerText.trim(), heard: document.querySelector('#pRes').innerText, next: document.querySelector('#pNext').disabled, tries: PR.tries, over: document.documentElement.scrollWidth - innerWidth }));
+    const p0 = posts[0] || {};
+    if (p0.action !== 'word' || p0.text !== word || !/^UklGR/.test(p0.audio || '') || !(p0.student && p0.student.email)) problems.push('pronounce with the speech service: the word was not sent as a WAV recording ' + JSON.stringify({ action: p0.action, text: p0.text, audio: (p0.audio || '').slice(0, 8) }));
+    if (p0.audio && p0.audio.length > 400000) problems.push('pronounce with the speech service: the recording is longer than the server accepts (' + p0.audio.length + ')');
+    if (one.ring !== '84%' || !/Something/.test(one.heard) || one.next || one.tries !== 1) problems.push('pronounce with the speech service: the score was not shown ' + JSON.stringify(one));
+    if (one.over > 1) problems.push(`pronounce with the speech service: ${one.over}px wider than the phone screen`);
+    await page.screenshot({ path: path.join(shots, 'phone-pronounce-service.png'), fullPage: true });
+    // Second try: the server answers "student limit" → the page says so and the next press uses the browser's recognition.
+    await page.click('#pMic'); await page.waitForFunction(() => /basic check/.test(document.querySelector('#pStat').innerText), null, { timeout: 15000 });
+    const two = await page.evaluate(() => ({ tries: PR.tries, how: document.querySelector('#pHow').innerText, mic: document.querySelector('#pMic').disabled }));
+    if (two.tries !== 1 || two.how || two.mic) problems.push('pronounce with the speech service: a refused check was counted as a try, or the page did not go back to the basic check ' + JSON.stringify(two));
+    await page.screenshot({ path: path.join(shots, 'phone-pronounce-service-limit.png'), fullPage: true });
+    await page.evaluate(w => { window._heard = w; }, word); await page.click('#pMic');
+    await page.waitForFunction(() => /100%/.test(document.querySelector('#pRes .ring').innerText), null, { timeout: 5000 });
+    if (posts.length !== 2) problems.push('pronounce with the speech service: after the limit the page still called the server (' + posts.length + ' calls)');
+    // Leaving the page while it records must switch the microphone off.
+    await page.evaluate(() => { pronNoSvc = false; pronFails = 0; PR.i = 1; renderPron(PR.sec); }); await page.click('#pMic'); await page.waitForSelector('#pMic.rec', { timeout: 5000 });
+    await page.evaluate(() => { location.hash = '#/'; }); await page.waitForTimeout(400);
+    if (await page.evaluate(() => !!prRec)) problems.push('pronounce with the speech service: the microphone stayed on after leaving the page');
+  } catch (e) { problems.push('pronounce with the speech service: could not check — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

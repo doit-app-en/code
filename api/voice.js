@@ -3,6 +3,7 @@
 //   GET  ?id=…                            a saved result (anyone with the link)
 //   POST {action: 'transcribe', student, audio}        free speech → text            (Azure Speech)
 //   POST {action: 'assess', student, text, audio}      a repeated sentence → scores  (Azure Speech)
+//   POST {action: 'word', student, text, audio}        one word of the Pronounce section → scores (Azure Speech; short audio, its own daily limits)
 //   POST {action: 'finish', student, result}           AI summary (Claude) + save the result
 //   POST {action: 'latest', key}                       the teacher's Students page: each student's newest test (needs TEACHER_KEY)
 //   POST {action: 'history', key, email}               the teacher's Students page: all the tests of one student (needs TEACHER_KEY)
@@ -13,6 +14,7 @@ import { azureOn, transcribe, assess } from './_lib/azure.js';
 import { voiceSummary } from './_lib/claude.js';
 
 const MAX_AUDIO_B64 = 2_800_000;   // about 65 seconds of 16 kHz mono
+const MAX_WORD_B64 = 400_000;      // about 9 seconds: one word of the Pronounce section
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -37,18 +39,22 @@ export default async function handler(req, res) {
     if (reg.error) throw reg.error;
     if (!reg.data) return res.status(200).json({ ok: false, error: 'not registered' });
 
-    if (d.action === 'transcribe' || d.action === 'assess') {
+    if (d.action === 'transcribe' || d.action === 'assess' || d.action === 'word') {
+      const word = d.action === 'word';
       if (!azureOn()) return res.status(200).json({ ok: false, error: 'no speech' });
       const b64 = typeof d.audio === 'string' ? d.audio : '';
-      if (b64.length < 2000 || b64.length > MAX_AUDIO_B64) return res.status(200).json({ ok: false, error: 'bad audio' });
+      if (b64.length < 2000 || b64.length > (word ? MAX_WORD_B64 : MAX_AUDIO_B64)) return res.status(200).json({ ok: false, error: 'bad audio' });
       const wav = Buffer.from(b64, 'base64');
       if (wav.toString('latin1', 0, 4) !== 'RIFF' || wav.toString('latin1', 8, 12) !== 'WAVE') return res.status(200).json({ ok: false, error: 'bad audio' });
-      const ref = d.action === 'assess' ? text(d.text, 300).trim() : '';
-      if (d.action === 'assess' && !ref) return res.status(200).json({ ok: false, error: 'bad audio' });
-      const take = await supabase.rpc('usage_take', { p_kind: 'voice', p_email: email, p_max_student: num('VOICE_MAX_PER_STUDENT_PER_DAY', 30), p_max_day: num('VOICE_MAX_PER_DAY', 1500) });
+      const ref = word ? text(d.text, 60).trim() : d.action === 'assess' ? text(d.text, 300).trim() : '';
+      if (d.action !== 'transcribe' && !ref) return res.status(200).json({ ok: false, error: 'bad audio' });
+      // Pronounce words are counted apart from the voice test ('pron'), so practising words does not use up a student's voice tests.
+      const take = word
+        ? await supabase.rpc('usage_take', { p_kind: 'pron', p_email: email, p_max_student: num('PRON_MAX_PER_STUDENT_PER_DAY', 60), p_max_day: num('PRON_MAX_PER_DAY', 400) })
+        : await supabase.rpc('usage_take', { p_kind: 'voice', p_email: email, p_max_student: num('VOICE_MAX_PER_STUDENT_PER_DAY', 30), p_max_day: num('VOICE_MAX_PER_DAY', 1500) });
       if (take.error) throw take.error;
       if (take.data !== 'ok') return res.status(200).json({ ok: false, error: take.data });
-      return res.status(200).json(d.action === 'assess' ? await assess(wav, ref) : await transcribe(wav));
+      return res.status(200).json(d.action === 'transcribe' ? await transcribe(wav) : await assess(wav, ref));
     }
     if (d.action === 'finish') return res.status(200).json(await finish(supabase, s, email, d.result || {}));
     return res.status(200).json({ ok: false });

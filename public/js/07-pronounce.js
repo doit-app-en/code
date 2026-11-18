@@ -208,6 +208,54 @@ function scoreWord(word, alts) {
   }
   return best;
 }
+/* ---------- the speech service (the one the voice level test uses) for the pronunciation test ---------- */
+// When the server says it is on (vtSpeechOn() in 10b-voice-test.js: GET /api/voice → speech, and the student is registered), each word is
+// recorded as WAV and scored by the service ({action: 'word'}); otherwise, or when the service refuses, the browser's own recognition is used.
+const PRON_HARD = ['student limit', 'daily limit', 'no speech', 'not registered', 'speech key', 'speech limit', 'server not configured'];   // answers that will not change today
+const PRON_WHY = {'student limit': 'you have reached today\'s limit', 'daily limit': 'the class has reached today\'s limit', offline: 'the server could not be reached'};
+let pronNoSvc = false, pronFails = 0, prRec = null;   // pronNoSvc: use the browser's recognition for the rest of this visit
+const pronSvc = () => !pronNoSvc && typeof vtSpeechOn === 'function' && vtSpeechOn() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+function prClean(r) {
+  clearInterval(r.timer);
+  try { r.proc && (r.proc.onaudioprocess = null, r.proc.disconnect()); } catch (e) {}
+  try { r.stream.getTracks().forEach(t => t.stop()); } catch (e) {} try { r.ac && r.ac.close(); } catch (e) {}
+}
+function prAbort() { const r = prRec; if (!r) return; prRec = null; prClean(r); r.res(null); }
+// Records one word. Stops by itself about a second after the student stops speaking, after 5 s of silence or after 6 s; r.stop() stops it now.
+// Gives {wav, peak} (peak = the loudest moment, to tell silence from speech), or null when the page was left.
+function prRecord(stream) {
+  return new Promise(res => {
+    const r = prRec = {stream, res, chunks: [], rate: 48000, rms: 0, peak: 0, ref: 0.02, first: null, quiet: 0, t0: performance.now()};
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext; r.ac = new AC(); r.rate = r.ac.sampleRate;
+      const src = r.ac.createMediaStreamSource(stream), mute = r.ac.createGain(); mute.gain.value = 0;
+      r.proc = r.ac.createScriptProcessor(4096, 1, 1);
+      r.proc.onaudioprocess = e => { const d = e.inputBuffer.getChannelData(0); r.chunks.push(new Float32Array(d)); let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; r.rms = Math.sqrt(s / d.length); r.peak = Math.max(r.peak, r.rms); };
+      src.connect(r.proc); r.proc.connect(mute); mute.connect(r.ac.destination);
+    } catch (e) { prRec = null; prClean(r); return res({wav: null, peak: 0}); }
+    r.stop = () => { if (prRec !== r) return; prRec = null; prClean(r); res({wav: r.chunks.length ? vtWav(r.chunks, r.rate) : null, peak: r.peak}); };
+    r.timer = setInterval(() => {
+      const el = (performance.now() - r.t0) / 1000; r.ref = Math.max(0.02, r.ref * 0.997, r.rms);
+      if (r.rms > Math.max(0.012, r.ref * 0.15)) { if (r.first === null) r.first = el; r.quiet = 0; } else if (r.first !== null) r.quiet += 0.1;
+      if ((r.first !== null && r.quiet >= 0.9 && el >= 1.2) || el >= (r.first === null ? 5 : 6)) r.stop();
+    }, 100);
+  });
+}
+// The service's answer for one word → {score, heard}. A different word (the service marks ours as left out) can get 60% at most, by how close it is.
+function pronSvcScore(word, d) {
+  const ws = (d.words || []).filter(x => x.err !== 'Insertion'), s = d.scores || {}, heard = String(d.heard || '').replace(/[.?!]+$/, '');
+  let score = s.accuracy != null ? s.accuracy : s.pron != null ? s.pron : 0;
+  if (ws.length && ws.every(x => x.err === 'Omission')) score = Math.min(60, scoreWord(word, [heard]).score);
+  return {score: Math.max(0, Math.min(100, Math.round(score))), heard};
+}
+// The small line under the test that says which check is in use.
+function pronHow() {
+  const el = $('#pHow'); if (!el) return;
+  el.innerHTML = pronSvc() ? '✓ Full pronunciation check'
+    : typeof vtCaps !== 'undefined' && vtCaps && vtCaps.speech && !pronNoSvc && !vtRegistered() ? 'Basic check · <a href="#/progress">Save your name on “My progress”</a> for the full pronunciation check' : '';
+  const st = $('#pStat'); if (st && st.dataset.no && pronSvc()) { st.textContent = 'Press the microphone and say the word'; delete st.dataset.no; }
+}
+
 const pcol = p => p >= 90 ? '#1b9e5a' : p >= 60 ? '#f0a500' : '#e63946';
 const pword = p => p >= 90 ? 'Excellent pronunciation! 🌟' : p >= 60 ? 'Good — keep practising! 👍' : 'Needs more practice 💪';
 function scaleHTML(p, label, big) {
@@ -303,21 +351,72 @@ function renderPronTest(sec) {
     <div class="pbig" id="pbig">${esc(w)}</div>
     <div class="row" style="justify-content:center"><button class="btn ghost sm" id="pHear">🔊 Listen</button><button class="btn ghost sm" id="pSlow">🐢 Slowly</button></div>
     <button class="mic" id="pMic" title="Press and say the word">🎤</button>
-    <div class="status" id="pStat">${SR ? 'Press the microphone and say the word' : '⚠️ Speech recognition needs Google Chrome or Microsoft Edge.'}</div>
+    <div class="status" id="pStat" ${SR || pronSvc() ? '' : 'data-no="1"'}>${SR || pronSvc() ? 'Press the microphone and say the word' : '⚠️ Speech recognition needs Google Chrome or Microsoft Edge.'}</div>
     <div id="pRes"></div>
     <div class="row" style="justify-content:center;margin-top:16px">
       <button class="btn ghost" id="pSkip">Skip</button>
       <button class="btn" id="pNext" style="background:#7b61ff" disabled>${PR.i < N - 1 ? 'Next word →' : 'See my result →'}</button>
     </div>
     <p class="lbl" style="text-align:center;margin:10px 0 0">You can try each word up to 3 times — your best try counts.</p>
+    <p class="lbl" id="pHow" style="text-align:center;margin:4px 0 0"></p>
   </div>`;
-  PR.tries = 0; PR.best = null;
+  PR.tries = 0; PR.best = null; PR.busy = false;
+  pronHow(); if (typeof vtLoadCaps === 'function') vtLoadCaps().then(pronHow);
   $('#pHear').onclick = () => say(w, null, 0.85);
   $('#pSlow').onclick = () => say(w, null, 0.55);
   const advance = () => { stopAll(); PR.scores.push(PR.best ? PR.best.score : 0); PR.log = PR.log || []; PR.log.push({w, score: PR.best ? PR.best.score : 0, heard: PR.best ? PR.best.heard : ''});
     if (PR.i < N - 1) { PR.i++; renderPronTest(sec); } else finishPron(sec); };
   $('#pNext').onclick = advance; $('#pSkip').onclick = advance;
+  // One try has been scored (by the service or by the browser): show it.
+  const show = r => {
+    const mic = $('#pMic'), st = $('#pStat'); PR.tries++;
+    if (!PR.best || r.score > PR.best.score) PR.best = r;
+    const c = pcol(r.score);
+    $('#pbig').style.color = c;
+    $('#pRes').innerHTML = `<div class="result"><div class="ring" style="--p:${r.score};--rc:${c}"><span>${r.score}%</span></div>
+      <div class="fb"><b style="color:${c}">${r.score >= 90 ? 'Excellent! 🌟' : r.score >= 60 ? 'Good! 👍' : 'Not quite — try again 🔁'}</b>
+      <div class="hint" style="margin:6px 0 0">I heard: “${esc(r.heard)}”</div>
+      ${PR.tries > 1 ? `<div class="hint" style="margin:4px 0 0">Best try: <b style="color:${pcol(PR.best.score)}">${PR.best.score}%</b></div>` : ''}</div></div>`;
+    $('#pNext').disabled = false;
+    st.textContent = PR.best.score === 100 ? 'Perfect! Press “Next word”.' : PR.tries < 3 ? `Try again (${3 - PR.tries} ${3 - PR.tries === 1 ? 'try' : 'tries'} left) or press “Next word”.` : 'No tries left — press “Next word”.';
+    if (PR.tries >= 3 || PR.best.score === 100) mic.disabled = true;
+    if (r.score >= 90) say('Excellent!', null, 1);
+  };
+  // The speech service: record the word, send it, show the score. A silent recording or an answer the service could not give is not a try.
+  const viaSvc = async () => {
+    const mic = $('#pMic'), st = $('#pStat'), live = () => document.contains(mic) && PR.mode === 'test';
+    const quiet = '🤔 I didn\'t hear anything. Try again a little louder.';
+    PR.busy = true; speechSynthesis.cancel();
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}}); }
+    catch (e) { if (live()) { PR.busy = false; st.textContent = e && e.name === 'NotFoundError' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : '🚫 Microphone blocked — allow microphone access in your browser.'; } return; }
+    if (!live()) { stream.getTracks().forEach(t => t.stop()); return; }
+    mic.classList.add('rec'); st.textContent = '🎙 Listening… say the word now';
+    const cap = await prRecord(stream);
+    if (!cap || !live()) return;
+    mic.classList.remove('rec');
+    if (!cap.wav || cap.peak < 0.004) { PR.busy = false; st.textContent = quiet; return; }
+    mic.disabled = true; st.textContent = '⏳ Checking your pronunciation…';
+    const d = await vtPost({action: 'word', student, text: w, audio: await vtB64(cap.wav)}, 20000);
+    if (!live()) return;
+    PR.busy = false; mic.disabled = false;
+    if (!d || !d.ok) {
+      const why = d && d.error; pronFails++;
+      if (PRON_HARD.includes(why) || pronFails >= 2) pronNoSvc = true;
+      const because = PRON_WHY[why] ? ' (' + PRON_WHY[why] + ')' : '';
+      st.textContent = !pronNoSvc ? 'That could not be checked' + because + '. Press the microphone and try again.'
+        : SR ? 'The full check is not available now' + because + '. Press the microphone again for the basic check.'
+        : 'The pronunciation check is not available now' + because + '. Try again later, or use Google Chrome or Microsoft Edge.';
+      pronHow(); return;
+    }
+    pronFails = 0;
+    if (!d.scores || !d.heard) { st.textContent = quiet; return; }
+    show(pronSvcScore(w, d));
+  };
   $('#pMic').onclick = () => {
+    if (prRec) { prRec.stop(); return; }   // a second press: "I have finished"
+    if (PR.busy) return;
+    if (pronSvc()) { if (PR.tries < 3) viaSvc(); return; }
     if (!SR) { toast('Please open this page in Chrome or Edge for speech recognition'); return; }
     if (recog) { recog.stop(); return; }
     if (PR.tries >= 3) return;
@@ -325,21 +424,7 @@ function renderPronTest(sec) {
     const mic = $('#pMic'), st = $('#pStat'); let got = false;
     recog = new SR(); recog.lang = LANG; recog.interimResults = false; recog.maxAlternatives = 5;
     recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… say the word now'; };
-    recog.onresult = e => {
-      got = true; PR.tries++;
-      const r = scoreWord(w, [...e.results[0]].map(a => a.transcript));
-      if (!PR.best || r.score > PR.best.score) PR.best = r;
-      const c = pcol(r.score);
-      $('#pbig').style.color = c;
-      $('#pRes').innerHTML = `<div class="result"><div class="ring" style="--p:${r.score};--rc:${c}"><span>${r.score}%</span></div>
-        <div class="fb"><b style="color:${c}">${r.score >= 90 ? 'Excellent! 🌟' : r.score >= 60 ? 'Good! 👍' : 'Not quite — try again 🔁'}</b>
-        <div class="hint" style="margin:6px 0 0">I heard: “${esc(r.heard)}”</div>
-        ${PR.tries > 1 ? `<div class="hint" style="margin:4px 0 0">Best try: <b style="color:${pcol(PR.best.score)}">${PR.best.score}%</b></div>` : ''}</div></div>`;
-      $('#pNext').disabled = false;
-      st.textContent = PR.best.score === 100 ? 'Perfect! Press “Next word”.' : PR.tries < 3 ? `Try again (${3 - PR.tries} ${3 - PR.tries === 1 ? 'try' : 'tries'} left) or press “Next word”.` : 'No tries left — press “Next word”.';
-      if (PR.tries >= 3 || PR.best.score === 100) mic.disabled = true;
-      if (r.score >= 90) say('Excellent!', null, 1);
-    };
+    recog.onresult = e => { got = true; show(scoreWord(w, [...e.results[0]].map(a => a.transcript))); };
     recog.onerror = e => { st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : e.error === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : e.error === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : e.error === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + e.error + '). Try again.'; };
     recog.onend = () => { mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and say the word'; };
     try { recog.start(); } catch (e) { recog = null; }

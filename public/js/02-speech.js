@@ -56,6 +56,7 @@ let recog = null, recorder = null, playToken = 0;
 function stopAll() {
   if (typeof spAbort === 'function') spAbort();
   if (typeof vtAbort === 'function') vtAbort();
+  if (typeof prAbort === 'function') prAbort();
   playToken++;
   try { speechSynthesis.cancel(); } catch (e) {}
   clearInterval(ptIv); Music.stop();
