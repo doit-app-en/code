@@ -39,7 +39,7 @@ async function onActivity() {
   await DB.put('kv', 'activity', activity); syncProgress();
 }
 async function markLessonDone(id) { if (!lessonsDone[id]) { lessonsDone[id] = Date.now(); await DB.put('kv', 'lessonsDone', lessonsDone); } onActivity(); }
-let syncState = '';   // '' | 'sending' | 'failed' | 'off' — what happened to the last try to send the progress to the teacher ('off' = this website has no class server yet)
+let syncState = '';   // '' | 'sending' | 'failed' | 'off' | 'other' ('other' = the server kept the progress of another device, see saveProgress() in api/class.js) — what happened to the last try to send the progress to the teacher ('off' = this website has no class server yet)
 async function sendProgress() {
   const url = syncUrl(); if (!url || !student || !student.email) return;
   syncState = 'sending'; drawSyncLine();
@@ -50,6 +50,7 @@ async function sendProgress() {
       body: JSON.stringify({action: 'progress', student, progress: progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : ''})});
     let d = null; if (own) { try { d = await r.json(); } catch (e) {} }
     if (own && !(r.ok && d && d.ok)) syncState = r.status === 404 || (d && d.error === 'server not configured') ? 'off' : 'failed';
+    else if (own && d.kept) syncState = 'other';
     else { activity.synced = Date.now(); await DB.put('kv', 'activity', activity); syncState = ''; }
   } catch (e) { syncState = 'failed'; /* offline: sent again after the next activity, when the internet is back, or with "Try again" */ }
   drawSyncLine();
@@ -61,6 +62,7 @@ function syncLineHTML() {
   if (!syncUrl()) return 'Your progress is saved on this device. Your teacher has not connected the class server yet.';
   if (syncState === 'failed') return `<span class="syncbad">⚠️ Your progress is safe on this device, but it could not be sent to your teacher. ${esc(netWhy())}</span> <button class="btn sm" id="syncRetry">↻ Try again</button>`;
   if (syncState === 'off') return 'Your progress is saved on this device. The class server is not ready yet, so your teacher cannot see it for now.';
+  if (syncState === 'other') return '✅ Your teacher sees your progress from the device you practised on last. When you practise here, the progress on this device is sent.';
   if (syncState === 'sending') return '<span class="spin sm"></span> Sending your progress to your teacher…';
   return `✅ Your progress is shared with your teacher${activity.synced ? ' (last update ' + new Date(activity.synced).toLocaleString() + ')' : ''}.`;
 }

@@ -36,12 +36,24 @@ export default async function handler(req, res) {
 async function saveProgress(supabase, d) {
   const s = d.student || {}, p = d.progress || {}, email = cleanEmail(s.email);
   if (!email) return { ok: false };
+  const who = { name: text(s.name, 120), cls: text(s.cls, 60), ...(d.me ? { user_id: d.me.userId, class_id: d.me.classId } : {}) };
+  // A student's practice lives on each device, so a second device (a school computer, a new phone, a browser whose data was cleared)
+  // knows less than the one the student practises on. The row keeps the summary of the device practised on most recently: a summary
+  // with no practice, or with older practice than the saved one, only updates who the student is (name, class), never the numbers.
+  let last = dateOrNull(d.lastActive); if (last && Date.parse(last) > Date.now()) last = new Date().toISOString();   // a device clock set in the future
+  const old = await supabase.from('students').select('last_active').eq('email', email).maybeSingle();
+  if (old.error) throw old.error;
+  const saved = old.data && old.data.last_active ? Date.parse(old.data.last_active) : NaN;
+  if (Number.isFinite(saved) && !(last && Date.parse(last) >= saved)) {
+    const { error } = await supabase.from('students').update(who).eq('email', email);
+    if (error) throw error;
+    return { ok: true, kept: true };
+  }
   // last_reminder is not in the row, so an update keeps the value that is already saved
   const { error } = await supabase.from('students').upsert({
-    email, name: text(s.name, 120), cls: text(s.cls, 60),
+    email, ...who,
     overall: pct(p.overall), listening: pct(p.listening), pronounce: pct(p.pronounce), lessons: pct(p.lessons),
-    placement: text(p.placement, 60), last_active: dateOrNull(d.lastActive), updated_at: new Date().toISOString(),
-    ...(d.me ? { user_id: d.me.userId, class_id: d.me.classId } : {}),
+    placement: text(p.placement, 60), last_active: last, updated_at: new Date().toISOString(),
   }, { onConflict: 'email' });
   if (error) throw error;
   return { ok: true };

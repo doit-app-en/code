@@ -48,6 +48,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
   New accounts are created already confirmed (`auth.admin.createUser`, `email_confirm: true`) because the site has no email service: emails are **not verified** and there is no "forgot my password" yet.
 - Without accounts, student/teacher mode is only a UI switch and the real protection is `TEACHER_KEY`, checked on the server.
 - The page talks to `/api/class` with the same JSON messages the old Apps Script used (see the top of `api/class.js`).
+  A student's row keeps the summary of the device practised on most recently: `saveProgress()` does not let a device with no practice, or older practice, replace the numbers (it answers `kept: true` and My progress says so).
   `syncUrl()` in `09-progress.js` defaults to `/api/class`; a teacher may still type an Apps Script URL.
 - Voice level test (`public/js/10b-voice-test.js`, route `#/voicetest`): 45 s answer + 45 s picture description + 4 listen-and-repeat sentences.
   The questions, pictures and sentences are lists at the top of that file; `vtFresh()` avoids what the device was asked before (IndexedDB `voiceSeen`).
