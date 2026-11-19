@@ -1,11 +1,14 @@
 /* ================= PRACTISE MY MISTAKES ================= */
 // The site remembers, on this device only (IndexedDB key 'mistakes'), what a student got wrong in a lesson:
 //   'm' — a picture–word pair matched wrongly in the Match game (noteMistake() in tryMatch),
-//   's' — a phrase not said clearly in Speak, a score under MIST_PASS (noteMistake() in showResult).
+//   's' — a phrase not said clearly in Speak, a score under MIST_PASS (noteMistake() in showResult),
+//   'w' — a single word not said clearly: under MIST_PASS in the Pronounce test, or listed as unclear by the voice level test (noteWord()).
 // Route #/mistakes is a round of up to MIST_ROUND of them. An item leaves the list after MIST_OK correct answers in rounds
 // (a wrong answer does not take a correct one away). Nothing is sent to the teacher.
 // mistakes = { 'm:<lesson id>:<pair id>': {ok: correct answers so far, n: times wrong, t: last time wrong}, … }
 // Only the ids are kept: the word and picture are read from the lesson, so an item whose lesson was deleted is simply not offered.
+// A word ('w') has no lesson, so its entry carries the word itself: 'w::<the word, lower case, encoded>': {ok, n, t, w: 'the word as shown'}.
+// (The empty middle part is never a lesson id, so code that only knows 'm' and 's' passes over these entries.)
 let mistakes = {}, MK = null;
 const MIST_MAX = 60, MIST_ROUND = 10, MIST_OK = 2, MIST_PASS = 80;
 const mistSave = () => DB.put('kv', 'mistakes', mistakes);
@@ -13,16 +16,26 @@ function noteMistake(kind, lesson, item) {
   if (mode === 'teacher' || !lesson || !item || !item.id || !String((kind === 'm' ? item.word : item.text) || '').trim()) return;
   const k = kind + ':' + lesson.id + ':' + item.id, r = mistakes[k] || (mistakes[k] = {ok: 0, n: 0});
   r.n++; r.t = Date.now();
-  const keys = Object.keys(mistakes);   // keep the newest MIST_MAX
-  if (keys.length > MIST_MAX) keys.sort((a, b) => (mistakes[a].t || 0) - (mistakes[b].t || 0)).slice(0, keys.length - MIST_MAX).forEach(x => delete mistakes[x]);
-  mistSave();
+  mistTrim(); mistSave();
 }
+const mistTrim = () => { const keys = Object.keys(mistakes);   // keep the newest MIST_MAX
+  if (keys.length > MIST_MAX) keys.sort((a, b) => (mistakes[a].t || 0) - (mistakes[b].t || 0)).slice(0, keys.length - MIST_MAX).forEach(x => delete mistakes[x]); };
+// A single word that was not clear (Pronounce test, voice level test). Kept only where the round can check it again (the browser's speech recognition).
+function noteWord(word) {
+  word = String(word || '').trim().replace(/^i(?=$|')/, 'I'); const id = pkey(word);
+  if (mode === 'teacher' || !SR || !id || word.length > 40) return false;
+  const k = 'w::' + encodeURIComponent(id), r = mistakes[k] || (mistakes[k] = {ok: 0, n: 0, w: word});
+  r.n++; r.t = Date.now(); mistTrim(); mistSave(); return true;
+}
+const MIST_WORDS = {icon: '🔤'}, MIST_WLESSON = {title: 'Pronunciation'};   // what a word shows where a lesson's name is shown
 // The mistakes that can be practised now: the lesson and the item are still there (speaking ones need speech recognition).
 function mistList() {
   const out = [], where = {};
   LEVELS.forEach(l => state.levels[l.id].lessons.forEach(s => { where[s.id] = {level: l, lesson: s}; }));
   for (const key in mistakes) {
-    const p = key.split(':'), w = where[p[1]]; if (!w) continue;
+    const p = key.split(':');
+    if (p[0] === 'w') { const word = String(mistakes[key].w || '').trim(); if (SR && !p[1] && word) out.push({key, kind: 'w', level: MIST_WORDS, lesson: MIST_WLESSON, item: {id: p[2], word, text: word}}); continue; }
+    const w = where[p[1]]; if (!w) continue;
     const item = (p[0] === 'm' ? w.lesson.matching : p[0] === 's' ? w.lesson.speaking : []).find(x => x.id === p[2]);
     if (!item || (p[0] === 's' && !SR) || !String((p[0] === 'm' ? item.word : item.text) || '').trim()) continue;
     out.push({key, kind: p[0], level: w.level, lesson: w.lesson, item});
@@ -58,7 +71,7 @@ function drawMist() {
   const el = $('#mkBody'); if (!el || !MK) return;
   if (!MK.q.length) {
     el.innerHTML = `<div class="statebox" id="mkEmpty"><div class="e">🎉</div><b>No mistakes to practise</b>
-      <p>When you match a picture with the wrong word in a lesson, or a phrase is not clear in Speak, it comes here so you can practise it again.</p>
+      <p>When you match a picture with the wrong word in a lesson, or a word or phrase is not clear when you say it, it comes here so you can practise it again.</p>
       <a class="btn sun" href="#/">Go to my lessons →</a></div>`;
     return;
   }
@@ -83,7 +96,7 @@ function drawMist() {
       <div class="mkfb" id="mkFb" aria-live="polite"></div></div><div id="mkNav"></div>`;
   } else {
     el.innerHTML = `${head}<div class="speak mkq">
-      <h3 class="mkt">Say this phrase clearly</h3>
+      <h3 class="mkt">Say this ${x.kind === 'w' ? 'word' : 'phrase'} clearly</h3>
       <div class="target" id="tgt">${tokens(x.item.text).map(t => `<span class="w">${esc(t.o)}</span>`).join('')}</div>
       <div class="row" style="justify-content:center"><button class="btn ghost sm" data-act="hear">🔊 Listen</button><button class="btn ghost sm" data-act="slow">🐢 Slowly</button></div>
       <button class="mic" data-act="mic" id="mic" title="Press and speak">🎤</button>
@@ -135,11 +148,13 @@ function mistMic(x) {
   recog = new SR(); recog.lang = LANG; recog.interimResults = false; recog.maxAlternatives = 5; recog.continuous = false;
   let got = false;
   recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… speak now'; };
-  recog.onresult = e => { got = true; mistSpoken(x, judge(x.item.text, [...e.results[0]].map(a => a.transcript))); st.textContent = 'Press the microphone to try again'; };
+  recog.onresult = e => { got = true; const alts = [...e.results[0]].map(a => a.transcript); mistSpoken(x, x.kind === 'w' ? mistWord(x.item.text, alts) : judge(x.item.text, alts)); st.textContent = 'Press the microphone to try again'; };
   recog.onerror = e => { st.textContent = srErrText(e.error); };
   recog.onend = () => { mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and speak'; };
   try { recog.start(); } catch (e) { recog = null; }
 }
+// A single word is judged like in the Pronounce test (the word itself or one that sounds the same = 100%, a different word 60% at most).
+function mistWord(word, alts) { const r = scoreWord(word, alts); return {score: r.score, heard: r.heard, ok: new Set(r.score >= MIST_PASS ? tokens(word).map((t, i) => i) : [])}; }
 function mistSpoken(x, res) {
   if (!MK || MK.q[MK.i] !== x || !$('#tgt')) return;
   const tk = tokens(x.item.text), s = res.score, pass = s >= MIST_PASS, col = pass ? 'var(--green)' : s >= 55 ? 'var(--sun)' : 'var(--coral)';
@@ -147,7 +162,7 @@ function mistSpoken(x, res) {
   const missed = tk.filter((t, i) => t.n && !res.ok.has(i)).map(t => t.o), was = x.res, msg = mistAnswer(x, pass);
   $('#result').innerHTML = `<div class="result"><div class="ring" style="--p:${s};--rc:${col}"><span>${s}%</span></div>
     <div class="fb"><b style="color:${col}">${pass ? 'Clear! 👏' : s >= 55 ? 'Almost there! 💪' : 'Let\'s try again 🔁'}</b><div>${pass ? 'You said it clearly.' : 'Listen to the model, then say it again slowly and clearly.'}</div><div class="hint" style="margin:8px 0 0">I heard: “${esc(res.heard)}”</div>
-    ${missed.length ? `<div class="hint" style="margin:4px 0 0">Practise: ${missed.map(w => `<span class="pchip" data-sayw="${esc(w)}" style="padding:3px 10px">🔊 ${esc(w)}</span>`).join(' ')}</div>` : ''}</div></div>`;
+    ${missed.length && x.kind !== 'w' ? `<div class="hint" style="margin:4px 0 0">Practise: ${missed.map(w => `<span class="pchip" data-sayw="${esc(w)}" style="padding:3px 10px">🔊 ${esc(w)}</span>`).join(' ')}</div>` : ''}</div></div>`;
   if (msg) $('#mkFb').innerHTML = `<b class="g">${msg}</b>`;
   else if (!pass && was !== 'ok') $('#mkFb').innerHTML = 'You can try again, or go on — you will see it again in another round.';
   $('#mkNav').innerHTML = MK.next();

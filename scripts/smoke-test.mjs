@@ -439,9 +439,12 @@ for (const screen of SCREENS) {
     if (await page.$eval('#hcount', b => b.innerText.trim()) !== '1') problems.push(L + ': a listened word was forgotten after a reload');
     await page.click('#playAll'); await page.waitForFunction(() => !document.querySelector('#startPT').disabled, null, { timeout: 30000 });
     await page.click('#startPT'); await page.waitForSelector('#pMic', { timeout: 5000 });
-    const n = await page.evaluate(() => PR.words.length);
+    const n = await page.evaluate(() => PR.words.length); let unclear = '', low = 0;
     for (let i = 0; i < n; i++) {
       if (i === 1) { await page.click('#pSkip'); await page.waitForTimeout(60); continue; }
+      if (i === 2) {   // said, but another word was heard: not 100%, and the word goes to "Practise my mistakes"
+        unclear = await page.evaluate(() => { window._heard = 'banana'; return PR.words[PR.i]; }); await page.click('#pMic'); await page.waitForSelector('#pRes .ring', { timeout: 5000 });
+        low = await page.evaluate(() => parseInt(document.querySelector('#pRes .ring').innerText, 10)); await page.click('#pNext'); await page.waitForTimeout(60); continue; }
       await page.evaluate(() => { window._heard = PR.words[PR.i]; }); await page.click('#pMic');
       await page.waitForFunction(() => /100%/.test((document.querySelector('#pRes .ring') || {}).innerText || ''), null, { timeout: 5000 });
       if (i === 0) await page.screenshot({ path: path.join(shots, 'phone-pronounce-test.png'), fullPage: true });
@@ -449,8 +452,12 @@ for (const screen of SCREENS) {
     }
     await page.waitForSelector('#again', { timeout: 5000 });
     const done = await page.evaluate(() => ({ best: (pronBest.B || {}).best, over: document.documentElement.scrollWidth - innerWidth }));
-    if (done.best !== Math.round((n - 1) * 100 / n) || done.over > 1) problems.push(L + ': wrong result after the test ' + JSON.stringify(done));
+    if (done.best !== Math.round(((n - 2) * 100 + low) / n) || !(low < 80) || done.over > 1) problems.push(L + ': wrong result after the test ' + JSON.stringify({ ...done, low, n }));
     await page.screenshot({ path: path.join(shots, 'phone-pronounce-result.png'), fullPage: true });
+    // The unclear word (not the skipped one, not the clear ones) is on the mistakes list, and the result says so with the link.
+    const nw = await page.evaluate(async () => ({ keys: Object.keys(mistakes), saved: Object.values((await DB.get('kv', 'mistakes')) || {}).map(r => r.w), note: (document.querySelector('#prNoted') || {}).innerText || '', link: (document.querySelector('.prdone #mistGo') || {}).innerText || '' }));
+    if (nw.keys.length !== 1 || nw.keys[0] !== 'w::' + encodeURIComponent(unclear.toLowerCase()) || nw.saved.join() !== unclear || !/1 word was not clear/.test(nw.note) || !/Practise my mistakes \(1\)/.test(nw.link))
+      problems.push(L + ': the unclear word did not go to "Practise my mistakes" ' + JSON.stringify({ unclear, ...nw }));
     await page.click('.backbtn'); await page.waitForTimeout(250);
     if (!await page.$('#playAll')) problems.push(L + ': "Back" on the result page does not go back to the letter');
     if (await page.$eval('#startPT', b => b.disabled)) problems.push(L + ': a letter tested before cannot be tested again');
@@ -464,6 +471,20 @@ for (const screen of SCREENS) {
     // A letter with no words (a teacher emptied it) cannot start a test.
     await page.evaluate(() => { pronSecs().find(s => s.id === 'B').groups = []; renderPron('B'); });
     if (!await page.$eval('#startPT', b => b.disabled)) problems.push(L + ': a letter with no words can start a test');
+    // The unclear word in "Practise my mistakes": a different word is not accepted, the word itself is, and after two rounds it has left the list.
+    // In teacher mode, and for an empty word, nothing is remembered.
+    await page.evaluate(() => { location.hash = '#/mistakes'; }); await page.waitForSelector('#mkBody #mic', { timeout: 5000 });
+    const w1 = await page.evaluate(() => ({ title: document.querySelector('.mkt').innerText, word: document.querySelector('#tgt').innerText.trim(), from: document.querySelector('.mkfrom').innerText }));
+    await page.evaluate(() => { window._heard = 'banana'; }); await page.click('#mic'); await page.waitForSelector('#result .result', { timeout: 5000 });
+    w1.bad = await page.evaluate(() => document.querySelector('#mkFb').innerText + ' | ' + Object.values(mistakes).map(r => r.ok).join());
+    await page.screenshot({ path: path.join(shots, 'phone-mistakes-word.png') });
+    await page.evaluate(() => { window._heard = MK.q[MK.i].item.text; }); await page.click('#mic'); await page.waitForFunction(() => /One more/.test(document.querySelector('#mkFb').innerText), null, { timeout: 5000 });
+    w1.over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    await page.click('#mkNext'); await page.waitForSelector('#mkEnd', { timeout: 5000 }); await page.click('[data-act=again]'); await page.waitForSelector('#mkBody #mic', { timeout: 5000 });
+    await page.evaluate(() => { window._heard = MK.q[MK.i].item.text; }); await page.click('#mic'); await page.waitForFunction(() => /Learned/.test(document.querySelector('#mkFb').innerText), null, { timeout: 5000 });
+    w1.left = await page.evaluate(() => { const before = Object.keys(mistakes).length; mode = 'teacher'; noteWord('lamb'); mode = 'student'; noteWord('  '); return before + '/' + Object.keys(mistakes).length; });
+    if (w1.title !== 'Say this word clearly' || w1.word !== unclear || !/Pronunciation/.test(w1.from) || !/another round\. \| 0$/.test(w1.bad) || w1.over > 1 || w1.left !== '0/0')
+      problems.push(L + ': the unclear word is not practised properly in "Practise my mistakes" ' + JSON.stringify({ unclear, ...w1 }));
   } catch (e) { problems.push(L + ': could not check — ' + e.message.split('\n')[0]); }
   await ctx.close();
 }

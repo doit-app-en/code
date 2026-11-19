@@ -376,7 +376,10 @@ function renderPronTest(sec) {
   pronHow(); if (typeof vtLoadCaps === 'function') vtLoadCaps().then(pronHow);
   $('#pHear').onclick = () => say(w, null, 0.85);
   $('#pSlow').onclick = () => say(w, null, 0.55);
-  const advance = () => { stopAll(); PR.scores.push(PR.best ? PR.best.score : 0); PR.log = PR.log || []; PR.log.push({w, score: PR.best ? PR.best.score : 0, heard: PR.best ? PR.best.heard : ''});
+  const advance = () => { stopAll(); PR.scores.push(PR.best ? PR.best.score : 0);
+    // said, but not clearly: remembered for "Practise my mistakes" (a skipped word is not)
+    if (PR.best && PR.best.score < MIST_PASS && noteWord(w)) PR.noted = (PR.noted || 0) + 1;
+    PR.log = PR.log || []; PR.log.push({w, score: PR.best ? PR.best.score : 0, heard: PR.best ? PR.best.heard : ''});
     if (PR.i < N - 1) { PR.i++; renderPronTest(sec); } else finishPron(sec); };
   $('#pNext').onclick = advance; $('#pSkip').onclick = advance;
   // One try has been scored (by the service or by the browser): show it.
@@ -464,6 +467,7 @@ function renderPronDone(sec) {
     <div style="max-width:640px;margin:10px auto 0;text-align:left">${scaleHTML(avg, 'Pronunciation score', true)}</div>
     <h3 class="baloo" style="text-align:left;margin:26px 0 10px;font-size:22px;color:var(--navy)">Your words</h3>
     <div class="plog">${PR.log.map(l => `<button class="plw" data-say="${esc(l.w)}" style="--pc:${pcol(l.score)}"><span>🔊 ${esc(l.w)}</span><b>${l.score}%</b>${l.score < 100 && l.heard ? `<small>heard: “${esc(l.heard)}”</small>` : l.score === 0 ? '<small>skipped</small>' : ''}</button>`).join('')}</div>
+    ${PR.noted && mistLinkHTML() ? `<p class="hint prnoted" id="prNoted" style="text-align:left;margin:16px 0 0">${PR.noted === 1 ? '<b>1 word</b> was not clear. It is' : `<b>${PR.noted} words</b> were not clear. They are`} in “Practise my mistakes” now, so you can say ${PR.noted === 1 ? 'it' : 'them'} again.</p><div style="text-align:left">${mistLinkHTML()}</div>` : ''}
     <div class="row prfoot" style="justify-content:center;margin-top:22px">
       <button class="btn sun" id="again">↻ Try ${Math.min(PRON_N, secWords(sec).length)} new words</button>
       <button class="btn ghost" id="relisten">🎧 Listen again</button>
