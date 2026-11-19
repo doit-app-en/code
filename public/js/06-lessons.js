@@ -116,8 +116,8 @@ function stuVideo() {
 function edVideo() {
   const v = LS.video;
   return `<div class="edit"><h4>🧑‍🏫 Teacher tools · Video</h4>
-    <div class="erow"><span class="lbl">Video link</span><input class="in grow" id="vurl" placeholder="Paste a YouTube link or a direct .mp4 link" value="${v && v.type !== 'file' ? esc(v.src || '') : ''}"><button class="btn sm" data-act="vidurl">Use link</button></div>
-    <div class="erow"><span class="lbl">…or upload a video file</span><label class="btn sm sun">📁 Choose video<input type="file" accept="video/*" hidden data-upload="video"></label>
+    <div class="erow etop"><span class="lbl">Video link</span><input class="in grow" id="vurl" placeholder="Paste a YouTube link or a direct .mp4 link" value="${v && v.type !== 'file' ? esc(v.src || '') : ''}"><button class="btn sm" data-act="vidurl">Use link</button></div>
+    <div class="erow etop"><span class="lbl">…or upload a video file</span><label class="btn sm sun">📁 Choose video<input type="file" accept="video/*" hidden data-upload="video"></label>
     ${v ? `<button class="btn sm red" data-act="vidrm" style="margin-left:auto">🗑 Remove video</button>` : ''}</div></div>`;
 }
 
@@ -145,7 +145,7 @@ function setActive(i) {
 }
 function edListen() {
   return `<div class="edit"><h4>🧑‍🏫 Teacher tools · Voice track & pictures</h4>
-    <div class="erow"><span class="lbl">Voice track</span>
+    <div class="erow etop"><span class="lbl">Voice track</span>
       <label class="btn sm sun">📁 Upload audio<input type="file" accept="audio/*" hidden data-upload="audio"></label>
       <button class="btn sm teal" data-act="rec">🎙 Record my voice</button>
       ${LS.audio ? `<button class="btn sm red" data-act="audrm">🗑 Remove track</button>` : '<span class="lbl">No track yet — students will hear a computer voice instead.</span>'}

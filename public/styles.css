@@ -1211,3 +1211,30 @@ body.acct-front .navlinks a.hide-sm,body.acct-front .tabbar{display:none!importa
 @media(max-width:560px){.vsample{padding:14px;border-radius:18px;margin-top:12px}.vsample h2{font-size:18px}.vslist{grid-template-columns:1fr 1fr;gap:8px}.vslist a:first-child{grid-column:1/-1}.vslist a{padding:8px 10px;gap:8px}.vslist i{font-size:22px}.vslist b{font-size:14px}
   .lktag{top:8px;right:8px;font-size:11px;padding:3px 8px}.lcard .lktag{position:static;align-self:flex-start;order:-1}}
 @media(max-width:860px){.pgrid .ptest:not(:first-child) .lktag{position:static;order:-1;align-self:flex-start;margin-bottom:-6px}}
+
+/* ===== Lesson: the "Teacher tools" boxes on touch screens (#edt, 06-lessons.js; .etop = a row that starts with its own label) ===== */
+@media(max-width:860px){
+  .lsbody .edit .btn.sm{min-height:44px;min-width:44px;padding:7px 14px}
+  .lsbody .edit .in{min-height:44px}
+}
+@media(max-width:560px){
+  .lsbody .edit{padding:12px;margin-top:20px;border-width:2px;border-radius:18px}
+  .lsbody .edit h4{font-size:17px;line-height:1.3;margin-bottom:10px}
+  .lsbody .edit .lbl{line-height:1.4}
+  .lsbody .erow{gap:8px;padding:8px;margin-bottom:8px}
+  .lsbody .erow .in{font-size:16px;padding:8px 10px}
+  .lsbody .erow .grow{flex:1 1 0;min-width:0}
+  /* a row with its own label: the label and the note take a line each, the buttons share one */
+  .lsbody .etop>.lbl,.lsbody .etop>.in{flex:1 1 100%}
+  .lsbody .etop>.btn{flex:1 1 calc(50% - 4px);margin-left:0!important;white-space:nowrap;padding:7px 8px}
+  /* one phrase or pair: picture line, then the text on a line of its own, then the time and the small buttons */
+  .lsbody .erow .pe{flex:1 1 100%;gap:8px}
+  .lsbody .erow .pe-prev{width:44px;height:44px}.lsbody .erow .pe-prev .emo{font-size:28px}
+  .lsbody .erow .emo-in{width:72px;padding:4px}
+  .lsbody .erow>.in[data-kind=phrases][data-field=text]{flex:1 1 100%}
+  .lsbody .erow .tin{width:76px}
+  .lsbody .erow>[data-act=del]{margin-left:auto}
+  .lsbody .edit>.btn,.lsbody .edit>.row>.btn{width:100%}
+  .lsbody .edit>.row{gap:8px}
+}
+@media(max-width:359px){.lsbody .etop>.btn{flex-basis:100%}}
