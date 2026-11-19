@@ -41,7 +41,7 @@ async function onActivity() {
 async function markLessonDone(id) { if (!lessonsDone[id]) { lessonsDone[id] = Date.now(); await DB.put('kv', 'lessonsDone', lessonsDone); } onActivity(); }
 let syncState = '';   // '' | 'sending' | 'failed' | 'off' | 'other' ('other' = the server kept the progress of another device, see saveProgress() in api/class.js) — what happened to the last try to send the progress to the teacher ('off' = this website has no class server yet)
 async function sendProgress() {
-  const url = syncUrl(); if (!url || !student || !student.email) return;
+  const url = syncUrl(); if (!url || !student || !student.email || authTeacher()) return;   // a teacher account is not a student of a class
   syncState = 'sending'; drawSyncLine();
   try {
     // The website's own server answers {ok: true} when the progress is saved, and its answer can be read. (An Apps Script address is
@@ -60,6 +60,7 @@ function syncProgress() { clearTimeout(syncT); syncT = setTimeout(sendProgress, 
 function syncLineHTML() {
   if (!student) return 'Your progress is saved on this device.';
   if (!syncUrl()) return 'Your progress is saved on this device. Your teacher has not connected the class server yet.';
+  if (authTeacher()) return 'Your practice is saved on this device. You are signed in as a teacher, so it is not sent to a class.';
   if (syncState === 'failed') return `<span class="syncbad">⚠️ Your progress is safe on this device, but it could not be sent to your teacher. ${esc(netWhy())}</span> <button class="btn sm" id="syncRetry">↻ Try again</button>`;
   if (syncState === 'off') return 'Your progress is saved on this device. The class server is not ready yet, so your teacher cannot see it for now.';
   if (syncState === 'other') return '✅ Your teacher sees your progress from the device you practised on last. When you practise here, the progress on this device is sent.';
@@ -266,10 +267,10 @@ function studentRows(rows) {
 }
 function renderStudents() {
   if (mode !== 'teacher') { app.innerHTML = `<div class="panel empty"><div class="e">🧑‍🏫</div>This page is for teachers. Switch to Teacher mode at the top.</div>`; return; }
-  const me = student ? [{...student, ...progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : '', here: true}] : [];
+  const me = student && !authTeacher() ? [{...student, ...progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : '', here: true}] : [];
   const pc = x => Math.max(0, Math.min(100, Math.round(+x || 0)));   // a percentage, whatever the server sent
   const rows = (classList || []).map(r => ({...r, overall: pc(r.overall), listening: pc(r.listening), pronounce: pc(r.pronounce), lessons: pc(r.lessons)}));
-  if (student && !rows.some(r => String(r.email).toLowerCase() === student.email)) rows.push(...me);
+  if (me.length && !rows.some(r => String(r.email).toLowerCase() === student.email)) rows.push(...me);
   const classes = [...new Set(rows.map(r => String(r.cls || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base', numeric: true}));
   if (stCls && !classes.includes(stCls)) stCls = '';
   if (stSort === 'voice' && !voiceLatest) stSort = 'recent';
@@ -285,7 +286,7 @@ function renderStudents() {
     <div class="row" style="justify-content:space-between"><h3 class="sec-t" style="font-size:24px">📊 Students ${all ? `(${shown.length < all ? shown.length + ' of ' + all : all})` : ''}</h3>
       ${syncUrl() && !classLoading ? '<button class="btn sm" id="refresh">↻ Refresh</button>' : ''}</div>
     ${classLoading ? loadBox('Loading your students…') : classErr ? (classRetry ? stateBox(navigator.onLine === false ? '📡' : '⚠️', 'The students could not be loaded', classErr, 'stRetry') : `<div class="warn">⚠️ ${esc(classErr)}</div>`) : ''}
-    ${!all ? (classLoading || classErr ? '' : `<div class="empty"><div class="e">👥</div>${syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>`) : `
+    ${!all ? (classLoading || classErr ? '' : `<div class="empty"><div class="e">👥</div>${authTeacher() ? 'No students yet. Give your students the class code: they appear here after they create their account with it.' : syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>`) : `
     ${all > 1 ? `<div class="stbar">
       ${classes.length > 1 ? `<label><span>Class</span><select class="in" id="stCls"><option value="">All classes (${all})</option>${classes.map(c => `<option value="${esc(c)}"${c === stCls ? ' selected' : ''}>${esc(c)} (${rows.filter(r => String(r.cls || '').trim() === c).length})</option>`).join('')}</select></label>` : ''}
       <label><span>Order</span><select class="in" id="stSort">${sorts.map(([v, t]) => `<option value="${v}"${v === stSort ? ' selected' : ''}>${t}</option>`).join('')}</select></label>

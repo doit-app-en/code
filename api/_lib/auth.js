@@ -5,12 +5,20 @@ import { env } from './server.js';
 
 // Accounts are "ready" when Supabase is set up AND the accounts migration has been run (the profiles table exists).
 // Until then the site works as it did before accounts: open to everyone, students named by the form on the My progress page.
-let readyAt = 0, readyIs = false;
+// A question that got no answer (Supabase busy or unreachable: no HTTP status, or a 5xx) says nothing about the table: the last
+// answer is kept, so a hiccup never switches accounts "off" (which would open the old rules, where the message names the student).
+// With no earlier answer it throws, and the function answers "server error" instead of guessing.
+let readyAt = 0, readyIs = false, readyKnown = false;
 export async function authReady(supabase) {
   if (!supabase || env('AUTH_OFF') === '1') return false;
   if (Date.now() - readyAt < (readyIs ? 300000 : 20000)) return readyIs;
-  const { error } = await supabase.from('profiles').select('id').limit(1);
-  readyIs = !error; readyAt = Date.now();
+  const { error, status } = await supabase.from('profiles').select('id').limit(1);
+  if (error && !(status >= 400 && status < 500)) {
+    if (!readyKnown) throw error;
+    readyAt = Date.now() - (readyIs ? 300000 : 20000) + 5000;   // ask again in a few seconds
+    return readyIs;
+  }
+  readyIs = !error; readyAt = Date.now(); readyKnown = true;
   return readyIs;
 }
 

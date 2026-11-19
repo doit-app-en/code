@@ -17,6 +17,8 @@ const AUTH_ERR = {wrong: 'The email or the password is not correct.', exists: 'T
   limit: 'Too many tries. Please wait and try again later.', offline: 'Could not reach the website. Check your internet connection and try again.', 'accounts off': 'Accounts are not switched on yet.',
   'sign in': 'Please sign in again.', 'students only': 'Only students join a class.', 'teachers only': 'Only teachers make classes.'};
 const authWhy = e => AUTH_ERR[e] || 'Something went wrong. Please try again.';
+// The short name in the header and in "Welcome, …": the first word, or two when the first is a title or half a name ("Mr Ahmed", "Abdul Rahman").
+const authFirst = n => { const w = String(n || '').trim().split(/\s+/); return w[1] && /^(mr|mrs|ms|miss|dr|prof|sir|teacher|abd|abdul|abdel|abu|umm|أ|د|الأستاذ|الاستاذ|أستاذ|استاذ|الأستاذة|الاستاذة|أستاذة|استاذة|الدكتور|دكتور|الدكتورة|دكتورة|عبد|أبو|ابو|أم|ام)\.?$/i.test(w[0]) ? w[0] + ' ' + w[1] : w[0]; };
 
 /* ---------- talking to the server ---------- */
 const rawFetch = window.fetch.bind(window);
@@ -37,17 +39,28 @@ async function authPost(body, withSession = true) {
   } catch (e) { return {ok: false, error: 'offline'}; } finally { clearTimeout(to); }
 }
 // A session lasts about an hour; shortly before it ends it is renewed with the refresh token.
+// A refresh token works once. Every tab of this browser shares the session in localStorage, so before renewing, a tab looks whether
+// another tab has renewed it already (and takes that one): renewing twice with the same token would sign the person out everywhere.
+const authLock = fn => navigator.locks && navigator.locks.request ? navigator.locks.request('die_refresh', fn) : fn();
+function authOther() { const k = lsJson('die_session'); if (!auth.session || !k || !k.refresh_token || k.refresh_token === auth.session.refresh_token) return false; auth.session = k; return true; }
+const authDue = () => !!auth.session && (auth.session.expires_at || 0) * 1000 - Date.now() <= 90000;
 function authFresh() {
-  const s = auth.session; if (!s || (s.expires_at || 0) * 1000 - Date.now() > 90000) return Promise.resolve();
-  if (!authRefreshing) authRefreshing = (async () => {
+  if (!authDue()) return Promise.resolve();
+  if (!authRefreshing) authRefreshing = authLock(async () => {
+    authOther(); if (!authDue()) return;   // another tab renewed it while this one waited
+    const s = auth.session; if (!s) return;
     const d = await authPost({action: 'refresh', refresh_token: s.refresh_token}, false);
+    if (auth.session !== s) return;   // signed out, or somebody else signed in, while the server was answering
     if (d.ok && d.session) authKeep(d.session, auth.me);
-    else if (d.error === 'sign in') { authForget(); authApply(); await authData(); toast('Please sign in again'); if (!AUTH_PAGES.includes((location.hash || '').replace(/^#\/?/, '').split('/')[0])) render(); }
-    authRefreshing = null;
-  })();
+    else if (d.error === 'sign in' && !authOther()) { authForget(); authApply(); await authData(); toast('Please sign in again'); if (!AUTH_PAGES.includes((location.hash || '').replace(/^#\/?/, '').split('/')[0])) render(); }
+  }).catch(() => {}).then(() => { authRefreshing = null; });
   return authRefreshing;
 }
-function authKeep(session, me) { auth.session = session; auth.me = me || null; ls('die_session', JSON.stringify(session)); if (me) ls('die_me', JSON.stringify(me)); else lsDel('die_me'); }
+// The time a session ends is counted on this device's own clock from "expires_in" (a school computer's clock may be hours wrong).
+function authKeep(session, me) {
+  if (session && session.expires_in) session = {access_token: session.access_token, refresh_token: session.refresh_token, expires_at: Math.floor(Date.now() / 1000) + (+session.expires_in || 3600)};
+  auth.session = session; auth.me = me || null; ls('die_session', JSON.stringify(session)); if (me) ls('die_me', JSON.stringify(me)); else lsDel('die_me');
+}
 function authForget() { auth.session = null; auth.me = null; lsDel('die_session'); lsDel('die_me'); }
 
 /* ---------- each account keeps its own saved practice on this device ---------- */
@@ -94,7 +107,8 @@ async function mineSwitch() {
   syncState = ''; classList = null; classErr = ''; voiceLatest = null; voiceHist = {}; voiceOpen = new Set(); viewRes = null; VT = {mode: 'intro'}; SPK = {mode: 'pick'};
 }
 // Another tab of this browser signed in or out: this tab starts again, so it does not go on saving the other person's practice.
-window.addEventListener('storage', e => { if (e.key !== 'die_me' && e.key !== 'die_session') return; const m = lsJson('die_me'); if (((m && m.id) || '') !== ((auth.me && auth.me.id) || '')) location.reload(); });
+// The same person, with a session the other tab has just renewed: this tab uses it from now on.
+window.addEventListener('storage', e => { if (e.key !== 'die_me' && e.key !== 'die_session') return; const m = lsJson('die_me'); if (((m && m.id) || '') !== ((auth.me && auth.me.id) || '')) return location.reload(); authOther(); });
 
 /* ---------- start-up ---------- */
 async function authInit() {
@@ -115,8 +129,8 @@ async function authInit() {
     if (auth.session) {
       const d = await authPost({action: 'me'});
       if (d.ok && d.me) authKeep(auth.session, d.me);
-      else if (d.error === 'offline') auth.me = lsJson('die_me');   // no internet: keep working as the person who was signed in
-      else authForget();
+      else if (d.error !== 'sign in' && lsJson('die_me')) auth.me = lsJson('die_me');   // no internet, or the server is in trouble: keep working as the person who was signed in
+      else authForget();   // the server says this session is over
     }
   }
   authApply(); await authData();
@@ -137,7 +151,7 @@ function authHeader() {
   b.hidden = !auth.on; pop.hidden = true; if (!auth.on) return;
   if (!authSignedIn()) { b.innerHTML = '👤<span> Sign in</span>'; b.onclick = () => go('#/login'); b.setAttribute('aria-label', 'Sign in'); return; }
   const m = auth.me;
-  b.innerHTML = '👤<span> ' + esc(m.name.split(' ')[0]) + '</span>'; b.setAttribute('aria-label', 'My account');
+  b.innerHTML = '👤<span> ' + esc(authFirst(m.name)) + '</span>'; b.setAttribute('aria-label', 'My account');
   b.onclick = e => { e.stopPropagation(); const open = pop.hidden; pop.hidden = !open; if (open) authPop(); };
 }
 function authPop() {
@@ -157,7 +171,7 @@ async function authSignOut() { authForget(); lsDel('die_visitor'); DB.put('kv', 
 async function authEnter(d) {
   authKeep(d.session, d.me); let code = ''; try { code = sessionStorage.getItem('die_code') || ''; sessionStorage.removeItem('die_code'); } catch (e) {}
   if (code && d.me && d.me.role === 'student' && !d.me.className) { const j = await authPost({action: 'join', code}); if (j.ok) authKeep(auth.session, j.me); }
-  authApply(); await authData(); if (authSignedIn()) { syncProgress(); toast('Welcome, ' + auth.me.name.split(' ')[0] + '! 👋'); }
+  authApply(); await authData(); if (authSignedIn()) { syncProgress(); toast('Welcome, ' + authFirst(auth.me.name) + '! 👋'); }
   if (location.hash === '#/' || location.hash === '') render(); else go('#/');
 }
 
@@ -177,6 +191,7 @@ function authRouteDraw(p) {
   if (auth.me && auth.me.needsProfile) { authFinishPage(); return true; }
   if (auth.me) {
     if (page === 'join' && p[1] && auth.me.role === 'student') { authPost({action: 'join', code: p[1]}).then(d => { if (d.ok) { authKeep(auth.session, d.me); authApply(); syncProgress(); toast('You joined ' + d.me.className + ' 🎉'); } else toast(authWhy(d.error)); }); go('#/'); return true; }
+    if (page === 'join' && p[1]) setTimeout(() => toast(authWhy('students only')), 300);   // a teacher opened a class link
     if (AUTH_PAGES.includes(page)) { go('#/'); return true; }
     return false;
   }

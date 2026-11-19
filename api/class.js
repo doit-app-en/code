@@ -22,6 +22,8 @@ export default async function handler(req, res) {
       const me = await identity(req, supabase);   // undefined = accounts are not switched on yet
       if (me === null) return res.status(200).json({ ok: false, error: 'sign in' });
       if (me) { d.student = { name: me.name, cls: me.cls, email: me.email }; d.me = me; } else delete d.me;
+      // A teacher account is not a student: its practice is not saved as a row of the students list (and gets no reminder emails).
+      if (me && me.role === 'teacher' && d.action === 'progress') return res.status(200).json({ ok: true, teacher: true });
     }
     if (d.action === 'progress') return res.status(200).json(await saveProgress(supabase, d));
     if (d.action === 'speaking') return res.status(200).json(await speaking(supabase, d));

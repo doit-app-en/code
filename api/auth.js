@@ -19,7 +19,8 @@ const one = (v, max) => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').s
 const cleanCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no 0/O or 1/I: codes are read aloud in class
 const newCode = () => Array.from({ length: 6 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
-const sessionOut = s => ({ access_token: s.access_token, refresh_token: s.refresh_token, expires_at: s.expires_at || Math.floor(Date.now() / 1000) + (s.expires_in || 3600) });
+// expires_in (seconds from now) is what the page uses: it counts on its own clock, which may be wrong. expires_at stays for pages loaded before this.
+const sessionOut = s => ({ access_token: s.access_token, refresh_token: s.refresh_token, expires_in: s.expires_in || 3600, expires_at: s.expires_at || Math.floor(Date.now() / 1000) + (s.expires_in || 3600) });
 const ipKey = req => 'ip:' + createHash('sha256').update(String((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown')).digest('hex').slice(0, 24);
 
 async function limit(supabase, kind, who, perWho, perDay) {

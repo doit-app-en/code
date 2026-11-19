@@ -557,17 +557,21 @@ for (const screen of SCREENS) {
   const L = 'accounts', ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage();
   watch(page, L);
   try {
-    const calls = [];
-    await page.route('**/api/**', r => {
+    const calls = [], posts = [], refreshes = []; let meDown = false, letter = 'a', rt = 'r'.repeat(20);
+    await ctx.route('**/api/**', r => {
       const q = r.request(), url = q.url(), signed = !!q.headers().authorization;
+      if (url.includes('/api/class') && q.method() === 'POST') posts.push(JSON.parse(q.postData() || '{}').action);
       if (!url.includes('/api/auth')) { calls.push((url.includes('/api/class') ? 'class' : 'voice') + (signed ? '+session' : '')); return r.fulfill({ json: q.method() === 'GET' ? { ok: true, speech: false, ai: false, save: true } : { ok: true } }); }
       if (q.method() === 'GET') return r.fulfill({ json: { ok: true, auth: true, google: false } });
       const d = JSON.parse(q.postData() || '{}'), me = { id: 'u1', email: 'sara@example.com', name: 'Sara <Test>', role: 'student', className: 'Grade 10 A', classCode: 'ABC234', teacher: 'Mr Ahmed' };
       if (d.action === 'code') return r.fulfill({ json: d.code === 'ABC234' ? { ok: true, code: 'ABC234', className: 'Grade 10 A', teacher: 'Mr Ahmed' } : { ok: false, error: 'bad code' } });
       if (d.action === 'signup') return r.fulfill({ json: { ok: true, session: { access_token: 'a'.repeat(40), refresh_token: 'r'.repeat(20), expires_at: Math.floor(Date.now() / 1000) + 3600 }, me } });
       // a second student for the same computer: omar@example.com signs in with a session that starts with "b"
-      const me2 = { id: 'u2', email: 'omar@example.com', name: 'Omar Test', role: 'student', className: '', classCode: '', teacher: '' }, who = /Bearer b/.test(q.headers().authorization || '') ? me2 : me;
-      if (d.action === 'login') { const m = d.email === 'omar@example.com' ? me2 : me; return r.fulfill({ json: { ok: true, session: { access_token: (m === me2 ? 'b' : 'a').repeat(40), refresh_token: 'r'.repeat(20), expires_at: Math.floor(Date.now() / 1000) + 3600 }, me: m } }); }
+      const me2 = { id: 'u2', email: 'omar@example.com', name: 'Omar Test', role: 'student', className: '', classCode: '', teacher: '' }, me3 = { id: 'u3', email: 'teacher@example.com', name: 'Mr Ahmed', role: 'teacher', classes: [{ id: 'c1', name: 'Grade 10 A', code: 'ABC234', students: 0 }] }, who = /Bearer b/.test(q.headers().authorization || '') ? me2 : /Bearer c/.test(q.headers().authorization || '') ? me3 : me;
+      if (d.action === 'login') { const m = d.email === 'omar@example.com' ? me2 : d.email === 'teacher@example.com' ? me3 : me; letter = m === me2 ? 'b' : m === me3 ? 'c' : 'a'; return r.fulfill({ json: { ok: true, session: { access_token: letter.repeat(40), refresh_token: 'r'.repeat(20), expires_at: Math.floor(Date.now() / 1000) + 3600 }, me: m } }); }
+      // a refresh token works once (as in Supabase): a second use is refused
+      if (d.action === 'refresh') { refreshes.push(d.refresh_token); if (d.refresh_token !== rt) return r.fulfill({ json: { ok: false, error: 'sign in' } }); rt = 'n' + refreshes.length + 'x'.repeat(18); return r.fulfill({ json: { ok: true, session: { access_token: letter.repeat(40), refresh_token: rt, expires_in: 3600 } } }); }
+      if (signed && d.action === 'me' && meDown) return r.fulfill({ json: { ok: false, error: 'server error' } });
       return r.fulfill({ json: signed && d.action === 'me' ? { ok: true, me: who } : { ok: false, error: 'sign in' } });
     });
     const text = () => page.evaluate(() => document.querySelector('#app').innerText), wide = async what => { const o = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth); if (o > 1) problems.push(`${L}: ${what} is ${o}px wider than the screen`); };
@@ -644,10 +648,28 @@ for (const screen of SCREENS) {
     await page.evaluate(async () => { await DB.put('kv', 'owner', { id: 'u2', laying: true }); await DB.put('kv', 'lessonsDone', { broken: 1 }); });
     await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => typeof authSignedIn === 'function' && authSignedIn() && !!document.querySelector('#app').innerHTML, null, { timeout: 8000 }); await page.waitForTimeout(300);
     const again = await mine(); if (again.who !== 'u2' || /broken/.test(again.mem + again.db)) problems.push(L + ': a half-finished change of student was not repaired: ' + JSON.stringify(again));
+    // the accounts server is in trouble when the page opens: the student is not signed out
+    const started = p => p.waitForFunction(() => typeof authSignedIn === 'function' && !!document.querySelector('#app').innerHTML, null, { timeout: 8000 }).then(() => p.waitForTimeout(300));
+    meDown = true; await page.reload({ waitUntil: 'load' }); await started(page); meDown = false;
+    if (!(await page.evaluate(() => authSignedIn() && student && student.email === 'omar@example.com'))) problems.push(L + ': a server error at start-up signs the student out');
+    // two tabs, an hour later: the second tab uses the session the first one renewed (a refresh token works once)
+    const tab2 = await ctx.newPage(); watch(tab2, L + ' (second tab)'); await tab2.goto(base + '/', { waitUntil: 'load' }); await started(tab2);
+    for (const p of [page, tab2]) await p.evaluate(() => { auth.session.expires_at = 0; });
+    await page.evaluate(() => sendProgress()); await page.waitForTimeout(400); await tab2.evaluate(() => sendProgress()); await tab2.waitForTimeout(600);
+    const tabs = [await page.evaluate(() => typeof authSignedIn === 'function' && authSignedIn()), await tab2.evaluate(() => typeof authSignedIn === 'function' && authSignedIn())];
+    if (refreshes.length !== 1 || !tabs[0] || !tabs[1]) problems.push(`${L}: two tabs do not share a renewed session (renewed ${refreshes.length} times, signed in: ${tabs.join(' ')})`);
+    await tab2.close();
+    // a teacher account is not a student: not in its own Students table, and its practice is not sent as a student's
+    await signOut(); await signIn('teacher@example.com'); posts.length = 0;
+    await page.evaluate(() => { document.querySelector('.seg button[data-mode=teacher]').click(); location.hash = '#/students'; }); await page.waitForSelector('#acctClasses', { timeout: 5000 });
+    await page.evaluate(() => sendProgress()); await page.waitForTimeout(400);
+    const tch = await page.evaluate(() => ({ rows: document.querySelectorAll('#app .rtable tbody tr').length, name: document.querySelector('#acctBtn').textContent.trim() }));
+    if (tch.rows || posts.includes('progress') || !/Mr Ahmed/.test(tch.name)) problems.push(L + ': a teacher account is treated as a student ' + JSON.stringify({ ...tch, posts }));
+    await wide('the teacher\'s Students page'); await page.screenshot({ path: path.join(shots, 'phone-accounts-teacher-students.png'), fullPage: true });
   } catch (e) { problems.push(L + ': could not check — ' + e.message.split('\n')[0]); }
   await ctx.close();
 }
 
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, accounts (welcome page, visitor sample, two students on one device, sign-up), voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, accounts (welcome page, visitor sample, two students on one device, sign-up, two tabs, teacher account), voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
