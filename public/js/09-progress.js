@@ -70,16 +70,22 @@ function syncLineHTML() {
 function drawSyncLine() { const el = $('#syncLine'); if (!el) return; el.innerHTML = syncLineHTML(); const b = $('#syncRetry'); if (b) b.onclick = sendProgress; }
 // Practice streak and this week (Sunday first), from the per-day activity count already saved on this device.
 // A day counts when at least one activity was finished. Today not done yet does not break the streak.
-// Rest day: one missed day in each week (Sunday to Saturday) does not break the streak, as long as the day before it was
-// a practice day (so two missed days in a row always end it). A rest day keeps the streak but is not counted in it.
+// Rest day: one missed day in each week (Sunday to Saturday) does not break the streak, as long as the days before and after it
+// were practice days (so two missed days in a row always end it). A rest day keeps the streak but is not counted in it.
+// The week's rest day is its FIRST such day, whatever day the count starts from: a second missed day in the same week ends the
+// streak and never takes the rest day over (it used to, and the page then said "Your rest day saved your streak" over a streak that had shrunk).
 const MILESTONES = [3, 7, 14, 30];
+function streakRest(k, now = new Date()) {   // is the day k days ago its week's rest day?
+  const days = activity.days || {}, at = k => { const d = new Date(now); d.setDate(d.getDate() - k); return d; }, has = k => !!days[todayKey(at(k))];
+  const cand = k => !has(k) && has(k + 1) && (k <= 1 || has(k - 1));   // k <= 1: the day after is today, which may still come
+  if (!cand(k)) return false; for (let j = k + 1, last = k + at(k).getDay(); j <= last; j++) if (cand(j)) return false; return true;   // no earlier one since that week's Sunday
+}
 function streakRun(n, now = new Date()) {   // the streak that ends n days ago: {streak, rests: [day keys], end: first n outside it}
   const days = activity.days || {}, at = k => { const d = new Date(now); d.setDate(d.getDate() - k); return d; }, has = k => !!days[todayKey(at(k))];
-  let streak = 0; const rests = [], used = {};
+  let streak = 0; const rests = [];
   while (n < 3660) {
     if (has(n)) { streak++; n++; continue; }
-    const wk = todayKey(at(n + at(n).getDay()));   // the Sunday that starts that day's week
-    if (!used[wk] && has(n + 1)) { used[wk] = 1; rests.push(todayKey(at(n))); n++; continue; }
+    if (streakRest(n, now)) { rests.push(todayKey(at(n))); n++; continue; }
     break;
   }
   return {streak, rests, end: n};
@@ -87,7 +93,7 @@ function streakRun(n, now = new Date()) {   // the streak that ends n days ago: 
 function streakInfo() {
   const days = activity.days || {}, has = d => !!days[todayKey(d)], now = new Date(), at = n => { const d = new Date(now); d.setDate(d.getDate() - n); return d; };
   const run = streakRun(has(now) ? 0 : 1, now), streak = run.streak, rest = d => run.rests.includes(todayKey(d));
-  const dow = now.getDay(), week = [...Array(7)].map((_, i) => ({l: 'SMTWTFS'[i], on: i <= dow && has(at(dow - i)), rest: i <= dow && rest(at(dow - i)), today: i === dow}));
+  const dow = now.getDay(), week = [...Array(7)].map((_, i) => ({l: 'SMTWTFS'[i], on: i <= dow && has(at(dow - i)), rest: i < dow && streakRest(dow - i, now), today: i === dow}));   // the week's rest day is shown even when a later missed day ended that streak, so "rest day used" stays true
   // The longest streak this device has seen (for the milestone badges), and the first day since the oldest saved one.
   const keys = Object.keys(days).sort(), span = keys.length ? Math.min(3660, Math.round((new Date(todayKey(now)) - new Date(keys[0])) / DAY) + 1) : 0;
   let best = streak; for (let n = 0; n <= span;) { if (!has(at(n))) { n++; continue; } const r = streakRun(n, now); best = Math.max(best, r.streak); n = r.end; }
@@ -106,8 +112,9 @@ function celebrateStreak(n) {
     <small>${nx ? `Next: ${nx} days in a row.` : 'You have reached every streak badge!'}</small>
     <button type="button" class="btn sun" id="celebOk">Keep going →</button></div>`;
   document.body.appendChild(el);
-  const close = () => { el.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
-  $('#celebOk').onclick = close; el.onclick = e => { if (e.target === el) close(); }; document.addEventListener('keydown', key); $('#celebOk').focus();
+  const close = () => { el.remove(); document.removeEventListener('keydown', key); removeEventListener('hashchange', close); }, key = e => { if (e.key === 'Escape') close(); };
+  $('#celebOk').onclick = close; el.onclick = e => { if (e.target === el) close(); }; document.addEventListener('keydown', key); addEventListener('hashchange', close);   // the phone's Back button, or a link: the card does not stay over the next page
+  $('#celebOk').focus();
 }
 const milesHTML = s => `<div class="miles" id="miles" role="img" aria-label="Streak badges: ${MILESTONES.filter(m => s.best >= m).join(', ') || 'none yet'}">${MILESTONES.map(m => `<span class="${s.best >= m ? 'on' : ''}" title="${m} days in a row">${m}</span>`).join('')}<small>${s.next ? `Next badge: ${s.next} days in a row` : 'Every streak badge is yours!'}</small></div>`;
 const restHTML = s => `<small class="restline" id="restLine">💤 ${s.restLeft ? 'One free rest day a week: if you miss one day, your streak is safe.' : 'Your rest day this week is used. Practise every day until Sunday to keep your streak.'}</small>`;
@@ -140,7 +147,7 @@ let stEditing = false;   // the student pressed "Change": the details form is op
 function renderProgress(arrived) {
   if (arrived || !student) stEditing = false;
   const form = !student || stEditing, v = k => esc((student && student[k]) || '');
-  const p = progressData(), idle = daysIdle(), col = pcol(p.overall), sk = streakInfo(), last7 = [...Array(7)].map((_, k) => { const d = new Date(Date.now() - (6 - k) * DAY); return {k: todayKey(d), l: 'SMTWTFS'[d.getDay()]}; });
+  const p = progressData(), idle = daysIdle(), col = pcol(p.overall), sk = streakInfo(), last7 = [...Array(7)].map((_, k) => { const d = new Date(); d.setDate(d.getDate() - (6 - k)); return {r: k < 6 && streakRest(6 - k), k: todayKey(d), l: 'SMTWTFS'[d.getDay()]}; });
   const week = last7.filter(d => activity.days && activity.days[d.k]).length, sugg = nextSuggestions();
   const bar = (label, pct, sub) => `<div class="brow"><span>${label}${sub ? ` <small>${sub}</small>` : ''}</span><div class="bt"><i style="width:${pct}%;background:${pcol(pct)}"></i></div><b>${pct}%</b></div>`;
   const idleT = idleText(idle), idleCap = idleT[0].toUpperCase() + idleT.slice(1);
@@ -165,7 +172,7 @@ function renderProgress(arrived) {
       <div class="pgst"><b class="w">${idleCap}</b><small>last practised</small></div>
     </div>
     <div class="grow pgmore">
-      <div class="wk">${last7.map(d => `<span class="${activity.days && activity.days[d.k] ? 'on' : sk.rests.includes(d.k) ? 'rest' : ''}" title="${sk.rests.includes(d.k) ? 'Rest day' : d.k}">${sk.rests.includes(d.k) ? '💤' : d.l}</span>`).join('')}<small>${week} of the last 7 days</small></div>
+      <div class="wk">${last7.map(d => `<span class="${activity.days && activity.days[d.k] ? 'on' : d.r ? 'rest' : ''}" title="${d.r ? 'Rest day' : d.k}">${d.r ? '💤' : d.l}</span>`).join('')}<small>${week} of the last 7 days</small></div>
       <div class="wgoal" id="wgoal"></div>
       <p class="pgstreak">🔥 <b>${sk.streak}</b> day${sk.streak === 1 ? '' : 's'} in a row${sk.restSaved ? ' — your rest day kept it safe. Practise today!' : sk.streak && !sk.today ? ' — practise today to keep it!' : sk.streak ? ' — well done!' : ' — finish one activity today to start your streak.'}</p>
       ${milesHTML(sk)}${restHTML(sk)}
