@@ -108,10 +108,16 @@ for (const screen of SCREENS) {
   try {
     await page.goto(base + '/#/placement', { waitUntil: 'load' }); await page.waitForSelector('#infoForm', { timeout: 10000 });
     await page.evaluate(() => { state.placement.questions = bank().slice(0, 4).concat(bank().filter(q => q.listen).slice(0, 1)); });   // a short test (this browser profile is thrown away)
-    await page.fill('[name=name]', 'Sara Test'); await page.fill('[name=cls]', '9A'); await page.fill('[name=phone]', '0790 123 4567'); await page.click('#infoForm button[type=submit]'); await page.waitForSelector('.opt');
+    await page.fill('[name=name]', 'Sara Test'); await page.fill('[name=cls]', '9A'); await page.fill('[name=phone]', '٠٧٩٠ ١٢٣ ٤٥٦٧'); await page.click('#infoForm button[type=submit]'); await page.waitForSelector('.opt', { timeout: 5000 }).catch(() => problems.push('placement test: a phone number typed with Arabic digits (٠٧٩٠…) is refused'));
     // A second quick tap (a double tap on the answer before) must not answer the new question.
     await page.waitForTimeout(450); const first = await page.evaluate(() => { const k = P.items[0].opts.findIndex(o => o.ok); document.querySelector(`.opt[data-k="${k}"]`).click(); return new Promise(r => setTimeout(() => { document.querySelector('.opt').click(); r({ i: P.i, locked: !!P.locked, ans: P.ans.length }); }, 320)); });
     if (first.i !== 1 || first.locked || first.ans !== 1) problems.push('placement test: a quick second tap answered the next question ' + JSON.stringify(first));
+    // Leaving the page in the short pause after an answer must not draw the next question over the page the student went to.
+    await page.waitForTimeout(450); await page.evaluate(() => { const k = P.items[P.i].opts.findIndex(o => o.ok); document.querySelector(`.opt[data-k="${k}"]`).click(); location.hash = '#/progress'; }); await page.waitForTimeout(600);
+    const left = await page.evaluate(() => ({ drawn: !!document.querySelector('.pt-wrap'), i: P.i, phone: P.info.phone }));
+    if (await page.evaluate(() => ptSet() !== ptSet())) problems.push('placement test: ptSet() gives a new settings object each time, so the teacher\'s timer and music boxes write into an old one');
+    if (left.drawn || left.i !== 2 || left.phone !== '0790 123 4567') problems.push('placement test: leaving just after an answer drew the test over the next page, lost the answer, or the phone number was not kept in 0-9 digits ' + JSON.stringify(left));
+    await page.evaluate(() => { location.hash = '#/placement'; }); await page.waitForSelector('.opt');
     for (let n = 0; n < 8 && await page.evaluate(() => P.stage === 'test'); n++) { await page.waitForTimeout(420); await page.evaluate(() => { const k = P.items[P.i].opts.findIndex(o => o.ok); document.querySelector(`.opt[data-k="${k}"]`).click(); }); await page.waitForTimeout(320); }
     await page.waitForSelector('.res-card', { timeout: 5000 });
     const pt = await page.evaluate(() => ({ pct: P.rec.pct, level: P.rec.level, saved: results.length, over: document.documentElement.scrollWidth - innerWidth }));

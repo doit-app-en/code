@@ -198,7 +198,7 @@ function generateQuestions(topic, count) {
 
 /* ---- countdown music (generated live with Web Audio, or the teacher's own file) ---- */
 const Music = {
-  ctx: null, master: null, iv: null, on: false, urgency: 0, step: 0, next: 0, el: null,
+  ctx: null, master: null, iv: null, on: false, urgency: 0, step: 0, next: 0, el: null, pv: null, pv2: null,
   ensure() {
     if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
       this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.connect(this.ctx.destination); }
@@ -215,7 +215,7 @@ const Music = {
     this.master.gain.value = s.vol * 0.6; this.step = 0; this.next = this.ctx.currentTime + 0.05;
     this.iv = setInterval(() => this.schedule(), 25);
   },
-  stop() { this.on = false; clearInterval(this.iv); this.iv = null; if (this.el) this.el.pause(); },
+  stop() { this.on = false; clearInterval(this.iv); this.iv = null; if (this.el) this.el.pause(); clearTimeout(this.pv); clearTimeout(this.pv2); this.pv = null; },   // also ends a teacher's preview: its timers must not stop the music of a test started later
   schedule() { const dt = 60 / (96 + this.urgency * 72) / 2; while (this.next < this.ctx.currentTime + 0.12) { this.beat(this.step++, this.next); this.next += dt; } },
   beat(s, t) {
     const r = [45, 45, 48, 43][Math.floor(s / 8) % 4], arp = [12, 19, 24, 19];
@@ -291,10 +291,17 @@ function timeUp() {
 /* ---- placement state ---- */
 let P = {stage: 'info'}, ptTab = 'test', results = [], editQ = null, freshIds = new Set();
 const bank = () => state.placement.questions;
-const ptSet = () => (state.placement.settings = Object.assign({timer: 'off', qsec: 30, tmin: 30, music: 'builtin', musicM: null, musicName: '', vol: 0.5}, state.placement.settings || {}));
+// Always the same object (missing values filled in): the settings boxes keep it while the tab is open, so a fresh copy on every call
+// would leave them writing into an old one — after "Preview music" a changed timer or volume was shown but never saved.
+const PT_SET = {timer: 'off', qsec: 30, tmin: 30, music: 'builtin', musicM: null, musicName: '', vol: 0.5};
+const ptSet = () => { const s = state.placement.settings || (state.placement.settings = {}); for (const k in PT_SET) if (s[k] === undefined) s[k] = PT_SET[k]; return s; };
 const saveResults = () => DB.put('kv', 'results', results);
 function levelFor(pct) { return pct < 35 ? 'f1' : pct < 55 ? 'f2' : pct < 80 ? 'a1' : 'a2'; }
 function levelNote(pct) { return pct < 35 ? 'Start from the very beginning to build strong basics.' : pct < 55 ? 'You know some basics. Foundation 2 will make them strong.' : pct < 80 ? 'Good A1 knowledge — keep practising at Level A1.' : 'Excellent! You are strong at A1 and ready for Level A2.'; }
+// Is the placement page the one on the screen? A late timer (the pause after an answer, saving the result) must not draw it over another page.
+const ptHere = () => !!app.querySelector('.pt-wrap') && /^#\/placement/.test(location.hash);
+// Phones with an Arabic or Persian keyboard type ٠١٢٣ / ۰۱۲۳: read them as 0123.
+const latinDigits = s => String(s).replace(/[٠-٩]/g, c => c.charCodeAt(0) - 0x660).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 0x6F0);
 function buildItems() {
   const rank = id => TOPICS.findIndex(t => t.id === id);
   return [...bank()].sort((a, b) => rank(a.t) - rank(b.t))
@@ -354,7 +361,7 @@ function bindTest() {
   const f = $('#infoForm');
   if (f) f.onsubmit = e => {
     e.preventDefault();
-    const d = Object.fromEntries(new FormData(f)), info = {name: d.name.trim(), cls: d.cls.trim(), phone: d.phone.trim()};
+    const d = Object.fromEntries(new FormData(f)), info = {name: d.name.trim(), cls: d.cls.trim(), phone: latinDigits(d.phone.trim())};
     const digits = info.phone.replace(/\D/g, '');
     const err = info.name.length < 2 ? 'Please write the student’s full name.' : !info.cls ? 'Please write the class.'
       : !/^[+\d\s\-()]+$/.test(info.phone) || digits.length < 7 || digits.length > 15 ? 'Please write a valid phone number (7–15 digits).' : '';
@@ -366,7 +373,7 @@ function bindTest() {
     renderPlacement();
   };
   if (P.stage === 'test') {
-    const it = P.items[P.i], shown = Date.now();
+    const it = P.items[P.i], shown = Date.now(), run = P;
     P.locked = false; ptTop();
     syncMusic(); startPtClock();
     if (it.q.listen && !it.played) { it.played = true; setTimeout(() => say(it.q.listen, null, 0.85), 450); }
@@ -381,7 +388,9 @@ function bindTest() {
       P.locked = true; if (ptSet().timer === 'question') clearInterval(ptIv);
       P.ans[P.i] = +b.dataset.k;
       app.querySelectorAll('.opt').forEach(x => x.classList.toggle('chosen', x === b));
-      setTimeout(() => { speechSynthesis.cancel(); if (P.i < P.items.length - 1) { P.i++; renderPlacement(); } else finishTest(); }, 280);
+      setTimeout(() => { if (P !== run || P.stage !== 'test') return;   // the test was ended or replaced meanwhile
+        const here = ptHere(); if (here) speechSynthesis.cancel();
+        if (P.i < P.items.length - 1) { P.i++; if (here) renderPlacement(); else P.locked = false; } else finishTest(); }, 280);
     });
   }
   if (P.stage === 'done') { ptTop(); bindResultButtons(); }
@@ -403,7 +412,8 @@ async function finishTest() {
   const total = P.items.length, pct = Math.round(score / total * 100);
   const rec = {id: uid(), ...P.info, date: new Date().toISOString(), score, total, pct, level: levelFor(pct), topics, time, unanswered, timer: ptSet().timer};
   results.unshift(rec); await saveResults(); ls('die_placed', rec.level); onActivity();
-  P = {stage: 'done', rec, info: {cls: P.info.cls}}; renderPlacement();
+  P = {stage: 'done', rec, info: {cls: P.info.cls}};
+  if (ptHere()) renderPlacement(); else toast('✅ Your placement test is finished — the result is saved');   // the student left during the last pause: do not draw over that page
 }
 function ptResultHTML(rec, student) {
   const L = LV(rec.level), col = rec.pct >= 80 ? 'var(--green)' : rec.pct >= 55 ? 'var(--sun)' : 'var(--coral)';
@@ -509,27 +519,38 @@ function bindSettings() {
   const upd = async () => {
     s.timer = $('#sTimer').value; s.music = $('#sMusic').value; s.vol = +$('#sVol').value;
     s.qsec = Math.min(600, Math.max(5, parseInt($('#sQsec').value) || 30)); s.tmin = Math.min(180, Math.max(1, parseInt($('#sTmin').value) || 30));
+    $('#sQsec').value = s.qsec; $('#sTmin').value = s.tmin;   // show what was really saved (5–600 seconds, 1–180 minutes)
+    if (Music.pv) pvEnd();
     show(); await save();
   };
   ['sTimer', 'sQsec', 'sTmin', 'sMusic', 'sVol'].forEach(id => $('#' + id).onchange = upd);
   $('#sMusicFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; s.musicM = await storeMedia(f); s.musicName = f.name; await save(); show(); toast('Music file saved 🎵'); };
-  let pv = null;
+  // The preview's timers live in Music (Music.stop() clears them), so leaving the tab or starting a test ends the preview cleanly.
+  const pvEnd = () => { Music.stop(); const b = $('#sPreview'); if (b) b.textContent = '▶ Preview music'; };
   $('#sPreview').onclick = () => {
-    if (pv) { clearTimeout(pv); pv = null; Music.stop(); $('#sPreview').textContent = '▶ Preview music'; return; }
+    if (Music.pv) return pvEnd();
     if (s.music === 'custom' && !s.musicM) return toast('Upload a music file first');
-    Music.stop(); Music.urgency = 0; Music.start(); $('#sPreview').textContent = '⏹ Stop';
-    setTimeout(() => { if (pv) Music.urgency = 1; }, 5000);
-    pv = setTimeout(() => { pv = null; Music.stop(); $('#sPreview').textContent = '▶ Preview music'; }, 9000);
+    Music.stop(); Music.urgency = 0; Music.start(); if (!Music.on) return toast('The music could not be played on this device');
+    $('#sPreview').textContent = '⏹ Stop';
+    Music.pv2 = setTimeout(() => { Music.urgency = 1; }, 5000);
+    Music.pv = setTimeout(pvEnd, 9000);
   };
   show();
+}
+// Draw the Questions tab again without losing what the teacher has typed but not saved yet (the "How many" box, a half-written question).
+function bankRedraw(keepForm) {
+  const f = $('#qForm'), typed = keepForm && f ? Object.fromEntries(new FormData(f)) : null, g = [($('#gTopic') || {}).value, ($('#gNum') || {}).value];
+  renderPlacement();
+  if (g[0]) $('#gTopic').value = g[0]; if (g[1]) $('#gNum').value = g[1];
+  if (typed) { const nf = $('#qForm'); Object.keys(typed).forEach(k => { if (nf[k]) nf[k].value = typed[k]; }); $('#fTopic').onchange(); }
 }
 function bindBank() {
   bindSettings();
   $('#gBtn').onclick = async () => {
     const t = $('#gTopic').value, n = Math.min(30, Math.max(1, parseInt($('#gNum').value) || 5));
     const qs = generateQuestions(t, n); if (!qs.length) return toast('No new questions could be made for this topic — try another');
-    bank().push(...qs); qs.forEach(q => freshIds.add(q.id)); await save(); renderPlacement();
-    $('#gTopic').value = t; toast(`✨ Added ${qs.length} new question${qs.length === 1 ? '' : 's'}`);
+    bank().push(...qs); qs.forEach(q => freshIds.add(q.id)); await save(); bankRedraw(true);
+    toast(`✨ Added ${qs.length} new question${qs.length === 1 ? '' : 's'}`);
     const first = document.querySelector('.qrow.fresh'); if (first) first.scrollIntoView({block: 'center'});
   };
   const fT = $('#fTopic'); fT.onchange = () => { const l = fT.value === 'listen'; app.querySelector('.lrow').hidden = !l; $('#hearForm').hidden = !l; };
@@ -551,7 +572,7 @@ function bindBank() {
   app.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { editQ = b.dataset.eq; renderPlacement(); $('#qForm').scrollIntoView({block: 'center'}); });
   app.querySelectorAll('[data-dq]').forEach(b => b.onclick = async () => { const q = bank().find(x => x.id === b.dataset.dq);
     if (q.t === 'listen' && bank().filter(x => x.t === 'listen').length <= LISTEN_MIN && !confirm(`The test needs at least ${LISTEN_MIN} listening questions. Delete anyway?`)) return;
-    state.placement.questions = bank().filter(x => x.id !== q.id); if (editQ === q.id) editQ = null; await save(); renderPlacement(); });
+    const mine = editQ === q.id; state.placement.questions = bank().filter(x => x.id !== q.id); if (mine) editQ = null; await save(); bankRedraw(!mine); });
 }
 
 /* ---- teacher: results ---- */
@@ -576,12 +597,15 @@ function bindResults() {
   app.querySelectorAll('[data-dr]').forEach(b => b.onclick = async () => { if (!confirm('Delete this result?')) return; results = results.filter(r => r.id !== b.dataset.dr); await saveResults(); renderPlacement(); });
   if ($('#clearRes')) $('#clearRes').onclick = async () => { if (!confirm('Delete ALL results on this device?')) return; results = []; await saveResults(); renderPlacement(); };
   if ($('#csvBtn')) $('#csvBtn').onclick = () => {
-    const c = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    // A cell that starts with = + - @ would be run as a formula by Excel (a student types the name): a leading ' keeps it text.
+    const c = v => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
+    // A phone number is written as ="0501234567", or Excel reads it as a number and drops the first 0 or the +.
+    const tel = v => /^[+\d\s\-()]+$/.test(String(v ?? '')) ? `"=""${v}"""` : c(v);
     const head = ['Name','Class','Phone','Date','Score','Total','Percent','Level','Time taken','Not answered', ...TOPICS.map(t => t.name)];
-    const rows = results.map(r => [r.name, r.cls, r.phone, new Date(r.date).toLocaleString(), r.score, r.total, r.pct + '%', LV(r.level).name,
+    const rows = results.map(r => [r.name, r.cls, {tel: r.phone}, new Date(r.date).toLocaleString(), r.score, r.total, r.pct + '%', LV(r.level).name,
       r.time !== undefined ? fmtDur(r.time) : '', r.unanswered ?? '',
-      ...TOPICS.map(t => r.topics[t.id] ? `${r.topics[t.id][0]}/${r.topics[t.id][1]}` : '')]);
-    const csv = '﻿' + [head, ...rows].map(row => row.map(c).join(',')).join('\r\n');
+      ...TOPICS.map(t => r.topics[t.id] ? `${r.topics[t.id][0]} of ${r.topics[t.id][1]}` : '')]);   // "3/8" would become a date in Excel
+    const csv = '﻿' + [head, ...rows].map(row => row.map(v => v && v.tel !== undefined ? tel(v.tel) : c(v)).join(',')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
     a.download = `placement-results-${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); a.remove();
   };
