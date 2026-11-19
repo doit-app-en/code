@@ -157,6 +157,31 @@ for (const screen of SCREENS) {
       if (e.ok !== 0) problems.push(`listening exercise ${n} "${e.title}": ${e.ok} answers count as right before the student has done anything`);
       if (!seen.has(e.type)) { seen.add(e.type); await page.evaluate(() => document.querySelector('#lAct').scrollIntoView({ block: 'start', behavior: 'instant' })); await page.evaluate(() => scrollBy(0, -70)); await page.waitForTimeout(150); await page.screenshot({ path: path.join(shots, `phone-listening-${e.type}.png`) }); }
     }
+    // One listening exercise from "Check" to "Show the answers": nothing answered is not practice, the shown answers are not the student's score,
+    // "Play all" is also "Stop", and the teacher's editor keeps the box he clicked.
+    { const L = 'listening exercise', n = await page.evaluate(() => lexs().findIndex(e => e.type === 'tick' && typeof e.qs[1].o[0] === 'string') + 1), box = () => page.$eval('.lres', b => b.innerText);
+      const mine = () => page.evaluate(() => ({ best: listenBest[lexs()[LS_.n - 1].id], days: Object.values(activity.days || {}).reduce((a, b) => a + b, 0) }));
+      await page.evaluate(n => { location.hash = '#/listening/' + n; }, n); await page.waitForFunction(n => LS_.n === n && !!document.querySelector('#lCheck'), n, { timeout: 5000 });
+      const m0 = await mine(); await page.click('#lCheck'); await page.waitForSelector('#lAgain', { timeout: 5000 }); const m1 = await mine();
+      if (m1.best !== undefined || m1.days !== m0.days) problems.push(L + ': "Check my answers" with nothing answered counts as practice (done / a day for the streak)');
+      if (!/No answers yet/.test(await box())) problems.push(L + ': "Check my answers" with nothing answered does not say "No answers yet"');
+      await page.click('#lAgain'); await page.waitForSelector('#lCheck', { timeout: 5000 });
+      await page.click('#lPlayAll'); if (!/Stop/.test(await page.$eval('#lPlayAll', b => b.innerText))) problems.push(L + ': "Play all" does not turn into "Stop"');
+      const key = await page.evaluate(() => lexs()[LS_.n - 1].qs[1].a); await page.click(`.topt[data-q="1"][data-k="${key}"]`);
+      if (!/Stop/.test(await page.$eval('#lPlayAll', b => b.innerText))) problems.push(L + ': "Stop" is forgotten when the student taps an answer');
+      await page.click('#lPlayAll'); if (!/Play all/.test(await page.$eval('#lPlayAll', b => b.innerText))) problems.push(L + ': "Stop" does not turn back into "Play all"');
+      await page.click('#lCheck'); await page.waitForSelector('#lAgain', { timeout: 5000 }); const m2 = await mine(), b2 = await box();
+      if (!(m2.best > 0 && m2.best < 100) || m2.days !== m0.days + 1 || !/1\//.test(b2)) problems.push(L + `: one right answer was not counted once (best ${m2.best}, activities ${m2.days - m0.days}, box "${b2.replace(/\s+/g, ' ')}")`);
+      await page.click('#lShow'); await page.waitForFunction(() => !document.querySelector('#lShow'), null, { timeout: 5000 }); const b3 = await box(), m3 = await mine();
+      if (!/These are the right answers/.test(b3) || !/Your score was 1 of/.test(b3) || /Excellent/.test(b3) || m3.best !== m2.best) problems.push(L + `: "Show the answers" is shown as the student's own result ("${b3.replace(/\s+/g, ' ')}")`);
+      await page.evaluate(() => document.querySelector('.lres').scrollIntoView({ block: 'center', behavior: 'instant' })); await page.screenshot({ path: path.join(shots, 'phone-listening-answers-shown.png') });
+      await page.evaluate(() => { mode = 'teacher'; setModeButtons(); render(true); }); await page.waitForSelector('#lsEd [data-ef="title"]', { timeout: 5000 });
+      await page.fill('#lsEd [data-ef="qs.1.o.0"]', '<b id="smokeX">x</b>'); await page.click('#lsEd [data-ef="title"]'); await page.keyboard.press('End'); await page.keyboard.type(' 2');
+      await page.waitForFunction(() => /<b id="smokeX">/.test(lexs()[LS_.n - 1].qs[1].o[0]), null, { timeout: 5000 }); await page.waitForTimeout(250);
+      const ed = await page.evaluate(() => ({ at: document.activeElement.dataset.ef, val: document.activeElement.value, tag: !!document.querySelector('#smokeX') }));
+      if (ed.at !== 'title' || !/ 2$/.test(ed.val)) problems.push(L + `: the teacher's editor loses the box he clicked after a change (now in "${ed.at || 'nothing'}", "${ed.val || ''}")`);
+      if (ed.tag) problems.push(L + ': a "<" typed by a teacher in a picture box is drawn as HTML, not as text');
+      await page.evaluate(() => { mode = 'student'; setModeButtons(); location.hash = '#/'; }); await page.waitForTimeout(200); }
   } catch (e) { problems.push('practice flows: could not finish — ' + e.message.split('\n')[0]); }
   await ctx.close();
 }

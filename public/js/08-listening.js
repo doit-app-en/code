@@ -678,13 +678,13 @@ const PIECES = {
 };
 function pieceHTML(it) {
   if (it.k) return `<div class="lp" style="left:${it.x}%;top:${it.y}%;width:${it.w}%">${PIECES[it.k]}</div>`;
-  return `<div class="lp le" style="left:${it.x}%;top:${it.y}%;--s:${it.s}">${it.e}</div>`;
+  return `<div class="lp le" style="left:${it.x}%;top:${it.y}%;--s:${it.s}">${esc(it.e)}</div>`;
 }
 function miniHTML(o) {
   if (typeof o === 'string') { const n = [...o.replace(/[️‍]/g, '')].length, fs = n <= 1 ? 56 : n <= 2 ? 44 : n <= 3 ? 30 : n <= 4 ? 24 : 20;   // one big picture, or a row of small ones
-    return `<div class="mini mtxt" style="--fs:${fs}px">${o}</div>`; }
-  const f = o.f === 'table' ? `<div class="mf mtable">${PIECES.table}</div>` : `<div class="mf">${o.f}</div>`;
-  return `<div class="mini">${f}<div class="mo p-${o.p} ${o.f === 'table' ? 't' : ''}">${o.o}</div></div>`;
+    return `<div class="mini mtxt" style="--fs:${fs}px">${esc(o)}</div>`; }
+  const f = o.f === 'table' ? `<div class="mf mtable">${PIECES.table}</div>` : `<div class="mf">${esc(o.f)}</div>`;
+  return `<div class="mini">${f}<div class="mo p-${esc(o.p)} ${o.f === 'table' ? 't' : ''}">${esc(o.o)}</div></div>`;
 }
 const SHAPES = {
   apple: f => `<path d="M50 30 Q52 16 60 8" fill="none"/><path d="M54 18 Q66 8 77 14 Q66 25 54 18z" fill="#52b788"/><path d="M50 30 Q30 18 18 34 Q6 54 20 76 Q32 94 50 86 Q68 94 80 76 Q94 54 82 34 Q70 18 50 30z" fill="${f}"/>`,
@@ -718,7 +718,7 @@ const SHAPE_NAME = {apple:'apple', flower:'flower', ball:'ball', kite:'kite', ba
 /* ---- state ---- */
 let LS_ = {}, listenBest = {}, lsSlow = false;
 function lsNew(n) {
-  const ex = lexs()[n - 1], s = {n, placed: {}, links: {}, ticks: {}, colours: {}, nums: {}, sel: null, brush: null, checked: false};
+  const ex = lexs()[n - 1], s = {n, id: ex.id, placed: {}, links: {}, ticks: {}, colours: {}, nums: {}, sel: null, brush: null, checked: false};
   const e0 = (ex.qs || ex.steps)[0];   // the example is already done
   if (ex.type === 'write') s.ans = {};
   if (ex.type === 'move') s.placed[e0.o] = e0.z;
@@ -727,6 +727,11 @@ function lsNew(n) {
   if (isCol(ex.type)) s.colours[e0.s] = e0.c;
   if (ex.type === 'number') s.nums[e0.p] = 1;
   return s;
+}
+// Has the student answered anything yet? (The example is already there in a new exercise.)
+function lsAny(ex, s) {
+  const f = lsNew(s.n);
+  return ['placed', 'links', 'ticks', 'colours', 'nums'].some(k => Object.keys(s[k]).length > Object.keys(f[k]).length) || Object.values(s.ans || {}).some(v => String(v).trim());
 }
 function lsGrade(ex, s) {
   const items = (ex.qs || ex.steps);
@@ -747,7 +752,8 @@ const stars = p => p === 100 ? '⭐⭐⭐' : p >= 60 ? '⭐⭐' : '⭐';
 function renderListen(n) {
   n = parseInt(n);
   if (!n || !lexs()[n - 1]) return renderListenIndex();
-  if (!LS_.n || LS_.n !== n) LS_ = lsNew(n);
+  if (LS_.n !== n || LS_.id !== lexs()[n - 1].id) LS_ = lsNew(n);   // the same place in the list can be another exercise (a teacher's changes, a course file)
+  LS_.now = null; LS_.all = false;   // render() has just stopped the audio
   renderListenEx(n);
 }
 function renderListenIndex() {
@@ -811,25 +817,32 @@ function renderListenIndex() {
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { const i = +b.dataset.del; if (!confirm(`Delete the exercise “${lexs()[i].title}”?`)) return; lexs().splice(i, 1); LS_ = {}; await save(); keep(); });
 }
 function renderListenEx(n) {
+  if (LS_.n !== n) LS_ = lsNew(n);   // the answers on the screen were put away (another person signed in)
   const ex = lexs()[n - 1], s = LS_, t = LTYPES[ex.type], items = (ex.qs || ex.steps), g = s.checked ? lsGrade(ex, s) : null;
   app.innerHTML = `
   ${(() => { const gname = lsGroup(ex), sec = lexs().map((e, i) => [e, i + 1]).filter(([e]) => lsGroup(e) === gname), k = sec.findIndex(([, m]) => m === n), prev = sec[k - 1], next = sec[k + 1];
     return `<div class="crumbs"><a href="#/">Home</a> › <a href="#/listening">Listening</a> › ${esc(gname)} › ${k + 1}. ${esc(ex.title)}</div>
-  <div class="lhead lxhead"><div><span class="lv lxv" style="background:#00b4d8"><span class="lvg">🎧 ${esc(gname)}</span><span>&nbsp;· ${k + 1} of ${sec.length}</span></span><h1>${ex.icon} ${esc(ex.title)}</h1></div>
+  <div class="lhead lxhead"><div><span class="lv lxv" style="background:#00b4d8"><span class="lvg">🎧 ${esc(gname)}</span><span>&nbsp;· ${k + 1} of ${sec.length}</span></span><h1>${esc(ex.icon)} ${esc(ex.title)}</h1></div>
     <div class="row lxnav">${prev ? `<a class="btn ghost sm" href="#/listening/${prev[1]}">← ${k}</a>` : ''}${next ? `<a class="btn ghost sm" href="#/listening/${next[1]}">${k + 2} →</a>` : ''}</div></div>`; })()}
   <div class="panel">
     <div class="linstr"><span class="ltype big">${t.icon} ${t.name}</span><span>${esc(ex.how || t.how)} <b>${exN(ex) > 1 ? 'There are two examples.' : 'There is one example.'}</b></span></div>
     <div class="lplayer">
-      <button class="btn teal" id="lPlayAll">▶ Play all</button>
-      <div class="lsteps">${items.map((_, i) => `<button class="btn ghost sm lstep${i < exN(ex) ? ' lstepx' : ''}" data-st="${i}">${i < exN(ex) ? '🔊 Example' + (exN(ex) > 1 ? ' ' + (i + 1) : '') : '🔊 ' + (i - exN(ex) + 1)}</button>`).join('')}</div>
+      <button class="btn teal" id="lPlayAll">${s.all ? '⏹ Stop' : '▶ Play all'}</button>
+      <div class="lsteps">${items.map((_, i) => `<button class="btn ghost sm lstep${i < exN(ex) ? ' lstepx' : ''}${s.now === i ? ' now' : ''}" data-st="${i}">${i < exN(ex) ? '🔊 Example' + (exN(ex) > 1 ? ' ' + (i + 1) : '') : '🔊 ' + (i - exN(ex) + 1)}</button>`).join('')}</div>
       <button class="btn ghost sm" id="lSlow">${lsSlow ? '🐢 Slow: on' : '🐢 Slow: off'}</button>
     </div>
     <div id="lAct">${lsActHTML(ex, s, g)}</div>
-    ${g ? `<div class="lres" style="--c:${pcol(g.pct)}"><div class="ring" style="--p:${g.pct};--rc:${pcol(g.pct)}"><span>${g.ok}/${g.total}</span></div>
+    ${!g ? '' : s.shown ? `<div class="lres lshown" style="--c:#00b4d8"><div class="ring" style="--p:${s.shown.pct};--rc:${pcol(s.shown.pct)}"><span>${s.shown.ok}/${s.shown.total}</span></div>
+      <div><b class="baloo lrsw" style="font-size:26px;color:#0a7f99">These are the right answers</b>
+      <div class="hint" style="margin:4px 0 0">Your score was ${s.shown.ok} of ${s.shown.total}. Listen again, then press “Try again” and do it yourself.</div></div></div>`
+    : s.none ? `<div class="lres lnone" style="--c:${pcol(0)}"><div class="ring" style="--p:0;--rc:${pcol(0)}"><span>0/${g.total}</span></div>
+      <div><b class="baloo lrsw" style="font-size:26px;color:${pcol(0)}">No answers yet</b>
+      <div class="hint" style="margin:4px 0 0">Press “Try again”, listen and answer the questions. Then check your answers.</div></div></div>`
+    : `<div class="lres" style="--c:${pcol(g.pct)}"><div class="ring" style="--p:${g.pct};--rc:${pcol(g.pct)}"><span>${g.ok}/${g.total}</span></div>
       <div><div class="lrst" style="font-size:30px">${stars(g.pct)}</div><b class="baloo lrsw" style="font-size:26px;color:${pcol(g.pct)}">${g.pct === 100 ? 'Excellent! All correct!' : g.pct >= 60 ? 'Good job!' : 'Keep practising!'}</b>
-      <div class="hint" style="margin:4px 0 0">Wrong answers are marked ✗. Listen again and try once more.</div></div></div>` : ''}
+      <div class="hint" style="margin:4px 0 0">${g.pct === 100 ? 'Every answer is right. Well done!' : 'Wrong answers are marked ✗. Listen again and try once more.'}</div></div></div>`}
     <div class="row lxfoot" style="justify-content:center;margin-top:18px">
-      ${g ? `<button class="btn ghost" id="lShow">👀 Show the answers</button><button class="btn sun" id="lAgain">↻ Try again</button>${n < lexs().length ? `<a class="btn" style="background:#00b4d8" href="#/listening/${n + 1}">Next exercise →</a>` : ''}`
+      ${g ? `${s.shown ? '' : '<button class="btn ghost" id="lShow">👀 Show the answers</button>'}<button class="btn sun" id="lAgain">↻ Try again</button>${n < lexs().length ? `<a class="btn" style="background:#00b4d8" href="#/listening/${n + 1}">Next exercise →</a>` : ''}`
         : `<button class="btn sun" id="lCheck">✔ Check my answers</button>`}
     </div>
   </div>
@@ -846,15 +859,15 @@ function lsActHTML(ex, s, g) {
         ${ex.items.map(pieceHTML).join('')}
         ${ex.zones.map(z => `<div class="lzone" data-z="${z.id}" style="left:${z.x}%;top:${z.y}%"></div>`).join('')}
         ${ex.objects.filter(o => s.placed[o.id]).map(o => { const z = ex.zones.find(z => z.id === s.placed[o.id]), i = stepOf('o', o.id), ex0 = i === 0;
-          return `<div class="lobj onstage ${ex0 ? 'ex' : ''} ${s.sel === o.id ? 'sel' : ''}" data-o="${o.id}" style="left:${z.x}%;top:${z.y}%">${o.e}${i > 0 ? mark(i) : ''}</div>`; }).join('')}
+          return `<div class="lobj onstage ${ex0 ? 'ex' : ''} ${s.sel === o.id ? 'sel' : ''}" data-o="${o.id}" style="left:${z.x}%;top:${z.y}%">${esc(o.e)}${i > 0 ? mark(i) : ''}</div>`; }).join('')}
       </div>
-      <div class="ltray" id="lTray">${tray.length ? tray.map(o => `<div class="lobj ${s.sel === o.id ? 'sel' : ''}" data-o="${o.id}">${o.e}</div>`).join('') : '<span class="lbl">All the things are in the picture.</span>'}</div>`;
+      <div class="ltray" id="lTray">${tray.length ? tray.map(o => `<div class="lobj ${s.sel === o.id ? 'sel' : ''}" data-o="${o.id}">${esc(o.e)}</div>`).join('') : '<span class="lbl">All the things are in the picture.</span>'}</div>`;
   }
   if (ex.type === 'lines') {
     return `<div class="lwrap" id="lWrap">
       <div class="lnames">${ex.names.map(nm => { const i = stepOf('n', nm); return `<button class="lname ${s.sel === nm ? 'sel' : ''} ${s.links[nm] ? 'linked' : ''} ${i === 0 ? 'ex' : ''}" data-n="${esc(nm)}">${esc(nm)}${i > 0 && s.links[nm] ? mark(i) : ''}</button>`; }).join('')}</div>
       <div class="lstage bg-${ex.bg}" id="lStage">
-        ${ex.people.map(p => `<div class="lperson" data-p="${p.id}" style="left:${p.x}%;top:${p.y}%"><span class="pe1">${p.e}</span>${p.p ? `<span class="pe2">${p.p}</span>` : ''}</div>`).join('')}
+        ${ex.people.map(p => `<div class="lperson" data-p="${p.id}" style="left:${p.x}%;top:${p.y}%"><span class="pe1">${esc(p.e)}</span>${p.p ? `<span class="pe2">${esc(p.p)}</span>` : ''}</div>`).join('')}
       </div>
       <svg class="llines" id="lLines"></svg></div>`;
   }
@@ -872,10 +885,10 @@ function lsActHTML(ex, s, g) {
   }
   if (ex.type === 'plines') {
     return `<div class="lwrap" id="lWrap">
-      <div class="lnames">${ex.objects.map(o => { const i = stepOf('n', o.id); return `<button class="lname lobjname ${s.sel === o.id ? 'sel' : ''} ${s.links[o.id] ? 'linked' : ''} ${i === 0 ? 'ex' : ''}" data-n="${o.id}"><span class="loe">${o.e}</span>${esc(o.w)}${i > 0 && s.links[o.id] ? mark(i) : ''}</button>`; }).join('')}</div>
+      <div class="lnames">${ex.objects.map(o => { const i = stepOf('n', o.id); return `<button class="lname lobjname ${s.sel === o.id ? 'sel' : ''} ${s.links[o.id] ? 'linked' : ''} ${i === 0 ? 'ex' : ''}" data-n="${o.id}"><span class="loe">${esc(o.e)}</span>${esc(o.w)}${i > 0 && s.links[o.id] ? mark(i) : ''}</button>`; }).join('')}</div>
       <div class="lstage bg-${ex.bg}" id="lStage">${ex.items.map(pieceHTML).join('')}
         ${ex.spots.map(sp => { const who = Object.keys(s.links).find(k => s.links[k] === sp.id), o = who && ex.objects.find(x => x.id === who);
-          return `<div class="lperson lspot ${o ? 'filled' : ''}" data-p="${sp.id}" title="${esc(zoneLabel(sp.id))}" style="left:${sp.x}%;top:${sp.y}%">${o ? `<span class="lse">${o.e}</span>` : ''}</div>`; }).join('')}
+          return `<div class="lperson lspot ${o ? 'filled' : ''}" data-p="${sp.id}" title="${esc(zoneLabel(sp.id))}" style="left:${sp.x}%;top:${sp.y}%">${o ? `<span class="lse">${esc(o.e)}</span>` : ''}</div>`; }).join('')}
       </div>
       <svg class="llines" id="lLines"></svg></div>`;
   }
@@ -897,15 +910,15 @@ function lsActHTML(ex, s, g) {
         ${ex.things.map(th => { const c = s.colours[th.id], i = stepOf('s', th.id);
           return `<button class="lthing ${i === 0 ? 'ex' : ''}" data-s="${th.id}" title="${esc(SHAPE_NAME[th.k] + ' ' + th.lbl)}" style="left:${th.x}%;top:${th.y}%;width:${th.w}%"><svg viewBox="0 0 100 100">${SHAPES[th.k](c ? CLR[c] : '#fff')}</svg>${i > 0 && c ? mark(i) : ''}</button>`; }).join('')}
         ${(ex.spots || []).map(sp => { const who = Object.keys(s.placed).find(k => s.placed[k] === sp.id), o = who && (ex.draws || []).find(d => d.id === who), i = who ? ex.steps.findIndex(st => st.o === who) : -1;
-          return `<button class="dspot ${o ? 'filled' : ''}" data-z="${sp.id}" style="left:${sp.x}%;top:${sp.y}%" title="${esc(zoneLabel(sp.id))}">${o ? `<span class="dse">${o.e}</span>${i > 0 ? mark(i) : ''}` : ''}</button>`; }).join('')}
+          return `<button class="dspot ${o ? 'filled' : ''}" data-z="${sp.id}" style="left:${sp.x}%;top:${sp.y}%" title="${esc(zoneLabel(sp.id))}">${o ? `<span class="dse">${esc(o.e)}</span>${i > 0 ? mark(i) : ''}` : ''}</button>`; }).join('')}
       </div>
-      ${(ex.draws || []).length ? `<div class="ltray" id="lTray">${ex.draws.filter(d => !s.placed[d.id]).map(d => `<div class="lobj dobj ${s.sel === d.id ? 'sel' : ''}" data-o="${d.id}">${d.e}</div>`).join('') || '<span class="lbl">Everything is drawn in the picture.</span>'}</div>` : ''}`;
+      ${(ex.draws || []).length ? `<div class="ltray" id="lTray">${ex.draws.filter(d => !s.placed[d.id]).map(d => `<div class="lobj dobj ${s.sel === d.id ? 'sel' : ''}" data-o="${d.id}">${esc(d.e)}</div>`).join('') || '<span class="lbl">Everything is drawn in the picture.</span>'}</div>` : ''}`;
   }
   if (ex.type === 'number') {
     const used = Object.values(s.nums);
     return `<div class="lnums">${ex.steps.map((_, i) => i === 0 ? '' : `<button class="lnb ${s.brush === i + 1 ? 'sel' : ''} ${used.includes(i + 1) ? 'used' : ''}" data-num="${i + 1}">${i + 1}</button>`).join('')}</div>
       <div class="lpics">${ex.pics.map(p => { const nmb = s.nums[p.id], i = nmb ? nmb - 1 : -1;
-        return `<button class="lpic ${i === 0 ? 'ex' : ''}" data-pic="${p.id}"><span class="lpe">${p.e}</span>${nmb ? `<span class="lnbadge">${nmb}</span>` : ''}${i > 0 ? mark(i) : ''}</button>`; }).join('')}</div>`;
+        return `<button class="lpic ${i === 0 ? 'ex' : ''}" data-pic="${p.id}"><span class="lpe">${esc(p.e)}</span>${nmb ? `<span class="lnbadge">${nmb}</span>` : ''}${i > 0 ? mark(i) : ''}</button>`; }).join('')}</div>`;
   }
 }
 function drawLines(ex, s, showAns) {
@@ -922,27 +935,38 @@ function drawLines(ex, s, showAns) {
 }
 function bindListen(ex, s) {
   const items = (ex.qs || ex.steps), n = s.n, re = () => { const y = window.scrollY; renderListenEx(n); window.scrollTo(0, y); };
+  // What is playing is kept in the exercise's state (s.now = the sentence, s.all = "Play all" is running), because every tap on an answer draws the page again.
+  const lit = () => { if (LS_ !== s) return; app.querySelectorAll('.lstep').forEach(b => b.classList.toggle('now', +b.dataset.st === s.now)); const pa = $('#lPlayAll'); if (pa) pa.textContent = s.all ? '⏹ Stop' : '▶ Play all'; };
+  const quiet = () => { stopAll(); s.now = null; s.all = false; };
   const sayStep = (i, cb) => {
-    app.querySelectorAll('.lstep').forEach(b => b.classList.toggle('now', +b.dataset.st === i));
+    s.now = i; lit();
     const V2 = ex.voices || ['w', 'b'], raw = items[i].say, seg = Array.isArray(raw) ? raw : String(raw).split(/\s+—\s+/).map((t, j, arr) => ({t, w: arr.length > 1 ? V2[j % 2] : undefined})), tok = playToken; let k = 0;   // a conversation has several lines and speakers
-    const nx = () => { if (tok !== playToken) return; if (k >= seg.length) { app.querySelectorAll('.lstep').forEach(b => b.classList.remove('now')); return cb && cb(); }
+    const nx = () => { if (tok !== playToken) return; if (k >= seg.length) { s.now = null; lit(); return cb && cb(); }
       const ln = seg[k++]; say(spellTTS(ln.t), () => setTimeout(nx, 350), lsSlow ? 0.65 : 0.85, PITCH[ln.w] || 1); };
     nx();
   };
-  app.querySelectorAll('.lstep').forEach(b => b.onclick = () => { playToken++; sayStep(+b.dataset.st); });
-  $('#lPlayAll').onclick = () => { const tok = ++playToken; let i = 0; const nx = () => { if (tok !== playToken || i >= items.length) return; sayStep(i++, () => setTimeout(() => tok === playToken && nx(), 1400)); }; nx(); };
+  app.querySelectorAll('.lstep').forEach(b => b.onclick = () => { playToken++; s.all = false; sayStep(+b.dataset.st); });
+  $('#lPlayAll').onclick = () => {
+    if (s.all) { quiet(); return lit(); }   // the same button stops it
+    const tok = ++playToken; let i = 0; s.all = true;
+    const nx = () => { if (tok !== playToken) return; if (i >= items.length) { s.all = false; return lit(); } sayStep(i++, () => setTimeout(() => tok === playToken && nx(), 1400)); }; nx(); };
   $('#lSlow').onclick = () => { lsSlow = !lsSlow; $('#lSlow').textContent = lsSlow ? '🐢 Slow: on' : '🐢 Slow: off'; };
   if ($('#lCheck')) $('#lCheck').onclick = async () => {
-    stopAll(); s.checked = true; s.sel = null; const g = lsGrade(ex, s);
-    if (listenBest[ex.id] === undefined || g.pct > listenBest[ex.id]) { listenBest[ex.id] = g.pct; await DB.put('kv', 'listenById', listenBest); }
-    onActivity();
+    if (s.checked) return;   // a second tap
+    quiet(); s.checked = true; s.sel = null; const g = lsGrade(ex, s);
+    s.none = !lsAny(ex, s);   // "Check" with nothing answered is not practice: no "done", no day for the streak
+    if (!s.none) {
+      if (listenBest[ex.id] === undefined || g.pct > listenBest[ex.id]) { listenBest[ex.id] = g.pct; await DB.put('kv', 'listenById', listenBest); }
+      onActivity();
+    }
+    if (LS_ !== s || !$('#lCheck')) return;   // the student left while it was being saved
     re(); if (g.pct === 100) say('Excellent!', null, 1);
   };
-  if ($('#lAgain')) $('#lAgain').onclick = () => { LS_ = lsNew(n); re(); };
+  if ($('#lAgain')) $('#lAgain').onclick = () => { quiet(); LS_ = lsNew(n); re(); };
   if ($('#lShow')) $('#lShow').onclick = () => {
-    const a = lsNew(n);
+    quiet(); const a = lsNew(n), g0 = lsGrade(ex, s);
     items.forEach((it, i) => { if (ex.type === 'move') a.placed[it.o] = it.z; if (isLin(ex.type)) a.links[it.n] = it.to; if (ex.type === 'write') a.ans[i] = it.a; if (ex.type === 'tick') a.ticks[i] = it.a; if (isCol(ex.type)) { if (it.z) a.placed[it.o] = it.z; else a.colours[it.s] = it.c; } if (ex.type === 'number') a.nums[it.p] = i + 1; });
-    a.checked = true; LS_ = a; re(); toast('These are the right answers ✔');
+    a.checked = true; a.shown = {ok: g0.ok, total: g0.total, pct: g0.pct}; LS_ = a; re(); toast('These are the right answers ✔');   // the box keeps the student's own score
   };
   const locked = () => s.checked;
   const isEx = (key, val) => ex.steps && ex.steps[0][key] === val;
@@ -961,10 +985,12 @@ function bindListen(ex, s) {
         const ghost = el.cloneNode(true); ghost.className = 'lobj ghost'; ghost.style.cssText = `left:${R.left + R.width / 2}px;top:${R.top + R.height / 2}px;font-size:${getComputedStyle(el).fontSize}`;
         const mv = ev => { if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 6) { moved = true; document.body.appendChild(ghost); el.style.opacity = .3; stage.classList.add('picking'); }
           if (moved) { ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px'; } };
-        const up = ev => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); ghost.remove();
+        const off = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', stop); ghost.remove(); };
+        const up = ev => { off(); if (LS_ !== s || !stage.isConnected) return;   // the page was drawn again or left during the drag
           if (moved) place(oid, zoneAt(ev.clientX, ev.clientY));
           else { s.sel = s.sel === oid ? null : oid; re(); } };
-        window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+        const stop = () => { off(); if (moved && LS_ === s && stage.isConnected) re(); };   // the phone took the touch away (a call, a system gesture): put the thing back
+        window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', stop);
       };
     });
     app.querySelectorAll('.lzone').forEach(z => z.onclick = () => { if (s.sel && !locked() && !isEx('z', z.dataset.z)) place(s.sel, z.dataset.z); });
@@ -1152,7 +1178,17 @@ function lsEditorHTML(ex) {
 }
 function bindLsEditor(ex, n) {
   const ed = $('#lsEd'); if (!ed) return;
-  const done = async () => { await save(); LS_ = lsNew(n); const y = window.scrollY; renderListenEx(n); window.scrollTo(0, y); };
+  // Every change draws the page again. Keep the teacher in the box he clicked or tabbed into meanwhile (it used to lose the cursor after every change).
+  const edKey = a => { if (!a || !ed.contains(a) || !a.matches('input,select')) return ''; const k = ['data-ef', 'data-obj', 'data-names', 'data-scene', 'data-otype', 'data-correct'].find(k => a.hasAttribute(k)); return k ? `#lsEd [${k}="${CSS.escape(a.getAttribute(k))}"]` + (a.type === 'radio' ? `[value="${CSS.escape(a.value)}"]` : '') : ''; };
+  const done = async () => {
+    await save(); if (!ed.isConnected) return;   // the teacher left the page while it was being saved
+    const a = document.activeElement, sel = edKey(a), typed = sel && a.matches('input:not([type=radio])') ? a.value : null; let c0 = null, c1 = null; try { c0 = a.selectionStart; c1 = a.selectionEnd; } catch (e) {}
+    stopAll(); LS_ = lsNew(n); const y = window.scrollY; renderListenEx(n); window.scrollTo(0, y);
+    const el = sel && document.querySelector(sel); if (!el) return;
+    el.focus({preventScroll: true});
+    if (typed !== null && el.value.trim() !== typed.trim()) { el.value = typed; el.addEventListener('blur', () => { if (el.isConnected) el.dispatchEvent(new Event('change')); }, {once: true}); }   // letters typed while the last change was being saved
+    try { if (c0 !== null && el.matches('input:not([type=radio])')) el.setSelectionRange(c0, c1); } catch (e) {}
+  };
   const items = () => (ex.qs || ex.steps);
   ed.querySelectorAll('[data-ef]').forEach(el => el.onchange = () => { setPath(ex, el.dataset.ef, el.value.trim()); done(); });
   ed.querySelectorAll('[data-hear]').forEach(b => b.onclick = () => { const v = b.previousElementSibling.value.trim(); if (v) say(v, null, 0.85); });

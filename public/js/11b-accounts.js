@@ -103,7 +103,7 @@ async function mineSwitch() {
   for (const k in MINE) { const v = next && next.kv ? next.kv[k] : undefined; await DB.put('kv', k, v === undefined || v === null ? MINE[k]() : v); }
   MINE_LS.forEach(k => { const v = next && next.ls ? next.ls[k] : null; if (v === null || v === undefined) lsDel(k); else ls(k, v); });
   await DB.put('kv', 'owner', {id: want});
-  stopAll(); await mineLoad();
+  stopAll(); await mineLoad(); LS_ = {};   // a half-done listening exercise belongs to the person before
   syncState = ''; classList = null; classErr = ''; voiceLatest = null; voiceHist = {}; voiceOpen = new Set(); viewRes = null; VT = {mode: 'intro'}; SPK = {mode: 'pick'};
 }
 // Another tab of this browser signed in or out: this tab starts again, so it does not go on saving the other person's practice.

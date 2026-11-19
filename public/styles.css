@@ -235,6 +235,7 @@ audio{width:100%;margin-bottom:16px}
 .lplayer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#e8fbf8;border-radius:16px;padding:12px;margin-bottom:16px}
 .lsteps{display:flex;gap:6px;flex-wrap:wrap;flex:1}
 .lstep.now{background:var(--teal);color:#fff;border-color:var(--teal)}
+.lplayer #lPlayAll{min-width:124px;justify-content:center}   /* "Play all" and "Stop" are one button: the same width */
 .lstage{position:relative;width:100%;aspect-ratio:16/10;border-radius:20px;overflow:hidden;container-type:inline-size;user-select:none;-webkit-user-select:none;touch-action:none}
 .bg-room{background:linear-gradient(#fdf0d5 0 66%,#e9c46a 66%)}
 .bg-bedroom{background:linear-gradient(#e7e1ff 0 66%,#caa472 66%)}
