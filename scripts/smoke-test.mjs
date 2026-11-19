@@ -315,9 +315,9 @@ for (const screen of SCREENS) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage(), now = new Date().toISOString();
   watch(page, 'friendly states');
   try {
-    let down = true, voiceDown = true;
+    let down = true, voiceDown = true, refuse = false;
     const test = { id: 'abcdef0123456789abcdef01', date: now, level: 'A2', overall: 64, speaking: 60, pronunciation: 71, repeating: 62 };
-    await page.route('**/api/class**', async r => { if (down) return r.abort(); if (r.request().method() === 'POST') return r.fulfill({ json: { ok: true } });
+    await page.route('**/api/class**', async r => { if (down) return r.abort(); if (r.request().method() === 'POST') return r.fulfill({ json: refuse ? { ok: false, error: 'server error' } : { ok: true } });
       await new Promise(f => setTimeout(f, 600)); return r.fulfill({ json: { ok: true, students: [{ name: 'Sara Test', cls: '9A', email: 'sara@example.com', overall: 62, listening: 70, pronounce: 55, lessons: 60, lastActive: now }] } }); });
     await page.route('**/api/voice**', r => { if (r.request().method() !== 'POST') return down ? r.abort() : r.continue(); if (voiceDown) return r.abort(); const d = JSON.parse(r.request().postData() || '{}');
       return r.fulfill({ json: d.action === 'history' ? { ok: true, tests: [test, test] } : { ok: true, tests: [{ email: 'sara@example.com', ...test, count: 2 }] } }); });
@@ -346,6 +346,16 @@ for (const screen of SCREENS) {
     await page.waitForSelector('#syncRetry', { timeout: 5000 });
     await page.waitForTimeout(300); await page.evaluate(() => document.querySelector('#syncLine').scrollIntoView({ block: 'center', behavior: 'instant' })); await page.waitForTimeout(200); await page.screenshot({ path: path.join(shots, 'phone-state-progress-unsent.png') });
     down = false; await page.click('#syncRetry'); await page.waitForFunction(() => /shared with your teacher/.test(document.querySelector('#syncLine').innerText), null, { timeout: 5000 });
+    // 5b. The server answered but did not save the progress → the page must not say "shared with your teacher".
+    refuse = true; await page.evaluate(() => sendProgress()); if (!(await page.$('#syncRetry')) || await page.evaluate(() => /shared with your teacher/.test(document.querySelector('#syncLine').innerText))) problems.push('my progress: says "shared with your teacher" although the server refused the progress');
+    refuse = false; await page.click('#syncRetry'); await page.waitForFunction(() => /shared with your teacher/.test(document.querySelector('#syncLine').innerText), null, { timeout: 5000 });
+    // 5c. "Change" opens the form with the saved details and deletes nothing: leaving the page or "Cancel" keeps the student registered; "Save" keeps the id.
+    { await page.click('#stEdit'); const c = await page.evaluate(async () => { const a = { vals: [...document.querySelectorAll('#stForm input')].map(i => i.value).join('|'), kept: !!student };
+        document.querySelector('#stCancel').click(); a.closed = !document.querySelector('#stForm') && !!document.querySelector('#stEdit');
+        document.querySelector('#stEdit').click(); document.querySelector('#stForm [name=cls]').value = ' 9  B '; document.querySelector('#stForm button[type=submit]').click(); await new Promise(f => setTimeout(f, 300));
+        a.saved = student && student.cls + '|' + student.id + '|' + ((await DB.get('kv', 'student')) || {}).cls; return a; });
+      if (c.vals !== 'Sara Test|9A|sara@example.com' || !c.kept || !c.closed || c.saved !== '9 B|smoke|9 B') problems.push('my progress: "Change" does not keep or save the details ' + JSON.stringify(c));
+      await page.waitForTimeout(1800); }
     // 6. No internet: the bar under the header appears and goes away again.
     await ctx.setOffline(true); await page.waitForFunction(() => !document.querySelector('#offbar').hidden, null, { timeout: 5000 });
     const over = await page.evaluate(() => { scrollTo({ top: 0, behavior: 'instant' }); return document.documentElement.scrollWidth - innerWidth; }); if (over > 1) problems.push(`friendly states: the "no internet" bar makes the page ${over}px wider than the phone screen`);

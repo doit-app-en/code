@@ -39,14 +39,18 @@ async function onActivity() {
   await DB.put('kv', 'activity', activity); syncProgress();
 }
 async function markLessonDone(id) { if (!lessonsDone[id]) { lessonsDone[id] = Date.now(); await DB.put('kv', 'lessonsDone', lessonsDone); } onActivity(); }
-let syncState = '';   // '' | 'sending' | 'failed' — what happened to the last try to send the progress to the teacher
+let syncState = '';   // '' | 'sending' | 'failed' | 'off' — what happened to the last try to send the progress to the teacher ('off' = this website has no class server yet)
 async function sendProgress() {
   const url = syncUrl(); if (!url || !student || !student.email) return;
   syncState = 'sending'; drawSyncLine();
   try {
-    await fetch(url, {method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    // The website's own server answers {ok: true} when the progress is saved, and its answer can be read. (An Apps Script address is
+    // another website: its answer cannot be read, so a request that left the device counts as sent.)
+    const own = url === BUILT_IN_SERVER, r = await fetch(url, {method: 'POST', ...(own ? {} : {mode: 'no-cors'}), headers: {'Content-Type': 'text/plain;charset=utf-8'},
       body: JSON.stringify({action: 'progress', student, progress: progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : ''})});
-    activity.synced = Date.now(); await DB.put('kv', 'activity', activity); syncState = '';
+    let d = null; if (own) { try { d = await r.json(); } catch (e) {} }
+    if (own && !(r.ok && d && d.ok)) syncState = r.status === 404 || (d && d.error === 'server not configured') ? 'off' : 'failed';
+    else { activity.synced = Date.now(); await DB.put('kv', 'activity', activity); syncState = ''; }
   } catch (e) { syncState = 'failed'; /* offline: sent again after the next activity, when the internet is back, or with "Try again" */ }
   drawSyncLine();
 }
@@ -56,6 +60,7 @@ function syncLineHTML() {
   if (!student) return 'Your progress is saved on this device.';
   if (!syncUrl()) return 'Your progress is saved on this device. Your teacher has not connected the class server yet.';
   if (syncState === 'failed') return `<span class="syncbad">⚠️ Your progress is safe on this device, but it could not be sent to your teacher. ${esc(netWhy())}</span> <button class="btn sm" id="syncRetry">↻ Try again</button>`;
+  if (syncState === 'off') return 'Your progress is saved on this device. The class server is not ready yet, so your teacher cannot see it for now.';
   if (syncState === 'sending') return '<span class="spin sm"></span> Sending your progress to your teacher…';
   return `✅ Your progress is shared with your teacher${activity.synced ? ' (last update ' + new Date(activity.synced).toLocaleString() + ')' : ''}.`;
 }
@@ -128,7 +133,10 @@ function nextSuggestions() {
 }
 
 /* ---- student: My progress ---- */
-function renderProgress() {
+let stEditing = false;   // the student pressed "Change": the details form is open with the saved details in it (nothing is deleted until "Save")
+function renderProgress(arrived) {
+  if (arrived || !student) stEditing = false;
+  const form = !student || stEditing, v = k => esc((student && student[k]) || '');
   const p = progressData(), idle = daysIdle(), col = pcol(p.overall), sk = streakInfo(), last7 = [...Array(7)].map((_, k) => { const d = new Date(Date.now() - (6 - k) * DAY); return {k: todayKey(d), l: 'SMTWTFS'[d.getDay()]}; });
   const week = last7.filter(d => activity.days && activity.days[d.k]).length, sugg = nextSuggestions();
   const bar = (label, pct, sub) => `<div class="brow"><span>${label}${sub ? ` <small>${sub}</small>` : ''}</span><div class="bt"><i style="width:${pct}%;background:${pcol(pct)}"></i></div><b>${pct}%</b></div>`;
@@ -137,13 +145,13 @@ function renderProgress() {
   <div class="crumbs"><a href="#/">Home</a> › My progress</div>
   <div class="banner photo" style="--img:url(photos/placement.jpg)"><div class="bi">📈</div><div><h1>${student ? 'Hello, ' + esc(student.name.split(' ')[0]) + '!' : 'My progress'}</h1>
     <p>See how much you have done, and what to practise next.</p></div></div>
-  ${!student ? `<div class="panel" style="margin-top:16px"><h3 class="sec-t" style="font-size:24px">👤 Who are you?</h3>
-    <p class="hint">Write your details once. Your teacher can then see your progress and send you a reminder email if you forget to practise.</p>
+  ${form ? `<div class="panel" id="stPanel" style="margin-top:16px"><h3 class="sec-t" style="font-size:24px">${student ? '✏️ Change your details' : '👤 Who are you?'}</h3>
+    <p class="hint">${student ? 'Correct your name, class or email and press Save. Your progress stays as it is.' : 'Write your details once. Your teacher can then see your progress and send you a reminder email if you forget to practise.'}</p>
     <form id="stForm" class="form" novalidate>
-      <label class="field"><span>Your name</span><input class="in" name="name" placeholder="e.g. Sara Ahmed"></label>
-      <label class="field"><span>Class</span><input class="in" name="cls" placeholder="e.g. Grade 5 – A"></label>
-      <label class="field"><span>Email</span><input class="in" name="email" type="email" placeholder="e.g. sara@example.com"></label>
-      <div class="err" id="stErr"></div><div><button class="btn sun" type="submit">Save</button></div></form></div>` : ''}
+      <label class="field"><span>Your name</span><input class="in" name="name" maxlength="80" autocomplete="name" value="${v('name')}" placeholder="e.g. Sara Ahmed"></label>
+      <label class="field"><span>Class</span><input class="in" name="cls" maxlength="40" value="${v('cls')}" placeholder="e.g. Grade 5 – A"></label>
+      <label class="field"><span>Email</span><input class="in" name="email" type="email" maxlength="120" autocomplete="email" value="${v('email')}" placeholder="e.g. sara@example.com"></label>
+      <div class="err" id="stErr" role="alert"></div><div class="row"><button class="btn sun" type="submit">Save</button>${student ? '<button class="btn ghost" type="button" id="stCancel">Cancel</button>' : ''}</div></form></div>` : ''}
   ${idle !== null && idle >= 3 ? `<div class="idle">⏰ <div><b>You haven't practised for ${idle} days.</b> Let's do a quick exercise today — just 5 minutes!</div>${sugg[0] ? `<a class="btn sun sm" href="${sugg[0].href}">Start now →</a>` : ''}</div>` : ''}
   <div class="panel pgtop" style="margin-top:16px">
     <div class="ring" role="img" aria-label="Your progress: ${p.overall}%" style="--p:${p.overall};--rc:${col}"><span>${p.overall}%</span></div>
@@ -180,16 +188,18 @@ function renderProgress() {
   </div>
   ${sugg.length ? `<div class="panel" style="margin-top:16px"><h3 class="sec-t" style="font-size:22px">👉 Practise next</h3><div class="row" style="margin-top:8px">${sugg.map(s => `<a class="btn ghost" href="${s.href}">${s.icon} ${esc(s.text)}</a>`).join('')}</div></div>` : ''}
   <p class="lbl" id="syncLine" aria-live="polite" style="margin:14px 0 4px">${syncLineHTML()}</p><p class="lbl" style="margin:0">
-  ${student ? `👤 ${esc(student.name)} · ${esc(student.email)} <button class="btn sm ghost" id="stEdit">✏️ Change</button>` : ''}</p>`;
+  ${student ? `👤 ${esc(student.name)} · ${esc(student.cls || '')} · ${esc(student.email)} ${stEditing ? '' : '<button class="btn sm ghost" id="stEdit">✏️ Change</button>'}` : ''}</p>`;
   drawSyncLine(); drawGoal();
   const f = $('#stForm');
   if (f) f.onsubmit = async e => {
-    e.preventDefault(); const d = Object.fromEntries(new FormData(f)), s = {name: d.name.trim(), cls: d.cls.trim(), email: d.email.trim().toLowerCase()};
+    e.preventDefault(); const d = Object.fromEntries(new FormData(f)), one = t => String(t || '').trim().replace(/\s+/g, ' '), s = {name: one(d.name), cls: one(d.cls), email: d.email.trim().toLowerCase()};
     const err = s.name.length < 2 ? 'Please write your name.' : !s.cls ? 'Please write your class.' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email) ? 'Please write a correct email address.' : '';
     if (err) { $('#stErr').textContent = err; return; }
-    student = {...s, id: uid()}; await DB.put('kv', 'student', student); syncProgress(); renderProgress(); toast('Saved! 🎉');
+    student = {...s, id: (student && student.id) || uid()}; stEditing = false; await DB.put('kv', 'student', student); syncProgress(); renderProgress(); window.scrollTo(0, 0); toast('Saved! 🎉');
   };
-  if ($('#stEdit')) $('#stEdit').onclick = async () => { student = null; await DB.put('kv', 'student', null); renderProgress(); };
+  // "Change" opens the form with the saved details in it. The student stays registered until new details are saved ("Cancel" keeps the old ones).
+  if ($('#stEdit')) $('#stEdit').onclick = () => { stEditing = true; renderProgress(); const p = $('#stPanel'); p.querySelector('input').focus({preventScroll: true}); window.scrollTo({top: Math.max(0, p.getBoundingClientRect().top + scrollY - 96), behavior: 'instant'}); };
+  if ($('#stCancel')) $('#stCancel').onclick = () => { stEditing = false; renderProgress(); };
 }
 
 /* ---- teacher: Students ---- */
@@ -255,14 +265,15 @@ function studentRows(rows) {
 function renderStudents() {
   if (mode !== 'teacher') { app.innerHTML = `<div class="panel empty"><div class="e">🧑‍🏫</div>This page is for teachers. Switch to Teacher mode at the top.</div>`; return; }
   const me = student ? [{...student, ...progressData(), lastActive: activity.last ? new Date(activity.last).toISOString() : '', here: true}] : [];
-  const rows = (classList || []).map(r => ({...r, overall: +r.overall || 0, listening: +r.listening || 0, pronounce: +r.pronounce || 0, lessons: +r.lessons || 0}));
+  const pc = x => Math.max(0, Math.min(100, Math.round(+x || 0)));   // a percentage, whatever the server sent
+  const rows = (classList || []).map(r => ({...r, overall: pc(r.overall), listening: pc(r.listening), pronounce: pc(r.pronounce), lessons: pc(r.lessons)}));
   if (student && !rows.some(r => String(r.email).toLowerCase() === student.email)) rows.push(...me);
   const classes = [...new Set(rows.map(r => String(r.cls || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base', numeric: true}));
   if (stCls && !classes.includes(stCls)) stCls = '';
   if (stSort === 'voice' && !voiceLatest) stSort = 'recent';
   const all = rows.length, shown = studentRows(rows);
   const sorts = [['recent', 'Last practised — newest first'], ['idle', 'Last practised — longest ago first'], ['name', 'Name (A–Z)'], ['cls', 'Class, then name'], ['high', 'Progress — highest first'], ['low', 'Progress — lowest first']].concat(voiceLatest ? [['voice', 'Voice test — highest first']] : []);
-  const st = r => { const d = r.lastActive ? Math.floor((Date.now() - Date.parse(r.lastActive)) / DAY) : null;
+  const st = r => { const t = Date.parse(r.lastActive), d = t ? Math.max(0, Math.floor((Date.now() - t) / DAY)) : null;   // an unreadable date = not started; a clock that is ahead = today
     return d === null ? '<span class="chip grey">Not started</span>' : d <= 1 ? `<span class="chip g">${idleText(d)}</span>` : d < 7 ? `<span class="chip y">${d} days ago</span>` : `<span class="chip r">${d} days ago</span>`; };
   const mail = r => `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent('Time to practise English! 🎧')}&body=${encodeURIComponent(`Hello ${r.name},\n\nWe miss you in Do it English! Please open the page and do a short listening or pronunciation exercise today.\n\nYour progress: ${r.overall}%\n\nSee you soon!`)}`;
   app.innerHTML = `
