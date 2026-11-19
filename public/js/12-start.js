@@ -20,6 +20,7 @@
   if (!state.speaking || !Array.isArray(state.speaking.tasks)) { state.speaking = {tasks: SP_TASKS_DEFAULT()}; await save(); }
   spHistory = (await DB.get('kv', 'speakHistory')) || []; await Promise.all(spHistory.map(r => loadMedia(r.media)));
   await autoLoadCourse();
+  await authInit();   // accounts: who is signed in (sets `student` from the account)
   if (student) syncProgress();
   render();
 })();

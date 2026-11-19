@@ -1133,3 +1133,36 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .lsedit .row{gap:8px}.lsedit .row>.in,.lsedit .row>.btn{flex:1 1 100%;min-width:0!important;min-height:44px;margin-left:0!important;justify-content:center}
   .lcard2>.row{flex:0 0 100%;margin-top:4px}.lcard2>.row .btn{min-height:44px;min-width:44px}
 }
+
+/* ---------- accounts: welcome page, sign in / sign up, visitor bar ---------- */
+body.acct:not(.acct-teacher) .seg:not(.acctrole){display:none}
+body.acct-in #stEdit{display:none}   /* name, class and email come from the account */
+.acctw{position:relative}.acctw .vpop{right:0;left:auto;min-width:250px;display:flex;flex-direction:column;gap:8px}.acctw .vpop[hidden]{display:none}
+.acctcls{background:#eef2fb;border-radius:12px;padding:8px 10px;font-size:14px}
+.visbar{background:#eef2fb;border-bottom:1px solid #d8e0f2;color:var(--navy);padding:8px 14px;text-align:center;font-weight:600;font-size:14px;line-height:2}.visbar[hidden]{display:none}
+.welcome{display:grid;gap:18px}
+.wl-hero{border-radius:28px;overflow:hidden;background:linear-gradient(100deg,rgba(18,27,62,.94) 0%,rgba(18,27,62,.82) 45%,rgba(18,27,62,.35) 100%),var(--img) center/cover;color:#fff}
+.wl-in{padding:56px 44px;max-width:640px}.wl-in .chip{background:rgba(255,255,255,.16);color:#fff}
+.wl-in h1{font-size:54px;line-height:1.05;margin:16px 0 12px;color:#fff}.wl-in h1 span{color:var(--sun)}
+.wl-in p{font-size:18px;line-height:1.55;margin:0 0 22px;color:#e6eaf7}
+.wl-cta{display:flex;gap:10px;flex-wrap:wrap}.wl-cta .btn{font-size:17px;padding:13px 22px}.wl-hero .btn.ghost{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.5)}
+.wl-code{display:inline-block;margin-top:18px;color:#fff;font-weight:700}
+.wl-roles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.wl-role{display:flex;flex-direction:column;gap:6px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:22px;padding:22px;text-decoration:none;color:var(--navy);cursor:pointer;font:inherit;transition:.15s}
+.wl-role:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(18,27,62,.1)}.wl-role i{font-style:normal;font-size:34px}.wl-role b{font-size:20px}.wl-role span{color:var(--muted);line-height:1.45}.wl-role em{font-style:normal;font-weight:800;color:var(--coral);margin-top:6px}
+.wl-feats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.wl-feats div{display:flex;flex-direction:column;gap:4px;padding:6px 8px}.wl-feats i{font-style:normal;font-size:28px}.wl-feats b{color:var(--navy);font-size:17px}.wl-feats span{color:var(--muted);line-height:1.45;font-size:15px}
+.acctpage{max-width:480px;margin:10px auto}.acctcard{padding:28px}.acctcard h2{margin:0 0 4px;font-size:30px;color:var(--navy)}
+.acctform{display:grid;gap:12px;margin-top:14px}.acctform .btn{font-size:17px;padding:13px;justify-content:center}
+.acctrole{display:flex;margin-top:14px}.acctrole a,.acctrole button{flex:1;text-align:center;text-decoration:none;border:0;background:none;padding:9px 12px;border-radius:999px;font-weight:800;color:var(--muted);cursor:pointer;font-size:15px}.acctrole .on{background:var(--navy);color:#fff}
+.acctor{display:flex;align-items:center;gap:10px;color:var(--muted);margin:14px 0;font-weight:700;font-size:13px}.acctor:before,.acctor:after{content:"";flex:1;height:1px;background:var(--line)}
+.acctg{display:flex;justify-content:center;gap:8px;font-size:16px;padding:12px;text-decoration:none}.acctg b{color:#4285f4;font-size:18px}
+.acctalt{text-align:center;color:var(--muted);margin:16px 0 0;font-weight:600}.acctinfo{font-size:14px;min-height:0}.acctok{color:#1b7f4b;font-weight:600}.acctbad{color:#c0392b;font-weight:600}
+.acctbig{font-size:26px;letter-spacing:.2em;text-align:center;text-transform:uppercase;font-weight:800}.acctlock{font-size:54px}
+.acctclist{display:grid;gap:8px}.acctcl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#f8f9fd;border-radius:14px;padding:10px 14px}.acctcl>div{flex:1 1 140px;display:flex;flex-direction:column}
+.acctcl code{font-size:22px;font-weight:800;letter-spacing:.14em;color:var(--navy);background:#fff;border:1px dashed #b9c3dd;border-radius:10px;padding:4px 12px}
+.acctadv{margin-top:16px}.acctadv summary{cursor:pointer;font-weight:700;color:var(--muted);padding:8px 2px}
+@media(max-width:860px){.wl-in{padding:34px 22px}.wl-in h1{font-size:38px}.wl-in p{font-size:16px}.wl-roles,.wl-feats{grid-template-columns:1fr}.wl-cta .btn{flex:1 1 100%;justify-content:center}.acctcard{padding:22px 18px}.acctw .vpop{position:fixed;right:8px;left:8px;top:64px}}
+@media(max-width:560px){#acctBtn span{display:none}}
+@media(max-width:1440px){body.acct-teacher #acctBtn span{display:none}}
+body.acct-front .navlinks a.hide-sm,body.acct-front .tabbar{display:none!important}
+@media(max-width:860px){body.acct-front{padding-bottom:0}}

@@ -7,11 +7,13 @@
 //   POST {action: 'finish', student, result}           AI summary (Claude) + save the result
 //   POST {action: 'latest', key}                       the teacher's Students page: each student's newest test (needs TEACHER_KEY)
 //   POST {action: 'history', key, email}               the teacher's Students page: all the tests of one student (needs TEACHER_KEY)
+// With accounts on (see api/auth.js) the student is the signed-in person, and a signed-in teacher sees the tests of their own classes without a key.
 // audio = base64 of a WAV file (PCM 16-bit, 16 kHz, mono). Only registered students (My progress page) can use the paid parts.
 import { randomBytes } from 'node:crypto';
 import { db, env, num, isTeacher, readJson, cleanEmail, pct, text } from './_lib/server.js';
 import { azureOn, transcribe, assess } from './_lib/azure.js';
 import { voiceSummary } from './_lib/claude.js';
+import { identity, teacherScope } from './_lib/auth.js';
 
 const MAX_AUDIO_B64 = 2_800_000;   // about 65 seconds of 16 kHz mono
 const MAX_WORD_B64 = 400_000;      // about 9 seconds: one word of the Pronounce section
@@ -31,13 +33,18 @@ export default async function handler(req, res) {
     }
     if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method' });
     if (!supabase) return res.status(200).json({ ok: false, error: 'server not configured' });
-    const d = readJson(req), s = d.student || {}, email = cleanEmail(s.email);
-    if (d.action === 'latest') return res.status(200).json(await latestTests(supabase, d.key));
-    if (d.action === 'history') return res.status(200).json(await studentTests(supabase, d.key, cleanEmail(d.email)));
+    const d = readJson(req);
+    if (d.action === 'latest') return res.status(200).json(await latestTests(supabase, d.key, req));
+    if (d.action === 'history') return res.status(200).json(await studentTests(supabase, d.key, cleanEmail(d.email), req));
+    const me = await identity(req, supabase);   // undefined = accounts are not switched on yet
+    if (me === null) return res.status(200).json({ ok: false, error: 'sign in' });
+    const s = me ? { name: me.name, cls: me.cls, email: me.email } : (d.student || {}), email = cleanEmail(s.email);
     if (!email) return res.status(200).json({ ok: false, error: 'not registered' });
-    const reg = await supabase.from('students').select('email').eq('email', email).maybeSingle();
-    if (reg.error) throw reg.error;
-    if (!reg.data) return res.status(200).json({ ok: false, error: 'not registered' });
+    if (!me) {   // with accounts on, the account is the registration
+      const reg = await supabase.from('students').select('email').eq('email', email).maybeSingle();
+      if (reg.error) throw reg.error;
+      if (!reg.data) return res.status(200).json({ ok: false, error: 'not registered' });
+    }
 
     if (d.action === 'transcribe' || d.action === 'assess' || d.action === 'word') {
       const word = d.action === 'word';
@@ -64,10 +71,25 @@ export default async function handler(req, res) {
   }
 }
 
+// The emails of the students in the signed-in teacher's classes. Null when the request is not from a teacher account.
+async function classEmails(supabase, req) {
+  const scope = await teacherScope(req, supabase); if (!scope) return null;
+  if (!scope.classIds.length) return [];
+  const { data, error } = await supabase.from('students').select('email').in('class_id', scope.classIds).limit(3000);
+  if (error) throw error;
+  return data.map(r => r.email);
+}
+
 // For the teacher: the newest test of every student (scores only, no recordings or transcripts) and how many tests each one took.
-async function latestTests(supabase, key) {
-  if (!isTeacher(key)) return { ok: false, error: 'wrong key' };
-  const { data, error } = await supabase.from('voice_tests').select('id,created_at,email,level,overall,speaking,pronunciation,repeating')
+async function latestTests(supabase, key, req) {
+  let q = supabase.from('voice_tests').select('id,created_at,email,level,overall,speaking,pronunciation,repeating');
+  if (!isTeacher(key)) {
+    const emails = await classEmails(supabase, req);
+    if (!emails) return { ok: false, error: 'wrong key' };
+    if (!emails.length) return { ok: true, tests: [] };
+    q = q.in('email', emails);
+  }
+  const { data, error } = await q
     .order('created_at', { ascending: false }).limit(5000);
   if (error) throw error;
   const byEmail = new Map();
@@ -80,8 +102,8 @@ async function latestTests(supabase, key) {
 }
 
 // For the teacher: every test of one student, newest first (scores only; the full result opens by its id).
-async function studentTests(supabase, key, email) {
-  if (!isTeacher(key)) return { ok: false, error: 'wrong key' };
+async function studentTests(supabase, key, email, req) {
+  if (!isTeacher(key)) { const emails = await classEmails(supabase, req); if (!emails) return { ok: false, error: 'wrong key' }; if (!emails.includes(email)) return { ok: false, error: 'not found' }; }
   if (!email) return { ok: false, error: 'not found' };
   const { data, error } = await supabase.from('voice_tests').select('id,created_at,level,overall,speaking,pronunciation,repeating')
     .eq('email', email).order('created_at', { ascending: false }).limit(50);

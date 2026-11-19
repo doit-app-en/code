@@ -209,7 +209,7 @@ let voiceHist = {}, voiceOpen = new Set();                  // voiceHist: email 
 async function loadClass() {
   const url = syncUrl(); classErr = ''; classRetry = false; voiceErr = false; voiceLatest = null; voiceHist = {}; voiceOpen = new Set();
   if (!url) { classList = null; return; }
-  if (!tkey) { classErr = 'Write your teacher key in the box below to see the students.'; classList = null; return; }
+  if (!tkey && !authTeacher()) { classErr = 'Write your teacher key in the box below to see the students.'; classList = null; return; }   // a teacher account needs no key
   classLoading = true; if (location.hash === '#/students' && mode === 'teacher') renderStudents();
   try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(tkey)); const d = await r.json();
     if (!d.ok) { classErr = d.error === 'wrong key' ? 'The teacher key is not correct. Write it again in the box below.' : d.error === 'server not configured' ? 'The class server is not set up yet: add the Supabase keys in Vercel (see README).' : 'The class server did not answer correctly.';

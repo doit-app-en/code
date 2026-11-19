@@ -7,6 +7,8 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 
 ## Next
 <!-- developer -->
+- [ ] Accounts: keep the device's saved progress apart per account (IndexedDB keys `activity`, `lessonsDone`, `pron`, `listenById`, `results`, `speakHistory`, `voiceHistory`, `mistakes`, `mixBest`…): today two students who sign in on the same computer share it. On sign-in load that account's own set; on sign-out put the device back to an empty visitor set. Do not lose what a device already has: give it to the first account that signs in there. See `authApply()` in `public/js/11b-accounts.js`.
+- [ ] Accounts: the visitor's home page should mark what is locked (a small 🔒 on the cards and tab-bar links that lead to the gate page) and show only the sample clearly.
 
 ## Design
 <!-- designer: one page or flow per run -->
@@ -46,7 +48,8 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 ## Needs the owner
 <!-- Questions and things only he can decide or do. The agent adds here and does not act. -->
 - Arabic interface (English/Arabic switch)? It is a large change — do you want it for this site?
-- Real student accounts (login) so nobody can overwrite another student's progress — wanted before students join.
+- Accounts (2026-11-19): run `supabase/migrations/20261119100000_accounts.sql` in Supabase, then create a teacher account and a student account with the class code and say if anything fails — the real sign-up path has not been run yet.
+- Accounts: "forgot my password" and email verification need an email service (Resend as Supabase SMTP). Do you want it?
 - Placement test (content, 2026-11-17): "We ___ hungry. We had a big lunch." uses the past tense ("had") in an A1 test — left as it is; say if you want it changed to the present.
 - Placement test (content, 2026-11-17): the generated question "You watch TV in the ___." counts only "living room" as right, though "bedroom" can be offered as a wrong answer and some students do have a TV there — left as it is.
 - Placement test (content, 2026-11-17): a teacher who deleted default questions on purpose will still receive the 6 new ones on that device (same behaviour as new listening exercises); they can be deleted again in the Questions tab.

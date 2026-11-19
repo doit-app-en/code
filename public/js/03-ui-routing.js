@@ -89,6 +89,7 @@ function render(keepScroll) {
   if (!keepScroll && arrived) window.scrollTo(0, 0);
   lastRoute = route;
   const p = route.replace(/^#\/?/, '').split('/');
+  if (authRoute(p)) return;   // accounts (11b-accounts.js): welcome, sign in, sign up, and what a visitor may open
   if (p[0] === 'placement') return renderPlacement();
   if (p[0] === 'pronounce') return renderPron(p[1], arrived);
   if (p[0] === 'listening') return renderListen(p[1]);

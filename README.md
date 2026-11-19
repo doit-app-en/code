@@ -29,6 +29,8 @@
 | `ANTHROPIC_API_KEY` | مفتاح Claude API لتقييم المحادثة | اختياري |
 | `AI_MODEL` | الافتراضي `claude-opus-5-5`، وللتكلفة الأقل `claude-haiku-5-5` | اختياري |
 | `AZURE_SPEECH_KEY` و `AZURE_SPEECH_REGION` | مفتاح ومنطقة خدمة Speech من Azure (الباقة المجانية F0) لتقييم النطق في اختبار الصوت | اختياري |
+| `AUTH_GOOGLE` | اكتب `1` لإظهار زر «Continue with Google» بعد تفعيل Google في Supabase | اختياري |
+| `AUTH_OFF` | اكتب `1` لإيقاف الحسابات مؤقتاً ورجوع الموقع مفتوحاً | للطوارئ |
 | `CRON_SECRET` | أي نص عشوائي طويل (يحمي رابط التذكيرات) | للتذكيرات |
 | `RESEND_API_KEY` و `REMIND_FROM` | حساب resend.com وعنوان المرسل | للتذكيرات |
 

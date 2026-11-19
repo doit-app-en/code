@@ -27,6 +27,7 @@
     <a href="#/speaking" class="hide-sm">🎤 Speaking</a>
     <a href="#/progress" class="hide-sm">📈 My progress</a>
     <a href="#/students" class="hide-sm tonly">🧑‍🏫 Students</a>
+    <div class="vwrapx acctw"><button class="btn ghost sm" id="acctBtn" hidden></button><div class="vpop" id="acctPop" hidden></div></div>
     <div class="vwrapx"><button class="btn ghost sm" id="voiceBtn" title="Choose the English voice">🔊</button>
       <div class="vpop" id="vpop" hidden><b>English voice</b><select class="in" id="voiceSel"></select>
         <div class="row" style="gap:6px"><button class="btn sm teal" id="voiceTest">▶ Test</button><button class="btn sm ghost" id="voiceAuto">Automatic</button></div>
@@ -37,6 +38,7 @@
     </div>
   </div>
 </header>
+<div class="visbar no-print" id="visbar" hidden>👀 <b>You are visiting.</b> Create a free account to open everything and save your progress. <a class="btn sm sun" href="#/register">Create account</a> <a class="btn sm ghost" href="#/login">Sign in</a></div>
 <div class="offbar no-print" id="offbar" role="status" hidden>📡 <b>No internet connection.</b> You can keep practising — your work is saved on this device. Some things (AI feedback, the voice test) need the internet.</div>
 <main id="app"></main>
 <nav class="tabbar" aria-label="Sections">
@@ -67,6 +69,7 @@
 <script src="js/10-speaking.js"></script>
 <script src="js/10b-voice-test.js"></script>
 <script src="js/11-course-file.js"></script>
+<script src="js/11b-accounts.js"></script>
 <script src="js/12-start.js"></script>
 </body>
 </html>

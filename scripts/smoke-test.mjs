@@ -533,6 +533,55 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Accounts switched on (pretend accounts server): the welcome page comes first, a visitor only opens the sample,
+// and after signing up the student is the account and every call to /api/* carries the session.
+{
+  const L = 'accounts', ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage();
+  watch(page, L);
+  try {
+    const calls = [];
+    await page.route('**/api/**', r => {
+      const q = r.request(), url = q.url(), signed = !!q.headers().authorization;
+      if (!url.includes('/api/auth')) { calls.push((url.includes('/api/class') ? 'class' : 'voice') + (signed ? '+session' : '')); return r.fulfill({ json: q.method() === 'GET' ? { ok: true, speech: false, ai: false, save: true } : { ok: true } }); }
+      if (q.method() === 'GET') return r.fulfill({ json: { ok: true, auth: true, google: false } });
+      const d = JSON.parse(q.postData() || '{}'), me = { id: 'u1', email: 'sara@example.com', name: 'Sara <Test>', role: 'student', className: 'Grade 10 A', classCode: 'ABC234', teacher: 'Mr Ahmed' };
+      if (d.action === 'code') return r.fulfill({ json: d.code === 'ABC234' ? { ok: true, code: 'ABC234', className: 'Grade 10 A', teacher: 'Mr Ahmed' } : { ok: false, error: 'bad code' } });
+      if (d.action === 'signup') return r.fulfill({ json: { ok: true, session: { access_token: 'a'.repeat(40), refresh_token: 'r'.repeat(20), expires_at: Math.floor(Date.now() / 1000) + 3600 }, me } });
+      return r.fulfill({ json: signed && d.action === 'me' ? { ok: true, me } : { ok: false, error: 'sign in' } });
+    });
+    const text = () => page.evaluate(() => document.querySelector('#app').innerText), wide = async what => { const o = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth); if (o > 1) problems.push(`${L}: ${what} is ${o}px wider than the screen`); };
+    await page.goto(base + '/', { waitUntil: 'load' }); await page.waitForSelector('.welcome', { timeout: 10000 }); await wide('the welcome page');
+    await page.screenshot({ path: path.join(shots, 'phone-accounts-welcome.png') });
+    if (await page.evaluate(() => getComputedStyle(document.querySelector('header .seg')).display !== 'none')) problems.push(L + ': a visitor sees the Student/Teacher switch');
+    await page.evaluate(() => { location.hash = '#/listening'; }); await page.waitForTimeout(300);
+    if (!/Create a free account to open/.test(await text())) problems.push(L + ': a visitor can open Listening without an account');
+    await page.evaluate(() => { location.hash = '#/welcome'; }); await page.waitForSelector('#wlVisit'); await page.click('#wlVisit'); await page.waitForTimeout(400);
+    if (await page.evaluate(() => document.querySelector('#visbar').hidden)) problems.push(L + ': the visitor bar is not shown on the sample');
+    await page.evaluate(() => { location.hash = '#/placement'; }); await page.waitForTimeout(300);
+    if (/Create a free account to open/.test(await text())) problems.push(L + ': a visitor cannot open the placement test');
+    const les = await page.evaluate(() => state.levels.a1.lessons.map(l => l.id));
+    await page.evaluate(id => { location.hash = '#/lesson/a1/' + id; }, les[0]); await page.waitForTimeout(300); const first = !/Create a free account to open/.test(await text());
+    await page.evaluate(id => { location.hash = '#/lesson/a1/' + id; }, les[1]); await page.waitForTimeout(300); const second = /Create a free account to open/.test(await text());
+    if (!first || !second) problems.push(L + ': a visitor should open only the first lesson of a level');
+    await page.evaluate(() => { location.hash = '#/join/ABC234'; }); await page.waitForSelector('#acctNew', { state: 'visible', timeout: 5000 }); await page.click('#acctNew');
+    await page.waitForSelector('input[name=classCode]'); await wide('the sign-up page');
+    await page.fill('input[name=name]', 'Sara <Test>'); await page.fill('input[name=email]', 'sara@example.com'); await page.fill('input[name=password]', 'short'); await page.click('#acctGo');
+    if (!/8 letters/.test(await page.textContent('#acctFErr'))) problems.push(L + ': a short password is accepted');
+    await page.screenshot({ path: path.join(shots, 'phone-accounts-signup.png') });
+    await page.fill('input[name=password]', 'long-enough-1'); await page.click('#acctGo'); await page.waitForFunction(() => authSignedIn(), null, { timeout: 5000 }); await page.waitForTimeout(500);
+    const r = await page.evaluate(() => ({ email: student && student.email, cls: student && student.cls, html: !!document.querySelector('#acctBtn b, #acctBtn test'), bar: !document.querySelector('#visbar').hidden }));
+    if (r.email !== 'sara@example.com' || r.cls !== 'Grade 10 A' || r.html || r.bar) problems.push(L + ': after signing up the student is not the account (' + JSON.stringify(r) + ')');
+    await page.evaluate(() => { location.hash = '#/listening'; }); await page.waitForTimeout(300);
+    if (/Create a free account to open/.test(await text())) problems.push(L + ': a signed-in student cannot open Listening');
+    await page.evaluate(() => sendProgress()); await page.waitForTimeout(300);
+    if (!calls.includes('class+session')) problems.push(L + ': the progress is sent without the session (' + calls.join(' ') + ')');
+    await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => typeof authSignedIn === 'function' && authSignedIn(), null, { timeout: 8000 }).catch(() => problems.push(L + ': the student is signed out after a reload'));
+    await page.click('#acctBtn'); await page.click('#acctOut'); await page.waitForSelector('.welcome', { timeout: 5000 });
+    if (await page.evaluate(() => !!student || !!localStorage.getItem('die_session'))) problems.push(L + ': signing out keeps the student or the session');
+  } catch (e) { problems.push(L + ': could not check — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, accounts (welcome page, visitor sample, sign-up), voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

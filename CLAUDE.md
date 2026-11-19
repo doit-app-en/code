@@ -15,6 +15,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 | `public/js/legacy-apps-script.js` | The old Apps Script text a teacher can copy from the Students page (`GS_CODE`). Not numbered; loads between `08` and `09`. |
 | `public/photos/` | Site photos (Unsplash). `hero-800.jpg` / `hero-1200.jpg` and `photos/sm/` (640px) are smaller copies used only by the home page; a new home-page photo needs its small copy too. `npm run smoke` fails on a missing photo or one over 300 KB. |
 | `public/manifest.webmanifest`, `public/icons/` | "Add to home screen": name, colours and icons (PNG, drawn from the logo). No service worker, no offline caching. |
+| `api/auth.js` | Accounts: sign up, sign in, session refresh, class codes, a teacher's classes, Google sign-in redirect |
 | `api/class.js` | Class server: progress, students list, speaking AI feedback |
 | `api/voice.js` | Voice level test: speech-to-text + pronunciation scores (Azure AI Speech), AI summary (Claude), saved results |
 | `api/reminders.js` | Daily reminder emails (Vercel Cron + Resend) |
@@ -37,7 +38,14 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 - Practise my mistakes (`public/js/09b-mistakes.js`, route `#/mistakes`): a wrong pair in a lesson's Match game and a phrase under 80% in lesson Speak are remembered on the device (IndexedDB `mistakes`, ids only) by `noteMistake()`, and so is a single word that was not clear — under 80% in the Pronounce test, or listed as unclear by a fresh voice test (`noteWord()`; the entry carries the word itself, key `w::<word>`); `mistLinkHTML()` puts "Practise my mistakes (N)" on the home page and My progress; an item leaves the list after two correct answers in rounds.
 - Mixed match (`public/js/09c-mixed-match.js`, route `#/mixmatch`): a 60-second matching round with the pairs of every finished lesson, offered by `mixLinkHTML()` on the home page and My progress after two finished lessons; the student's own best is kept on the device (IndexedDB `mixBest`) and never sent.
 - Anything that waits for the server shows a state: `loadBox()` while loading, `stateBox()` with a "Try again" button when it fails, and `netWhy()` for the reason (all in `09-progress.js`). `#offbar` in `index.html` is the "No internet connection" bar (`netBar()` in `03-ui-routing.js`).
-- Student/teacher mode is only a UI switch. The real protection is `TEACHER_KEY`, checked on the server.
+- **Accounts** (`public/js/11b-accounts.js`, `api/auth.js`, `api/_lib/auth.js`; Supabase Auth, email + password and optionally Google). `GET /api/auth` says whether they are on:
+  they are on only when Supabase is configured **and** the accounts migration has been run (`authReady()`), and `AUTH_OFF=1` switches them off. When they are off — as in `npm run dev` and most of the smoke test — the site is open as before and students name themselves on My progress.
+  When on: `authRoute()` runs first in `render()`. Nobody signed in → `#/` is the Welcome page (`#/login`, `#/register[/student|teacher[/CODE]]`, `#/join[/CODE]`); a visitor ("I am just looking", localStorage `die_visitor`) may open only the sample — home, the placement test, level pages and the **first** lesson of each level — and everything else is the gate page (`authGatePage()`).
+  Signed in → `student` is set from the account by `authApply()` (never from the form), the Student/Teacher switch is shown to teacher accounts only, and `window.fetch` is wrapped so that every call to this site's `/api/*` carries `Authorization: Bearer <access token>` (renewed by `authFresh()`). The browser keeps only the session in localStorage (`die_session`) and never talks to Supabase.
+  On the server `identity(req)` gives the signed-in person and the student in the message is ignored; with accounts on, progress, speaking feedback and the voice test answer `sign in` to anyone else.
+  A teacher account owns classes (`classes`, each with a 6-character code); a student joins one with the code (sign-up, the account menu, or the link `#/join/CODE`). A signed-in teacher gets only the students of their own classes from `GET /api/class` and the voice-test lists — no key. `TEACHER_KEY` still opens every student (the site owner; "Advanced settings" on the Students page).
+  New accounts are created already confirmed (`auth.admin.createUser`, `email_confirm: true`) because the site has no email service: emails are **not verified** and there is no "forgot my password" yet.
+- Without accounts, student/teacher mode is only a UI switch and the real protection is `TEACHER_KEY`, checked on the server.
 - The page talks to `/api/class` with the same JSON messages the old Apps Script used (see the top of `api/class.js`).
   `syncUrl()` in `09-progress.js` defaults to `/api/class`; a teacher may still type an Apps Script URL.
 - Voice level test (`public/js/10b-voice-test.js`, route `#/voicetest`): 45 s answer + 45 s picture description + 4 listen-and-repeat sentences.
@@ -69,7 +77,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 
 ## Known limits / next ideas
 
-- Progress posts are not authenticated (anyone who knows an email could overwrite that student's summary) — same as the
-  old server. Supabase Auth for students would fix it.
+- Accounts: emails are not verified and there is no password reset (both need an email service, e.g. Resend as Supabase's SMTP). Progress on the device is not separated per account: two students who sign in on the same computer share the device's saved progress.
+- Nobody has run the accounts server path against the real Supabase yet (sign up, sign in, refresh, Google): the pages were tested with a pretend server only.
 - Reminder emails need a Resend account with a verified sending domain.
 - No Arabic interface yet; lesson Speak and "Practise my mistakes" still use the browser's speech recognition (the Voice level test and the Pronounce test can use Azure).
