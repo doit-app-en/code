@@ -94,7 +94,11 @@ function vtCleanup(r) {
 }
 function vtAbort() { const r = VT.rec; if (r && !r.ended) { r.ended = true; vtCleanup(r); } if (VT.mode !== 'intro' && VT.mode !== 'result') VT = {mode: 'intro'}; }
 async function vtBegin(max, onDone) {
-  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}}); } catch (e) { toast('🚫 Microphone blocked — allow the microphone in your browser, then try again.'); return false; }
+  const T = VT;
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}}); } catch (e) { if (VT === T) toast('🚫 Microphone blocked — allow the microphone in your browser, then try again.'); return false; }
+  // The browser may take a while to ask for the microphone: if the student left the test meanwhile, or a second tap already started
+  // a recording, this microphone is switched off again and nothing starts.
+  if (VT !== T || (T.rec && !T.rec.ended)) { try { stream.getTracks().forEach(t => t.stop()); } catch (e) {} return false; }
   const r = VT.rec = {max, onDone, stream, chunks: [], rate: 48000, base: '', sess: '', interim: '', counted: 0, confSum: 0, confN: 0, ended: false, ref: 0.02, rms: 0, speechT: 0, silentRun: 0, pauses: [], first: null, last: 0, t0: performance.now(), lastTick: performance.now()};
   try {
     const AC = window.AudioContext || window.webkitAudioContext; r.ac = new AC(); r.rate = r.ac.sampleRate;
@@ -137,6 +141,15 @@ async function vtEnd() {
 }
 
 /* ---------- scoring ---------- */
+// The speech service was asked and said no (today's limit, not registered) or did not answer. A browser that can write the words down
+// itself goes on with the basic check, and the student is told once. A browser that cannot (Safari, Firefox) has nothing to score:
+// the reason is returned and the test stops there (vtStuck) instead of going on to a result of 0%.
+function vtSvcFail(d) {
+  const why = (d && d.error) || 'offline';
+  if (!SR) return why;
+  if (VT.mode !== 'intro' && VT.mode !== 'result' && !VT.told) { VT.told = true; toast(why === 'student limit' || why === 'daily limit' ? 'Today\'s limit for full pronunciation scoring is reached — this test goes on with the basic check.' : 'The speech service did not answer — this test goes on with the basic check.'); }
+  return '';
+}
 // Basic check without the speech service: how many words of the sentence the browser heard.
 function vtMatch(text, heard) {
   const ref = norm(text).split(' ').filter(Boolean), got = norm(heard).split(' ').filter(Boolean), pool = {}; got.forEach(w => pool[w] = (pool[w] || 0) + 1);
@@ -145,7 +158,8 @@ function vtMatch(text, heard) {
 }
 async function vtScoreTalk(cap, kind, prompt, image) {
   let transcript = cap.heard, source = 'browser', confidence = cap.confidence;
-  if (vtSpeechOn() && cap.wav) { const d = await vtPost({action: 'transcribe', student, audio: await vtB64(cap.wav)}); if (d && d.ok && d.text) { transcript = d.text; source = 'speech'; confidence = d.confidence; } }
+  if (vtSpeechOn() && cap.wav) { const d = await vtPost({action: 'transcribe', student, audio: await vtB64(cap.wav)}); if (d && d.ok && d.text) { transcript = d.text; source = 'speech'; confidence = d.confidence; }
+    else if (!d || !d.ok) { const why = vtSvcFail(d); if (why) return {fail: why}; } }
   const A = spAnalyse(transcript || '', {...cap.M, confidence}, {register: 'any'}), sc = A.scores;
   const score = Math.round((0.4 * sc.fluency + 0.35 * sc.accuracy + 0.25 * sc.vocab) * spClamp(A.words / 30));   // a few words in 45 seconds is not a good answer
   return {kind, prompt, image: image || '', transcript: transcript || '', source, seconds: Math.round(cap.M.seconds), words: A.words, wpm: A.words ? A.wpm : 0, pauses: A.pauses, fluency: sc.fluency, accuracy: sc.accuracy, vocab: sc.vocab, score, cefr: A.cefr};
@@ -158,6 +172,7 @@ async function vtScoreSentence(cap, level, text) {
     if (d && d.ok) { done = true; out.source = 'speech'; out.heard = d.heard || '';
       if (d.scores) { const s = d.scores; Object.assign(out, {score: s.pron != null ? s.pron : (s.accuracy || 0), accuracy: s.accuracy, fluency: s.fluency, completeness: s.completeness, prosody: s.prosody}); out.words = (d.words || []).filter(w => w.err !== 'Insertion'); }
       else out.completeness = 0; }
+    else { const why = vtSvcFail(d); if (why) return {fail: why}; }
   }
   if (!done) { const m = vtMatch(text, cap.heard); out.score = m.score; out.completeness = m.score; out.words = m.words; }
   out.weak = out.words.filter(w => w.err || (w.score != null && w.score < 60)).map(w => w.w);
@@ -173,7 +188,7 @@ function vtTotals(tasks, sentences) {
 /* ---------- the test, step by step ---------- */
 function vtStart() {
   const s = VT_LEVELS.slice(0, 4).map(lv => ({level: lv, text: vtFresh(VT_SENTENCES[lv])}));
-  VT = {mode: 'talk', step: 0, question: vtFresh(VT_QUESTIONS), picture: vtFresh(VT_PICTURES), sentences: s, tasks: [], done: [], si: 0, plays: 0};
+  VT = {mode: 'talk', step: 0, question: vtFresh(VT_QUESTIONS), picture: vtFresh(VT_PICTURES), sentences: s, tasks: [], done: [], si: 0, plays: 0, quiet: {}};
   vtRemember([VT.question, VT.picture, ...s.map(x => x.text)]);
   renderVoiceTest(); window.scrollTo(0, 0);
 }
@@ -186,14 +201,52 @@ function vtTalkPage() {
   app.innerHTML = `${vtHead(pic ? 2 : 1, pic ? 'Describe the picture' : 'Answer the question')}
   <div class="panel vtp${rec ? ' rec' : ''}">${pic ? `<img class="vtpic" ${vtPicAttr(VT.picture)} alt="The picture to describe">` : ''}
     <p class="spprompt">${esc(prompt)}</p>
-    ${rec ? vtRecBox(VT_TALK) + `<h4 class="sph">What the computer hears</h4><div class="splive" id="vtLive">Start speaking…</div>`
+    ${rec ? vtRecBox(VT_TALK) + (SR ? `<h4 class="sph">What the computer hears</h4><div class="splive" id="vtLive">Start speaking…</div>` : '')
       : `<p class="hint">You have <b>${VT_TALK} seconds</b>. There are no right or wrong answers — just keep talking in English. The recording starts when you press the button.</p><div class="row vtgo" style="margin-top:14px"><button class="btn red" id="vtGo">🎙 Start recording</button></div>`}</div>`;
   if (rec) { $('#vtStop').onclick = vtEnd; return; }
   $('#vtGo').onclick = async () => {
-    const T = VT, ok = await vtBegin(VT_TALK, async cap => { T.recording = false; const t = await vtScoreTalk(cap, pic ? 'picture' : 'question', prompt, pic ? T.picture : ''); if (VT !== T) return; VT.tasks.push(t); if (pic) VT.mode = 'repeat'; else VT.step = 1; renderVoiceTest(); window.scrollTo(0, 0); });
-    if (ok) { VT.recording = true; renderVoiceTest(); }
+    $('#vtGo').disabled = true;
+    const T = VT, next = t => { T.tasks.push(t); if (pic) T.mode = 'repeat'; else T.step = 1; renderVoiceTest(); window.scrollTo(0, 0); };
+    const score = async cap => {
+      T.recording = false; const t = await vtScoreTalk(cap, pic ? 'picture' : 'question', prompt, pic ? T.picture : ''); if (VT !== T) return;
+      if (t.fail) return vtStuck(t.fail, () => { vtBusy('Listening to your answer…'); score(cap); });
+      // Not one word was heard: most often the microphone is off, covered or too far away. Say so now (once for each part), not after the whole test.
+      if (!t.words && !T.quiet[T.step]) { T.quiet[T.step] = true; return vtQuietPage(pic ? 2 : 1, () => next(t)); }
+      next(t);
+    };
+    const ok = await vtBegin(VT_TALK, score);
+    if (VT !== T) return;
+    if (ok) { VT.recording = true; renderVoiceTest(); } else if ($('#vtGo')) $('#vtGo').disabled = false;
   };
 }
+// A talking part in which no words were heard.
+function vtQuietPage(n, skip) {
+  app.innerHTML = `${vtHead(n, 'I could not hear you')}
+  <div class="panel vtp">${stateBox('🎤', 'No words were heard', 'Check that your microphone is switched on and not covered, move closer to it, and speak a little louder. Then try this part again.')}
+    <div class="row vtgo two" style="margin-top:14px;justify-content:center"><button class="btn red" id="vtRedo">🎙 Record again</button><button class="btn ghost" id="vtSkip">Skip this part →</button></div></div>`;
+  $('#vtRedo').onclick = () => { renderVoiceTest(); window.scrollTo(0, 0); };
+  $('#vtSkip').onclick = skip;
+}
+// The test cannot go on with this answer: the speech service refused it (a limit) or could not be reached, and this browser cannot write
+// the words down by itself. With "again" the same recording is sent once more.
+function vtStuck(err, again) {
+  const lim = ['not registered', 'student limit', 'daily limit'].includes(err);
+  app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Test</div>
+  <div class="panel vtp">${stateBox(lim ? '⏳' : navigator.onLine === false ? '📡' : '⚠️', lim ? 'The test cannot go on today' : 'Your answer could not be checked', lim ? VT_ERR[err] + (err === 'not registered' ? '' : ' In Google Chrome or Microsoft Edge you can still take the test with the basic check.') : netWhy() + ' Your recording is still here — try again.', lim ? '' : 'vtRetry')}
+    <div class="row vtgo" style="margin-top:14px;justify-content:center"><button class="btn ghost" id="vtQuit">Stop the test</button></div></div>`;
+  const b = $('#vtRetry'); if (b) b.onclick = again;
+  $('#vtQuit').onclick = vtLeave;
+  window.scrollTo(0, 0);
+}
+function vtLeave() { vtAbort(); VT = {mode: 'intro'}; renderVoiceTest(''); window.scrollTo(0, 0); }
+// The test's pages and a fresh result share the address #/voicetest with the first page: a link to it (phone "← Back", the breadcrumb,
+// the Voice test tab) would do nothing, so it is handled here. Leaving a test that has an answer asks first.
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href="#/voicetest"]'); if (!a || location.hash !== '#/voicetest' || VT.mode === 'intro') return;
+  e.preventDefault();
+  if (VT.mode !== 'result' && !VT.finishing && (VT.recording || VT.tasks.length) && !confirm('Leave the voice test? Your answers will be lost.')) return;
+  vtLeave();
+});
 function vtRepeatPage() {
   const s = VT.sentences[VT.si], rec = VT.recording, n = VT.sentences.length;
   app.innerHTML = `${vtHead(3, 'Listen and repeat')}
@@ -205,21 +258,39 @@ function vtRepeatPage() {
   $('#vtPlay').onclick = () => { VT.plays++; $('#vtPlay').disabled = true; say(s.text, () => { if (VT.mode === 'repeat' && !VT.recording) renderVoiceTest(); }, 0.85); };
   $('#vtGo').onclick = async () => {
     try { speechSynthesis.cancel(); } catch (e) {}
-    const T = VT, ok = await vtBegin(VT_REPEAT, async cap => { T.recording = false; const d = await vtScoreSentence(cap, s.level, s.text); if (VT !== T) return; VT.done.push(d); VT.si++; VT.plays = 0; if (VT.si >= n) return vtFinish(); renderVoiceTest(); });
-    if (ok) { VT.recording = true; renderVoiceTest(); }
+    $('#vtGo').disabled = true;
+    const T = VT, score = async cap => {
+      T.recording = false; const d = await vtScoreSentence(cap, s.level, s.text); if (VT !== T) return;
+      if (d.fail) return vtStuck(d.fail, () => { vtBusy('Listening to your answer…'); score(cap); });
+      T.done.push(d); T.si++; T.plays = 0; if (T.si >= n) return vtFinish(); renderVoiceTest();
+    };
+    const ok = await vtBegin(VT_REPEAT, score);
+    if (VT !== T) return;
+    if (ok) { VT.recording = true; renderVoiceTest(); } else if ($('#vtGo')) $('#vtGo').disabled = false;
   };
 }
 async function vtFinish() {
-  vtBusy('Working out your level…');
-  const T = VT, tot = vtTotals(VT.tasks, VT.done), rec = {id: uid(), date: new Date().toISOString(), name: student ? student.name : '', tasks: VT.tasks, sentences: VT.done, scores: tot.scores, level: tot.level, ai: null, aiError: '', shared: ''};
+  const T = VT, tot = vtTotals(T.tasks, T.done), rec = {id: uid(), date: new Date().toISOString(), name: student ? student.name : '', tasks: T.tasks, sentences: T.done, scores: tot.scores, level: tot.level, ai: null, aiError: '', shared: ''};
+  // Not one word was heard in the whole test (a microphone that is off or not working): that is not a level. It is not kept as
+  // "A1 · 0%" and not sent to the teacher; the student is told what to check.
+  if (!T.tasks.some(t => t.words) && !T.done.some(s => s.score > 0 || norm(s.heard || ''))) { T.finishing = true; return vtNonePage(); }
+  vtBusy('Working out your level…'); T.finishing = true;
   if (vtCaps && vtCaps.save && vtRegistered()) {
     const d = await vtPost({action: 'finish', student, result: {tasks: rec.tasks, sentences: rec.sentences.map(({audio, ...s}) => s), scores: rec.scores, level: rec.level}}, 80000);
-    if (VT !== T) return;
     if (d && d.ok) { rec.shared = d.id; rec.level = d.level || rec.level; rec.ai = d.ai || null; rec.aiError = d.aiError || ''; }
     else if (d && (d.error === 'offline' || d.error === 'server error')) rec.aiError = 'unsaved';
   }
   vtHistory.unshift({...rec, sentences: rec.sentences.map(({audio, ...s}) => s)}); vtHistory = vtHistory.slice(0, VT_KEEP); await DB.put('kv', 'voiceHistory', vtHistory);
-  onActivity(); VT = {mode: 'result', rec}; renderVoiceTest(); window.scrollTo(0, 0);
+  onActivity();
+  // The student left while the level was worked out: the test is kept all the same, and is in "My voice tests".
+  if (VT !== T) { toast('✅ Your voice test is saved — open “Voice level test” to see the result.'); if (VT.mode === 'intro' && location.hash === '#/voicetest' && vtCaps && $('#vtStart')) vtIntroPage(); return; }
+  VT = {mode: 'result', rec}; renderVoiceTest(); window.scrollTo(0, 0);
+}
+function vtNonePage() {
+  app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › <a href="#/voicetest">Voice level test</a> › Result</div>
+  <div class="panel vtp">${stateBox('🎤', 'The test could not hear you', 'No words were heard in any part, so there is no level this time and nothing was saved. Check that your microphone is switched on and allowed for this page, use a quiet place, and speak close to the microphone.')}
+    <div class="row vtgo" style="margin-top:14px;justify-content:center"><button class="btn sun" id="vtNone">🎙 Try the test again</button></div></div>`;
+  $('#vtNone').onclick = vtLeave; window.scrollTo(0, 0);
 }
 
 /* ---------- pages ---------- */
@@ -234,7 +305,7 @@ async function renderVoiceTest(arg) {
   await vtLoadCaps(); if (VT.mode === 'intro' && (location.hash || '').startsWith('#/voicetest')) vtIntroPage();
 }
 function vtIntroPage() {
-  const can = !!SR || vtSpeechOn(), reg = vtRegistered();
+  const can = (!!SR || vtSpeechOn()) && 'speechSynthesis' in window, reg = vtRegistered();
   const how = vtSpeechOn() ? '🎯 Your pronunciation is scored sound by sound by a speech AI.' : vtCaps.speech ? '🎯 Save your name and email on the <a href="#/progress">My progress</a> page to get full pronunciation scoring.' : '🎯 Basic check: the computer checks which words it can understand.';
   app.innerHTML = `<div class="crumbs"><a href="#/">Home</a> › Voice level test</div>
   <div class="banner photo vtban" style="--img:url(photos/pronounce.jpg)"><div><h1>Voice level test</h1><p>Find your speaking level in about 3 minutes — just by talking.</p></div></div>

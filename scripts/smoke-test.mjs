@@ -246,12 +246,21 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
-// The whole Voice level test with a fake microphone (the fake microphone says no words, so every score is 0).
+// The whole Voice level test with a fake microphone and a pretend speech recogniser. First the recogniser hears nothing: the student
+// must be told at once and get the same question again. Then it hears words, the test is finished, and "← Back" on the result works.
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, permissions: ['microphone'] }), page = await ctx.newPage();
   watch(page, 'voice test');
   try {
+    await page.addInitScript(() => { window._mute = true; window.SpeechRecognition = window.webkitSpeechRecognition = class {
+      start() { this._t = setTimeout(() => { if (window._mute) return; const parts = VT.mode === 'repeat' ? [VT.sentences[VT.si].text] : 'Hello my name is Sam and I live in a small town with my family. My mother is a teacher and she goes to work by car every day. We like playing football together at the weekend'.split('. '); if (this.onresult) this.onresult({ results: parts.map(p => Object.assign([{ transcript: p, confidence: 0.9 }], { isFinal: true })) }); }, 60); }
+      stop() { clearTimeout(this._t); setTimeout(() => this.onend && this.onend(), 20); } abort() { clearTimeout(this._t); } }; });
     await page.goto(base + '/#/voicetest', { waitUntil: 'load' }); await page.waitForSelector('#vtStart', { timeout: 10000 }); await page.click('#vtStart');
+    await page.waitForSelector('#vtGo'); await page.click('#vtGo'); await page.waitForSelector('#vtStop'); await page.waitForTimeout(2400); await page.click('#vtStop');
+    await page.waitForSelector('#vtRedo', { timeout: 10000 }); await page.screenshot({ path: path.join(shots, 'phone-voice-not-heard.png') });
+    await page.click('#vtRedo'); await page.waitForSelector('#vtGo');
+    if (!await page.evaluate(() => VT.step === 0 && !VT.tasks.length && document.querySelector('.spprompt').textContent === VT.question)) problems.push('voice test: "Record again" after a silent answer does not bring the same question back');
+    await page.evaluate(() => { window._mute = false; });
     for (let step = 0; step < 2; step++) { await page.waitForSelector('#vtGo'); await page.click('#vtGo'); await page.waitForSelector('#vtStop'); await page.waitForTimeout(2400); await page.click('#vtStop'); }
     for (let i = 0; i < 4; i++) {
       await page.waitForSelector('#vtPlay', { timeout: 15000 }); await page.click('#vtPlay');
@@ -263,9 +272,14 @@ for (const screen of SCREENS) {
     if (!await page.$('#vtNext a[href^="#/level/"]')) problems.push('voice test result: the "What to do next" box with a link to a level is missing');
     if (r.tasks !== 2 || r.sentences !== 4 || !r.audio) problems.push('voice test: the result is incomplete ' + JSON.stringify(r));
     if (r.over > 1) problems.push(`voice test result: ${r.over}px wider than the phone screen`);
+    if (!await page.evaluate(() => VT.rec.tasks[0].words > 20 && VT.rec.sentences.every(s => s.score === 100))) problems.push('voice test: the words the recogniser heard are not in the result');
     await page.screenshot({ path: path.join(shots, 'phone-voice-result.png'), fullPage: true });
+    // A fresh result has the first page's own address: "← Back" must still return to it, with the test in "My voice tests".
+    await page.click('.backbtn'); await page.waitForTimeout(250);
+    if (!await page.$('#vtStart') || (await page.$$('.vthist tbody tr')).length !== 1) problems.push('voice test: "← Back" on a fresh result does not return to the first page with the test in "My voice tests"');
+    if (await page.evaluate(() => (window._live = window._live || 0, VT.rec && !VT.rec.ended))) problems.push('voice test: a recording is still running after the test');
     // The next tests must not ask what this device was asked before: four more starts, nothing twice, and every picture has its size.
-    const again = await page.evaluate(async () => { const first = VT.rec, all = [first.tasks[0].prompt, first.tasks[1].image, ...first.sentences.map(s => s.text)];
+    const again = await page.evaluate(async () => { const first = vtHistory[0], all = [first.tasks[0].prompt, first.tasks[1].image, ...first.sentences.map(s => s.text)];
       for (let i = 0; i < 4; i++) { vtStart(); all.push(VT.question, VT.picture, ...VT.sentences.map(s => s.text)); }
       vtAbort(); location.hash = '#/voicetest'; await new Promise(r => setTimeout(r, 300));
       return { asked: all.length, different: new Set(all).size, saved: ((await DB.get('kv', 'voiceSeen')) || []).length, nosize: VT_PICTURES.filter(p => !VT_PIC_SIZE[p]), counts: [VT_QUESTIONS.length, VT_PICTURES.length, ...Object.values(VT_SENTENCES).map(a => a.length)] }; });
