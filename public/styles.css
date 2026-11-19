@@ -1134,6 +1134,33 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .lcard2>.row{flex:0 0 100%;margin-top:4px}.lcard2>.row .btn{min-height:44px;min-width:44px}
 }
 
+/* Listening exercise page. The colour names sit under the colours, so a second row of colours needs room for them. */
+.lpal{row-gap:28px;padding-bottom:22px;margin-bottom:6px}.lshapes{margin-top:12px}
+/* The answer boxes of "Listen and write" share the class name of the lesson's win box: they keep their own size and spacing. */
+input.win{padding:9px 12px;margin-top:0;min-height:44px;border-radius:12px}
+/* On phones: the place in the section and the previous/next buttons share one line, a short title, and a player of two tidy rows
+   ("Play all" with "Slow", then the sentence buttons in one grid), so the task itself starts on the first screen */
+@media(max-width:560px){
+  .lxhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;align-items:center;margin-bottom:12px}
+  .lxhead>div:first-child{display:contents}
+  .lxhead .lxv{grid-column:1;grid-row:1;justify-self:start;display:inline-flex;max-width:100%;margin:0;font-size:13px;white-space:nowrap}
+  .lxv .lvg{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .lxhead h1{grid-column:1/-1;grid-row:2;font-size:26px;line-height:1.15}
+  .lxnav{grid-column:2;grid-row:1;gap:6px;flex-wrap:nowrap}.lxnav .btn{min-height:44px;min-width:52px;padding:0 10px;white-space:nowrap}
+  .linstr{gap:8px;margin-bottom:12px;font-size:15px;line-height:1.35}
+  .lplayer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;padding:8px;margin-bottom:14px}
+  .lplayer #lPlayAll,.lplayer #lSlow{grid-row:1;min-height:44px;white-space:nowrap}.lplayer #lSlow{grid-column:2;padding:0 12px}
+  .lsteps{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:5px}
+  .lsteps .lstep{min-height:44px;padding:0 2px;gap:4px;white-space:nowrap}.lsteps .lstepx{grid-column:span 2}
+  .lpal{gap:10px 12px;row-gap:26px}.lsw{width:48px;height:48px}
+  .wqa{gap:6px}input.win{width:112px}   /* "in [answer] Street" stays on one line */
+  /* after "Check my answers": the score ring beside the words, and wide buttons */
+  .lres{flex-wrap:nowrap;justify-content:flex-start;gap:14px;margin-top:14px;padding:12px 14px;border-radius:18px}
+  .lres .ring{flex:none;width:80px;height:80px}.lres .ring span{width:60px;height:60px;font-size:20px}
+  .lres .lrst{font-size:20px!important;line-height:1.2}.lres .lrsw{display:block;font-size:20px!important;line-height:1.2}.lres .hint{font-size:14px;line-height:1.35}
+  .lxfoot{margin-top:14px!important;gap:10px}.lxfoot .btn{flex:1 1 40%;min-height:48px;padding:0 10px;white-space:nowrap}.lxfoot a.btn,.lxfoot #lCheck{flex:1 1 100%}
+}
+
 /* ---------- accounts: welcome page, sign in / sign up, visitor bar ---------- */
 body.acct:not(.acct-teacher) .seg:not(.acctrole){display:none}
 body.acct-in #stEdit{display:none}   /* name, class and email come from the account */

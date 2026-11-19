@@ -815,20 +815,20 @@ function renderListenEx(n) {
   app.innerHTML = `
   ${(() => { const gname = lsGroup(ex), sec = lexs().map((e, i) => [e, i + 1]).filter(([e]) => lsGroup(e) === gname), k = sec.findIndex(([, m]) => m === n), prev = sec[k - 1], next = sec[k + 1];
     return `<div class="crumbs"><a href="#/">Home</a> › <a href="#/listening">Listening</a> › ${esc(gname)} › ${k + 1}. ${esc(ex.title)}</div>
-  <div class="lhead"><div><span class="lv" style="background:#00b4d8">🎧 ${esc(gname)} · ${k + 1} of ${sec.length}</span><h1>${ex.icon} ${esc(ex.title)}</h1></div>
-    <div class="row">${prev ? `<a class="btn ghost sm" href="#/listening/${prev[1]}">← ${k}</a>` : ''}${next ? `<a class="btn ghost sm" href="#/listening/${next[1]}">${k + 2} →</a>` : ''}</div></div>`; })()}
+  <div class="lhead lxhead"><div><span class="lv lxv" style="background:#00b4d8"><span class="lvg">🎧 ${esc(gname)}</span><span>&nbsp;· ${k + 1} of ${sec.length}</span></span><h1>${ex.icon} ${esc(ex.title)}</h1></div>
+    <div class="row lxnav">${prev ? `<a class="btn ghost sm" href="#/listening/${prev[1]}">← ${k}</a>` : ''}${next ? `<a class="btn ghost sm" href="#/listening/${next[1]}">${k + 2} →</a>` : ''}</div></div>`; })()}
   <div class="panel">
     <div class="linstr"><span class="ltype big">${t.icon} ${t.name}</span><span>${esc(ex.how || t.how)} <b>${exN(ex) > 1 ? 'There are two examples.' : 'There is one example.'}</b></span></div>
     <div class="lplayer">
       <button class="btn teal" id="lPlayAll">▶ Play all</button>
-      <div class="lsteps">${items.map((_, i) => `<button class="btn ghost sm lstep" data-st="${i}">${i < exN(ex) ? '🔊 Example' + (exN(ex) > 1 ? ' ' + (i + 1) : '') : '🔊 ' + (i - exN(ex) + 1)}</button>`).join('')}</div>
+      <div class="lsteps">${items.map((_, i) => `<button class="btn ghost sm lstep${i < exN(ex) ? ' lstepx' : ''}" data-st="${i}">${i < exN(ex) ? '🔊 Example' + (exN(ex) > 1 ? ' ' + (i + 1) : '') : '🔊 ' + (i - exN(ex) + 1)}</button>`).join('')}</div>
       <button class="btn ghost sm" id="lSlow">${lsSlow ? '🐢 Slow: on' : '🐢 Slow: off'}</button>
     </div>
     <div id="lAct">${lsActHTML(ex, s, g)}</div>
     ${g ? `<div class="lres" style="--c:${pcol(g.pct)}"><div class="ring" style="--p:${g.pct};--rc:${pcol(g.pct)}"><span>${g.ok}/${g.total}</span></div>
-      <div><div style="font-size:30px">${stars(g.pct)}</div><b class="baloo" style="font-size:26px;color:${pcol(g.pct)}">${g.pct === 100 ? 'Excellent! All correct!' : g.pct >= 60 ? 'Good job!' : 'Keep practising!'}</b>
+      <div><div class="lrst" style="font-size:30px">${stars(g.pct)}</div><b class="baloo lrsw" style="font-size:26px;color:${pcol(g.pct)}">${g.pct === 100 ? 'Excellent! All correct!' : g.pct >= 60 ? 'Good job!' : 'Keep practising!'}</b>
       <div class="hint" style="margin:4px 0 0">Wrong answers are marked ✗. Listen again and try once more.</div></div></div>` : ''}
-    <div class="row" style="justify-content:center;margin-top:18px">
+    <div class="row lxfoot" style="justify-content:center;margin-top:18px">
       ${g ? `<button class="btn ghost" id="lShow">👀 Show the answers</button><button class="btn sun" id="lAgain">↻ Try again</button>${n < lexs().length ? `<a class="btn" style="background:#00b4d8" href="#/listening/${n + 1}">Next exercise →</a>` : ''}`
         : `<button class="btn sun" id="lCheck">✔ Check my answers</button>`}
     </div>
