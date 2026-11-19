@@ -136,5 +136,101 @@ Left out on purpose:
 - Agents cannot hear or speak, so any review step that uses the microphone cannot be checked in the smoke test; the picture and
   choice steps can.
 
-**Angles not covered yet** (for the next runs): speaking and pronunciation practice · placement and level tests ·
-teacher dashboards and assignments · listening · apps popular with Arabic speakers · reading, spelling and graded texts.
+## 2026-11-19 — Speaking and pronunciation practice
+
+**Why this angle.** Speaking is where the site is strongest (Pronounce by letter with a scored test, lesson Speak, Test your speaking
+with AI feedback, the voice level test), so the question today was not "what is missing as a section" but "what do the speaking apps
+do *around* a score that this site does not". Checked in the code before proposing: the Pronounce test shows one number per word and
+"I heard" (`07-pronounce.js`); the server asks the speech service for word-level scores only (`api/voice.js`); a student cannot play
+back the word he just recorded; Pronounce is organised by letter and spelling rule, with nothing about pairs of similar sounds;
+"Practise my mistakes" is fed only by lesson Match and lesson Speak; a Test your speaking result has no "same topic again".
+
+**Pages read** (public pages only, read through summaries in our own words; app companies' pages are their own descriptions)
+
+- Duolingo — how it teaches speaking (Feb 2026): https://blog.duolingo.com/covering-all-the-bases-duolingos-approach-to-speaking-skills
+- Duolingo — Video Call (Sept 2024): https://blog.duolingo.com/video-call/
+- Duolingo — speaking practice for shy learners (2026): https://blog.duolingo.com/introvert-language-learning-tips/
+- Busuu help — speaking practice lessons: https://help.busuu.com/hc/en-gb/articles/19367617005970-Mastering-language-skills-through-speaking-practice
+- Cambridge Speak & Improve help — how it helps (April 2026): https://help.writeandimprove.com/en/articles/9652123-how-can-speak-improve-help-me-improve-my-english-speaking
+  and its FAQ index (titles only): https://help.writeandimprove.com/en/collections/6874108-new-speak-improve-frequently-asked-questions
+- Cambridge One help — Speaking Companion (June 2026): https://cambridgeonehelp.cambridge.org/hc/en-gb/articles/35683198223634-What-is-Speaking-Companion
+- ELSA Speak, through a reviewer's account (FluentU, 2024): https://www.fluentu.com/blog/reviews/elsa-speak/
+- ELSA Speak and Speechling, through a competitor's comparison (TalkDrill, 2026): https://www.talkdrill.com/blog/compare/elsa-speak-vs-speechling/
+- BoldVoice — English pronunciation for Arabic speakers (2023): https://www.boldvoice.com/blog/english-pronunciation-arabic-speakers
+- Hadar Shemesh — pronunciation challenges for Arabic speakers (2022): https://hadarshemesh.com/magazine/english-for-arabic-speakers/
+- Leonardo English — practising with pairs of similar words (2025): https://www.leonardoenglish.com/blog/minimal-pairs
+
+How far to trust these: ELSA was not read from its own pages but from a review and from a rival's marketing page, so the details
+(colours per sound, prices, accuracy claims) are second-hand; the rival's page promotes its own product. Speak & Improve's pages on
+price and on how scores are shown could not be opened, so its feedback screen is not known here. No app was installed or used.
+
+**What they do**
+
+- *From sound to sentence.* ELSA (per the review) starts with a speaking test of under ten minutes that names the learner's problem
+  sounds, then offers a few short lessons a day that climb from a single sound to words, phrases and sentences. Duolingo's own list
+  runs from repeating words in the first lesson, through speaking-only practice sessions (it says these are free), to conversation.
+- *Ears before mouth.* ELSA has checks where the learner hears one of two near-identical words and chooses; Duolingo names sound
+  drills and pairs of similar words for new sound systems. The Leonardo English guide gives the reason: part of the difficulty is
+  that the learner does not hear the difference yet. Its order is: find your problem sounds, learn how the sound is made, say each
+  word of the pair slowly, then at normal speed, then in a sentence, recording and listening back.
+- *Which sounds, for Arabic speakers.* The two teachers' guides agree closely: p said as b; v said as f; ch said as sh; a vowel
+  slipped into groups of consonants ("spring" in two beats, "-ed" endings split); the short vowels of "sit" and "set" merging
+  towards "seat"; the vowel of "bird"; a rolled r. One also mentions extra pauses before words that begin with a vowel, and word
+  and sentence stress. Suggested practice: the mouth shape first (a mirror), then pairs, then words in sentences.
+- *Feedback finer than one number.* ELSA is described as scoring each sound of a word (green / orange / red) and explaining how to
+  make a sound that was wrong, with mouth diagrams. Busuu marks the unclear *words* of a phrase in red and adds written advice (in
+  its English course). The reviewer found ELSA strict — several tries to pass a sound — and its intonation exercises too rigid.
+- *Hearing yourself.* Busuu's speaking lesson (a video of a fluent speaker, then hold-to-record) lets the learner play his own
+  recording and the speaker's before trying again, with two more attempts. Speak & Improve keeps every recording and advises
+  listening back for the unclear parts, re-recording and comparing. Duolingo's advice for shy learners includes recording yourself
+  and repeating along with a good speaker, copying rhythm and melody.
+- *Rewarding the trying.* Speak & Improve gives awards for use, tasks completed and for checking and improving, and stresses that
+  nobody hears the learner's mistakes. Cambridge's Speaking Companion produces no score at all: after a conversation the learner
+  gets a transcript with playback, a chart of the level of the words he used, and an encouraging message; teachers see only
+  completion, attempts and talking time.
+- *Open conversation with an AI character.* Duolingo's Video Call (one to three minutes, no grammar correction, the learner can ask
+  the character to slow down or repeat) is in its most expensive plan only. Speaking Companion is for ages 16 and over and sold
+  only with Cambridge courses. ELSA's AI conversations are in its paid plans. Speechling adds written feedback from a human coach
+  within a day or two.
+
+**What I chose to propose, and what I left out**
+
+Proposed in `BACKLOG.md` (best first): sound pairs with a listening step · hear yourself next to the model · unclear words go to
+"Practise my mistakes" · which sound was weak, with one tip · the same speaking topic again with before and after.
+
+Left out on purpose:
+- *Free conversation with an AI character.* Every example found is paid or restricted to older learners. Here it would mean a paid
+  call per turn, open-ended AI talk with minors, and nothing an agent can test without a voice — an owner decision much larger
+  than a feature. Test your speaking already gives a prepared topic and AI feedback, which is the safer half of the same idea.
+- *Human coach feedback* (Speechling). That is the class teacher's place; the Students page already shows him the voice test.
+- *Intonation and sentence-melody scoring.* The reviewer found it rigid even in the app that specialises in it, and the voice test
+  already reports a rhythm-and-melody number where the service gives one.
+- *Mouth diagrams and videos of a speaker.* Pictures and videos would have to be made by the owner or a teacher (nothing may be
+  copied); a one-line written tip per sound gives most of the value.
+- *Word-stress exercises* ("tap the strong part of the word"). Worth a later look, but it needs every word split into its beats by
+  hand and suits B1 and above more than the A1–A2 students who are most of the audience.
+- *Repeating along with a long recording (shadowing).* Lesson Speak and the voice test's listen-and-repeat sentences already cover
+  the sentence-sized version; longer passages belong with the listening angle.
+- *Awards for number of recordings.* The streak, weekly goal and badges already reward turning up.
+
+**Notes for whoever builds these**
+
+- Sound pairs: write the word lists ourselves, with words an A1–A2 student knows and that British and American speakers say with the
+  same contrast (pin / bin, pack / back, fan / van, fine / vine, chip / ship, chair / share, sit / seat, ship / sheep). Avoid pairs
+  where one word is rude or very rare. A pair is only usable if the device's voice makes the two words clearly different — the
+  browser's voices differ from phone to phone, so keep to strong contrasts at the start of a word and let "Slowly" replay it.
+- Sound pairs, speaking step: a speech recogniser tends to "correct" a word towards what it expects, so with the basic check the
+  honest test is whether it *heard the other word of the pair* ("I heard: bark"); with the full check use the score as today.
+- Hear yourself: the full check already holds the WAV it posts (`prRecord()`); play it from memory and drop it when the next word is
+  drawn or the student leaves (`prAbort()` / `stopAll()`), so nothing new is stored. With the browser's recognition, a second
+  recorder on the same microphone fails silently on some phones — if it cannot be made reliable, simply do not show "▶ Me" there.
+- Per-sound scores: check the speech service's documentation for whether scores per sound are returned for the British English
+  voice the site uses before promising anything; show three colours, never a number per sound; do not show the row at all when the
+  word was not recognised. The daily limits and the registered-student check stay exactly as they are.
+- Unclear words in "Practise my mistakes": store the word itself (a Pronounce word has no lesson id) as a new kind of entry in the
+  same `mistakes` key; older entries must still be read as before.
+- Same topic again: match attempts by the topic's id, and say nothing when the new score is lower except what to try next.
+- None of the speaking parts can be checked by an agent with a real voice; say so in the changelog as usual.
+
+**Angles not covered yet** (for the next runs): placement and level tests · teacher dashboards and assignments · listening ·
+apps popular with Arabic speakers · reading, spelling and graded texts · word stress and sentence rhythm (touched on 2026-11-19).
