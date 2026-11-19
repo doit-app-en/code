@@ -565,6 +565,22 @@ for (const screen of SCREENS) {
     if (!/Create a free account to open/.test(await text())) problems.push(L + ': a visitor can open Listening without an account');
     await page.evaluate(() => { location.hash = '#/welcome'; }); await page.waitForSelector('#wlVisit'); await page.click('#wlVisit'); await page.waitForTimeout(400);
     if (await page.evaluate(() => document.querySelector('#visbar').hidden)) problems.push(L + ': the visitor bar is not shown on the sample');
+    // the visitor's home page says what is locked (🔒) and lists the sample
+    await page.waitForSelector('#vsample', { timeout: 5000 }).catch(() => problems.push(L + ': the visitor\'s home page does not list the free sample'));
+    const lk = await page.evaluate(() => { const hrefs = q => [...document.querySelectorAll(q)].map(a => a.getAttribute('href')); return {
+      tabs: hrefs('.tabbar a.lk').join(' '), cards: hrefs('#app a.ptest.lk').join(' '), free: hrefs('#app a.ptest:not(.lk)').join(' '), tags: document.querySelectorAll('#app a.ptest > .lktag').length,
+      sample: hrefs('#vsample .vslist a'), wrong: [...document.querySelectorAll('#app a[href^="#/"], .tabbar a')].filter(a => a.classList.contains('lk') !== authLocked(a.getAttribute('href'))).length,
+      lock: getComputedStyle(document.querySelector('.tabbar a.lk') || document.body, '::after').content, want: 1 + LEVELS.filter(l => state.levels[l.id].lessons[0]).length, boxes: document.querySelectorAll('#vsample').length }; });
+    if (lk.tabs !== '#/voicetest #/pronounce #/listening #/speaking #/progress #/students') problems.push(L + ': the tab bar marks the wrong links as locked for a visitor: ' + lk.tabs);
+    if (lk.cards !== '#/voicetest #/pronounce #/listening #/speaking' || lk.free !== '#/placement' || lk.tags !== 5) problems.push(L + `: the home cards are not marked for a visitor (locked: ${lk.cards}; free: ${lk.free}; labels: ${lk.tags})`);
+    if (lk.sample.length !== lk.want || lk.sample[0] !== '#/placement' || lk.wrong || lk.boxes !== 1 || !/🔒/.test(lk.lock)) problems.push(L + ': the visitor\'s sample box or lock marks are wrong ' + JSON.stringify(lk));
+    await wide('the visitor\'s home page'); await page.screenshot({ path: path.join(shots, 'phone-accounts-visitor-home.png'), fullPage: true });
+    await page.click('#vsample .vslist a:nth-child(2)'); await page.waitForTimeout(300);
+    if (/Create a free account to open/.test(await text())) problems.push(L + ': a lesson in the visitor\'s sample box does not open');
+    await page.evaluate(() => { location.hash = '#/level/a1'; }); await page.waitForSelector('.lcard .lktag', { timeout: 5000 }).catch(() => 0);
+    const lv = await page.evaluate(() => [...document.querySelectorAll('.lcard[data-open]')].map(c => (c.classList.contains('lk') ? 'L' : 'F') + c.querySelectorAll('.lktag').length).join(' '));
+    if (lv !== 'F1 L1 L1') problems.push(L + ': a visitor\'s level page should mark the first lesson free and the others locked: ' + lv);
+    await wide('the visitor\'s level page'); await page.screenshot({ path: path.join(shots, 'phone-accounts-visitor-level.png') });
     await page.evaluate(() => { location.hash = '#/placement'; }); await page.waitForTimeout(300);
     if (/Create a free account to open/.test(await text())) problems.push(L + ': a visitor cannot open the placement test');
     const les = await page.evaluate(() => state.levels.a1.lessons.map(l => l.id));
@@ -581,6 +597,7 @@ for (const screen of SCREENS) {
     await page.fill('input[name=password]', 'long-enough-1'); await page.click('#acctGo'); await page.waitForFunction(() => authSignedIn(), null, { timeout: 5000 }); await page.waitForTimeout(500);
     const r = await page.evaluate(() => ({ email: student && student.email, cls: student && student.cls, html: !!document.querySelector('#acctBtn b, #acctBtn test'), bar: !document.querySelector('#visbar').hidden }));
     if (r.email !== 'sara@example.com' || r.cls !== 'Grade 10 A' || r.html || r.bar) problems.push(L + ': after signing up the student is not the account (' + JSON.stringify(r) + ')');
+    if (await page.evaluate(() => document.querySelectorAll('.lk, .lktag, #vsample').length)) problems.push(L + ': a signed-in student still sees the visitor\'s locks or sample box');
     await page.evaluate(() => { location.hash = '#/listening'; }); await page.waitForTimeout(300);
     if (/Create a free account to open/.test(await text())) problems.push(L + ': a signed-in student cannot open Listening');
     await page.evaluate(() => sendProgress()); await page.waitForTimeout(300);

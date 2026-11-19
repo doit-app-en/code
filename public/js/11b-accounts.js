@@ -167,6 +167,7 @@ function authRoute(p) {
   const drew = authRouteDraw(p), page = p[0] || '';
   // The welcome, sign-in and sign-up pages stand alone: no section links around them.
   document.body.classList.toggle('acct-front', drew && auth.on && !authSignedIn() && (AUTH_PAGES.includes(page) || page === '' || (auth.me && auth.me.needsProfile)));
+  authMarks();   // 🔒 on the menu links a visitor cannot open (and off again for everybody else)
   return drew;
 }
 function authRouteDraw(p) {
@@ -183,12 +184,54 @@ function authRouteDraw(p) {
   if (page === 'register') { authRegisterPage(p[1], p[2]); return true; }
   if (page === 'join') { authJoinPage(p[1]); return true; }
   if (page === 'welcome' || (page === '' && ls('die_visitor') !== '1')) { authWelcomePage(); return true; }
-  const sample = page === '' || page === 'placement' || page === 'level' || (page === 'voicetest' && p[1] === 'result')
-    || (page === 'lesson' && state.levels[p[1]] && state.levels[p[1]].lessons[0] && state.levels[p[1]].lessons[0].id === p[2]);
   if (bar) bar.hidden = false;
-  if (sample) return false;
+  if (authSample(p)) return false;
   authGatePage(page); return true;
 }
+// The sample a visitor may open: home, the placement test, the level pages, the first lesson of each level (and a shared voice test result).
+function authSample(p) {
+  const page = p[0] || '';
+  return page === '' || page === 'placement' || page === 'level' || (page === 'voicetest' && p[1] === 'result')
+    || (page === 'lesson' && !!state.levels[p[1]] && !!state.levels[p[1]].lessons[0] && state.levels[p[1]].lessons[0].id === p[2]);
+}
+// Would this address (`#/…`) show the gate page to the person on this device now? Only ever true for a visitor.
+function authLocked(href) {
+  href = String(href || ''); if (!authVisitor() || href.slice(0, 2) !== '#/') return false;
+  const p = href.slice(2).split('/');
+  return !AUTH_PAGES.includes(p[0]) && !authSample(p);
+}
+/* ---------- a visitor sees what is locked ---------- */
+// A small 🔒 on every link that leads to the gate page (top menu, phone tab bar, cards and links inside the page), "Free" on what
+// is open, and on the home page a box that lists the sample. Only marks: the links still go where they went, and the gate page
+// (authRouteDraw) is what really keeps a page closed. Runs after every page is drawn; with nobody visiting it only clears the marks.
+const AUTH_LK_TIP = 'Opens with a free account';
+function authMarkLink(a, on) {
+  a.classList.toggle('lk', on);
+  if (on) { if (!a.title) { a.title = AUTH_LK_TIP; a.dataset.lk = '1'; } }
+  else if (a.dataset.lk) { a.removeAttribute('title'); delete a.dataset.lk; }
+}
+function authMarks() {
+  const vis = authVisitor() && ls('die_visitor') === '1' && !document.body.classList.contains('acct-front');
+  document.querySelectorAll('.navlinks a.hide-sm, .tabbar a').forEach(a => authMarkLink(a, vis && authLocked(a.getAttribute('href'))));
+  if (!vis || app.querySelector('.acctpage')) return;
+  const tag = (el, cls, text) => { if (el.querySelector(':scope > .lktag')) return; const t = document.createElement('span'); t.className = 'lktag ' + cls; t.textContent = text; el.append(t); };
+  app.querySelectorAll('a[href^="#/"]').forEach(a => {
+    const on = authLocked(a.getAttribute('href')); authMarkLink(a, on);
+    if (a.classList.contains('ptest')) tag(a, on ? 'shut' : 'free', on ? '🔒 Free account' : '✓ Free to try');
+  });
+  app.querySelectorAll('.lvl[data-go] .meta').forEach(m => { if (!m.querySelector('.lkfirst') && authLocked(m.closest('.lvl').dataset.go) === false) m.insertAdjacentHTML('beforeend', ' <span class="lkfirst">· first lesson free</span>'); });
+  const lid = (location.hash.match(/^#\/level\/([^/]+)/) || [])[1];
+  if (lid) app.querySelectorAll('.lcard[data-open]').forEach(c => { const on = authLocked(`#/lesson/${lid}/${c.dataset.open}`); c.classList.toggle('lk', on); if (on) c.title = AUTH_LK_TIP; tag(c, on ? 'shut' : 'free', on ? '🔒 Free account' : '✓ Free to try'); });
+  const hero = app.querySelector(':scope > .hero');
+  if (hero && !$('#vsample')) {
+    const firsts = LEVELS.map(l => ({l, s: state.levels[l.id] && state.levels[l.id].lessons[0]})).filter(x => x.s);
+    hero.insertAdjacentHTML('afterend', `<section class="vsample" id="vsample"><h2>👀 You are visiting — try these for free</h2>
+      <div class="vslist"><a href="#/placement"><i>🧭</i><span><b>Placement test</b><small>Find your level</small></span></a>
+      ${firsts.map(x => `<a href="#/lesson/${x.l.id}/${esc(x.s.id)}"><i>${x.l.icon}</i><span><b>${esc(x.s.title)}</b><small>${x.l.name} · first lesson</small></span></a>`).join('')}</div>
+      <p>Everything with a 🔒 opens with a free account. <a href="#/register">Create a free account</a></p></section>`);
+  }
+}
+new MutationObserver(authMarks).observe(app, {childList: true});
 
 /* ---------- pages ---------- */
 const authGoogleBtn = label => auth.google ? `<div class="acctor"><span>or</span></div><a class="btn ghost acctg" id="acctG" href="${AUTH_API}?action=google"><b>G</b> ${label} with Google</a>` : '';
