@@ -4,14 +4,18 @@
 // time, drawn like a lesson's Match game (.match / .mcard / .chip); when all four are matched the next four come.
 // The student sees the number matched and his own best (IndexedDB key 'mixBest': {best, t, plays}) — never anybody else's score,
 // and nothing is sent to the teacher. A wrong pair is remembered for "Practise my mistakes" like in a lesson.
+// When the time is up the result's buttons do nothing for MIX_REST ms: a student who is still tapping pictures fast would
+// otherwise press "Play again" or "Home", which appear where the pictures and words were, and never see the score.
 let mixBest = {best: 0, plays: 0}, MX = null, MIX_SECS = 60;   // MIX_SECS is a variable so the smoke test can play a short round
-const MIX_BOARD = 4, MIX_LESSONS = 2;
-// The pairs that can be played: from finished lessons that are still there, one of each word.
+const MIX_BOARD = 4, MIX_LESSONS = 2, MIX_REST = 1000;
+const mixHere = () => (location.hash || '').split('/')[1] === 'mixmatch';
+// The pairs that can be played: from finished lessons that are still there, one of each word — only finished pairs
+// (a word and a picture, pairOk() in 06-lessons.js), like the lesson's own Match game.
 function mixPool() {
   const items = [], seen = new Set(); let lessons = 0;
   LEVELS.forEach(l => state.levels[l.id].lessons.forEach(s => {
     if (!lessonsDone[s.id]) return; let any = false;
-    s.matching.forEach(p => { const n = norm(p.word || ''); if (!n || seen.has(n)) return; seen.add(n); items.push({level: l, lesson: s, item: p}); any = true; });
+    s.matching.forEach(p => { const n = norm(p.word || ''); if (!n || seen.has(n) || !pairOk(p)) return; seen.add(n); items.push({level: l, lesson: s, item: p}); any = true; });
     if (any) lessons++;
   }));
   return {items, lessons, ready: lessons >= MIX_LESSONS && items.length >= MIX_BOARD};
@@ -25,6 +29,7 @@ async function renderMixed() {
   if (MX) clearInterval(MX.iv);
   const pool = mixPool();
   await Promise.all(pool.items.map(x => x.item.img && x.item.img.m).filter(Boolean).map(loadMedia));
+  if (!mixHere()) return;   // the student left while the pictures were loading: do not draw over the other page
   MX = {pool, queue: [], board: [], done: {}, sel: null, score: 0, mist: 0, phase: 'intro', iv: null};
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › Mixed match</div>
@@ -102,6 +107,8 @@ function mixFinish() {
     DB.put('kv', 'mixBest', mixBest);
   }
   mixDraw(); window.scrollTo(0, 0);
+  const run = MX, body = $('#mxBody'); run.rest = Date.now() + MIX_REST;   // the buttons wake up after a moment (see the top of this file)
+  if (body) { body.classList.add('wait'); setTimeout(() => { if (MX === run && $('#mxBody') === body) body.classList.remove('wait'); }, MIX_REST); }
   if (MX.score) onActivity();   // a played round is a practice activity (streak, weekly goal)
 }
 function mixSelect(i) { if (MX.done[i] !== undefined) return; MX.sel = i; document.querySelectorAll('#mxGame .mcard').forEach(c => c.classList.toggle('sel', +c.dataset.mi === i)); }
@@ -121,7 +128,8 @@ function mixTry(wi, chipEl) {
 }
 function onMixClick(e) {
   const t = e.target, b = t.closest('[data-act="start"]');
-  if (b) { if (mixPool().ready) { MX.pool = mixPool(); mixStart(); } return; }
+  if (MX && MX.phase === 'end' && Date.now() < MX.rest) { if (t.closest('a')) e.preventDefault(); return; }   // a tap left over from the game
+  if (b) { if (mixPool().ready) { MX.pool = mixPool(); $('#mxBody').classList.remove('wait'); mixStart(); } return; }
   if (!MX || MX.phase !== 'play') return;
   const mc = t.closest('.mcard'); if (mc && !mc.classList.contains('done')) return mixSelect(+mc.dataset.mi);
   const ch = t.closest('.chip'); if (ch && !ch.classList.contains('done')) mixTry(+ch.dataset.wi, ch);

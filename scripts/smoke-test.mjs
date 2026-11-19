@@ -195,8 +195,14 @@ for (const screen of SCREENS) {
     };
     await page.click('#mistGo'); const r1 = await round(0, true); const days = await page.evaluate(() => activity.days[todayKey()] || 0);
     await page.screenshot({ path: path.join(shots, 'phone-mistakes-result.png') });
-    await page.click('[data-act=again]'); const r2 = await round(1);
-    await page.click('[data-act=again]'); const r3 = await round(0);
+    // Two quick taps: "Practise again" straight after the result appears does nothing, and neither does "Skip" on a speaking question that has just appeared.
+    await page.evaluate(() => { MK.end = true; drawMist(); document.querySelector('[data-act=again]').click(); document.querySelector('#mkEnd a.btn').click(); });
+    const dbl = { again: !!await page.$('#mkEnd') && await page.evaluate(() => location.hash === '#/mistakes') };
+    await page.waitForTimeout(450); await page.click('[data-act=again]'); await page.waitForSelector('#mkBody .prog', { timeout: 5000 });
+    dbl.skip = await page.evaluate(() => { MK.i = MK.q.findIndex(x => x.kind !== 'm'); drawMist(); const i = MK.i; document.querySelector('#mkNext').click(); const kept = MK.i === i && !MK.end; MK.i = 0; drawMist(); return kept; });
+    if (!dbl.again || !dbl.skip) problems.push('practise my mistakes: a double tap skips a question or leaves the result ' + JSON.stringify(dbl));
+    const r2 = await round(1);
+    await page.waitForTimeout(450); await page.click('[data-act=again]'); const r3 = await round(0);
     await page.evaluate(() => { location.hash = '#/'; }); await page.waitForTimeout(300); await page.evaluate(() => { location.hash = '#/mistakes'; }); await page.waitForSelector('#mkEmpty', { timeout: 5000 });
     const end = await page.evaluate(async () => { renderHome(); const link = !!document.querySelector('#mistGo'); render(); return { link, saved: Object.keys((await DB.get('kv', 'mistakes')) || {}).length }; });
     if (!/3 of 3 correct.*3 still on your list.*left 3 \| over 0/.test(r1) || !/2 of 3 correct.*2 learned.*1 still on your list.*left 1 \| over 0/.test(r2) || !/1 of 1 correct.*1 learned.*Your list is empty.*left 0 \| over 0/.test(r3) || days < 1 || end.link || end.saved !== 0)
@@ -232,11 +238,18 @@ for (const screen of SCREENS) {
           if (g.over > 1 || g.low > 0 || g.small || g.white) problems.push('mixed match: the game does not fit a phone screen ' + JSON.stringify(g)); }
       }
       await page.waitForSelector('#mxEnd', { timeout: secs * 1000 + 4000 });
+      // Taps left over from the game must not press "Play again" or "Home" (they appear where the pictures and words were).
+      const late = await page.evaluate(() => { document.querySelector('#mxAgain').click(); document.querySelector('#mxEnd a.btn').click(); return MX.phase + ' ' + location.hash + ' ' + getComputedStyle(document.querySelector('#mxAgain')).pointerEvents; });
+      if (late !== 'end #/mixmatch none') problems.push('mixed match: a tap just after the time is up leaves the result (' + late + ')');
       return page.evaluate(async () => document.querySelector('#mxEnd').innerText.replace(/\s+/g, ' ') + ' | saved ' + ((await DB.get('kv', 'mixBest')) || {}).best + ' | over ' + (document.documentElement.scrollWidth - innerWidth));
     };
     const r1 = await round(4, 6, 1, true); await page.waitForTimeout(150); await page.screenshot({ path: path.join(shots, 'phone-mixed-match-result.png') });
     const mid = await page.evaluate(() => ({ mist: Object.keys(mistakes).length, days: activity.days[todayKey()] || 0, link: !!document.querySelector('#mxBody #mistGo') }));
     const r2 = await round(2, 2, 0);
+    // A teacher's half-written pair (a word with no picture) in a finished lesson is not played here and not asked in "Practise my mistakes".
+    const half = await page.evaluate(() => { const L = state.levels.a1.lessons[0], n = mixPool().items.length, m = mistList().length; L.matching.push({ id: 'halfpair', word: 'ghostword', img: null }); mistakes['m:' + L.id + ':halfpair'] = { ok: 0, n: 1, t: Date.now() };
+      const r = { pool: mixPool().items.length - n, list: mistList().length - m }; L.matching.pop(); delete mistakes['m:' + L.id + ':halfpair']; return r; });
+    if (half.pool || half.list) problems.push('mixed match: a pair with no picture is offered ' + JSON.stringify(half));
     await page.evaluate(() => { MIX_SECS = 60; location.hash = '#/'; }); await page.waitForSelector('#mixGo', { timeout: 5000 });
     const end = await page.evaluate(() => { const home = document.querySelector('#mixGo').innerText.replace(/\s+/g, ' '); mode = 'teacher'; renderHome(); const teacher = !!document.querySelector('#mixGo'); mode = 'student'; renderProgress(); return { home, teacher, progress: !!document.querySelector('#mixGo') }; });
     if (!a.none || a.one || !a.two || !/Mixed match · 60 seconds/.test(a.home) || /best/i.test(a.home) || !/New best!.*You matched 6 pairs.*Mistakes: 1 .*\| saved 6 \| over 0/.test(r1) || mid.mist !== 1 || mid.days < 1 || !mid.link
@@ -496,7 +509,7 @@ for (const screen of SCREENS) {
     await page.screenshot({ path: path.join(shots, 'phone-mistakes-word.png') });
     await page.evaluate(() => { window._heard = MK.q[MK.i].item.text; }); await page.click('#mic'); await page.waitForFunction(() => /One more/.test(document.querySelector('#mkFb').innerText), null, { timeout: 5000 });
     w1.over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-    await page.click('#mkNext'); await page.waitForSelector('#mkEnd', { timeout: 5000 }); await page.click('[data-act=again]'); await page.waitForSelector('#mkBody #mic', { timeout: 5000 });
+    await page.click('#mkNext'); await page.waitForSelector('#mkEnd', { timeout: 5000 }); await page.waitForTimeout(450); await page.click('[data-act=again]'); await page.waitForSelector('#mkBody #mic', { timeout: 5000 });
     await page.evaluate(() => { window._heard = MK.q[MK.i].item.text; }); await page.click('#mic'); await page.waitForFunction(() => /Learned/.test(document.querySelector('#mkFb').innerText), null, { timeout: 5000 });
     w1.left = await page.evaluate(() => { const before = Object.keys(mistakes).length; mode = 'teacher'; noteWord('lamb'); mode = 'student'; noteWord('  '); return before + '/' + Object.keys(mistakes).length; });
     if (w1.title !== 'Say this word clearly' || w1.word !== unclear || !/Pronunciation/.test(w1.from) || !/another round\. \| 0$/.test(w1.bad) || w1.over > 1 || w1.left !== '0/0')

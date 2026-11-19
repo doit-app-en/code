@@ -9,8 +9,10 @@
 // Only the ids are kept: the word and picture are read from the lesson, so an item whose lesson was deleted is simply not offered.
 // A word ('w') has no lesson, so its entry carries the word itself: 'w::<the word, lower case, encoded>': {ok, n, t, w: 'the word as shown'}.
 // (The empty middle part is never a lesson id, so code that only knows 'm' and 's' passes over these entries.)
+// Two quick taps: "Skip" on a question that has just appeared and the end box's "Practise again" do nothing for MIST_TAP ms,
+// so the second tap of a double tap on "Next" does not skip a question or throw the result away.
 let mistakes = {}, MK = null;
-const MIST_MAX = 60, MIST_ROUND = 10, MIST_OK = 2, MIST_PASS = 80;
+const MIST_MAX = 60, MIST_ROUND = 10, MIST_OK = 2, MIST_PASS = 80, MIST_TAP = 400;
 const mistSave = () => DB.put('kv', 'mistakes', mistakes);
 function noteMistake(kind, lesson, item) {
   if (mode === 'teacher' || !lesson || !item || !item.id || !String((kind === 'm' ? item.word : item.text) || '').trim()) return;
@@ -37,7 +39,7 @@ function mistList() {
     if (p[0] === 'w') { const word = String(mistakes[key].w || '').trim(); if (SR && !p[1] && word) out.push({key, kind: 'w', level: MIST_WORDS, lesson: MIST_WLESSON, item: {id: p[2], word, text: word}}); continue; }
     const w = where[p[1]]; if (!w) continue;
     const item = (p[0] === 'm' ? w.lesson.matching : p[0] === 's' ? w.lesson.speaking : []).find(x => x.id === p[2]);
-    if (!item || (p[0] === 's' && !SR) || !String((p[0] === 'm' ? item.word : item.text) || '').trim()) continue;
+    if (!item || (p[0] === 's' && !SR) || !(p[0] === 'm' ? pairOk(item) : txtOk(item))) continue;   // a pair needs its word and its picture
     out.push({key, kind: p[0], level: w.level, lesson: w.lesson, item});
   }
   return out;
@@ -58,6 +60,7 @@ async function renderMistakes() {
   const q = shuffle(mistList()).slice(0, MIST_ROUND);
   q.forEach(x => { if (x.kind === 'm') x.opts = mistOpts(x); });
   await Promise.all(q.map(x => x.kind === 'm' && x.item.img && x.item.img.m).filter(Boolean).map(loadMedia));
+  if ((location.hash || '').split('/')[1] !== 'mistakes') return;   // the student left while the pictures were loading: do not draw over the other page
   MK = {q, i: 0, learned: 0, end: false};
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › Practise my mistakes</div>
@@ -69,6 +72,7 @@ async function renderMistakes() {
 function drawMist() {
   stopAll();
   const el = $('#mkBody'); if (!el || !MK) return;
+  MK.shown = Date.now();
   if (!MK.q.length) {
     el.innerHTML = `<div class="statebox" id="mkEmpty"><div class="e">🎉</div><b>No mistakes to practise</b>
       <p>When you match a picture with the wrong word in a lesson, or a word or phrase is not clear when you say it, it comes here so you can practise it again.</p>
@@ -119,6 +123,7 @@ function mistAnswer(x, ok) {
 }
 function onMistClick(e) {
   const t = e.target, x = MK && MK.q[MK.i];
+  if (MK && MK.end && Date.now() - MK.shown < MIST_TAP && t.closest('a')) return e.preventDefault();   // the second tap of a double tap on "See my result" landing on "Home"
   const sw = t.closest('[data-sayw]'); if (sw) return say(sw.dataset.sayw, null, 0.75);
   const o = t.closest('.mkopt');
   if (o && x && x.kind === 'm' && !x.res) {
@@ -129,6 +134,7 @@ function onMistClick(e) {
     return;
   }
   const b = t.closest('[data-act]'); if (!b) return;
+  if ((b.dataset.act === 'again' || (b.dataset.act === 'next' && x && !x.res)) && Date.now() - MK.shown < MIST_TAP) return;   // the second tap of a double tap
   switch (b.dataset.act) {
     case 'hear': say(x.item.text); break;
     case 'slow': say(x.item.text, null, 0.6); break;

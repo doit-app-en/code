@@ -929,6 +929,8 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 .mxbar{margin:10px 0 18px}.mxbar i{background:var(--teal);transition:width .2s linear}
 .mxgame .tagn{font-size:15px}
 .mxend .mxsum{margin:0 0 6px;font-size:20px;color:var(--navy)}.mxend .mxsum b{font-size:28px}.mxend .btn{min-height:48px}
+/* time is up: for a moment the result's buttons and links cannot be pressed (taps left over from the game) */
+#mxBody.wait a,#mxBody.wait button{pointer-events:none}#mxBody.wait .btn{opacity:.5}#mxBody .btn{transition:opacity .2s}
 @media(max-width:560px){
   #mxBody{padding:14px 12px}.mxintro{padding:20px 12px}.mxintro .btn{width:100%}
   .mxtime{font-size:19px;padding:4px 12px}.mxscore{font-size:16px}.mxscore b{font-size:21px}.mxb{font-size:14px}.mxbar{margin:8px 0 12px}
