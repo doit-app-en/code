@@ -1240,3 +1240,69 @@ body.acct-front .navlinks a.hide-sm,body.acct-front .tabbar{display:none!importa
   .lsbody .edit>.row{gap:8px}
 }
 @media(max-width:359px){.lsbody .etop>.btn{flex-basis:100%}}
+
+/* ===== The other "Teacher tools" boxes on touch screens: Pronounce (.pred, 07-pronounce.js), Test your speaking (.sped, 10-speaking.js)
+   and "Edit this exercise" in Listening (#lsEd, 08-listening.js). Desktop is unchanged. ===== */
+@media(max-width:860px){
+  .pred .btn.sm,.sped .btn.sm,#lsEd .btn.sm{min-height:44px;min-width:44px;padding:7px 14px}
+  .pred .in,.sped .in,#lsEd .in{min-height:44px}
+  #lsEd .optE label.lbl{min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer}
+  #lsEd .optE input[type=radio]{width:20px;height:20px;margin:0;flex:none}
+  #lsEd .erow>.field:nth-child(2){flex:0 0 76px}
+}
+@media(max-width:560px){
+  .pred,.sped,#lsEd{padding:12px;margin-top:20px;border-width:2px;border-radius:18px}
+  .pred h4,.sped h4,#lsEd h4{font-size:17px;line-height:1.3;margin-bottom:10px}
+  .pred .lbl,.sped .lbl,#lsEd .lbl{line-height:1.4}
+  .pred .erow,.sped .erow,#lsEd .erow{gap:8px;padding:8px;margin-bottom:8px}
+  .pred .in,.sped .in,#lsEd .in{font-size:16px;padding:8px 10px}
+  .pred .erow .grow,.sped .erow .grow,#lsEd .erow .grow{flex:1 1 0;min-width:0}
+  /* the whole text of a topic or a word list is shown: the box grows with it */
+  .pred textarea.in,.sped textarea.in{field-sizing:content;min-height:72px;line-height:1.35;resize:vertical}
+  /* Pronounce and Speaking: the bin sits beside the first box of its card, the other boxes use the whole width */
+  .pred .erow>.grow,.sped .erow>.grow{grid-template-columns:minmax(0,1fr)}
+  .pred .erow,.sped .erow{position:relative}
+  .pred .erow>.btn,.sped .erow>.btn{position:absolute;top:8px;right:8px}
+  .pred [data-gf=title]{margin-right:52px}
+  .sped .erow .row{gap:8px}
+  .sped .erow .row>.in[data-tf=title]{flex:1 1 100%;margin-right:52px}
+  .sped .erow select.in{flex:1 1 0}
+  .pred>.row,.sped>.row,#lsEd>.row{gap:8px}
+  .pred>.row>.btn,.sped>.row>.btn,#lsEd>.row>.btn{width:100%}
+
+  /* Listening: title on a line, icon and section share the next one, the picture chooser below */
+  #lsEd .erow>.field{flex:1 1 100%;min-width:0}
+  #lsEd .erow>.field:nth-child(2){flex:0 0 76px}
+  #lsEd .erow>.field:nth-child(3){flex:1 1 0}
+  /* one question: its name and bin on the first line, the sentence with ▶ on the second, the choices share the third */
+  #lsEd .erow>*{order:3}
+  #lsEd .erow>.ew{order:0;flex:1 1 auto;min-width:0;font-size:14px}
+  #lsEd .erow:not(:has(>[data-delstep],>[data-delline]))>.ew{flex-basis:100%}
+  #lsEd .ew:empty{display:none}
+  #lsEd .erow>[data-delstep],#lsEd .erow>[data-delline]{order:1}
+  #lsEd .erow>select[data-ef*=".say."]{order:1;flex:1 1 0}
+  #lsEd .erow>.sayin,#lsEd .erow>div.grow,#lsEd .erow>.in.grow,#lsEd .erow>.lbl{order:2;flex:1 1 100%}
+  #lsEd .sayin{min-width:0}#lsEd .sayin .in{flex:1 1 0;min-width:0}
+  #lsEd .erow>select.in{flex:1 1 0;min-width:0}
+  #lsEd .erow>.in[data-ef$=".pre"],#lsEd .erow>.in[data-ef$=".a"],#lsEd .erow>.in[data-ef$=".post"]{flex:1 1 0;width:auto!important;min-width:0}
+  #lsEd .erow>.in[data-ef$=".a"]{flex-grow:1.6}
+  #lsEd .erow>select.in[data-ef^="shapes."]{flex-basis:30%}
+  #lsEd .emo-in{width:56px;padding:4px}
+  /* lists of things and pictures: one per line, the word box takes the room */
+  #lsEd .erow>.grow>.pslot{display:flex;width:100%}
+  #lsEd .erow>.grow>.pslot>.in:not(.emo-in){flex:1 1 0;width:auto!important;min-width:0}
+  #lsEd .erow>.grow:not(.sayin)>.btn{width:100%}
+  #lsEd .erow>.grow>.row{gap:8px}
+  #lsEd .erow>.grow>.row>select.in{flex:1 1 0;min-width:0}
+  #lsEd .erow>.grow>.row>.in.grow{flex:1 1 100%}
+  #lsEd .erow>.btn[data-act]{flex:1 1 100%}
+  /* "Listen and tick": the small picture on the left, its boxes on the right */
+  #lsEd .tqe{padding:8px;margin-bottom:8px}
+  #lsEd .optE{grid-template-columns:76px minmax(0,1fr);justify-items:stretch;align-items:center;gap:6px 8px}
+  #lsEd .optE .mprev{grid-row:1/4;justify-self:center}
+  #lsEd .optE .row{gap:6px!important}
+  #lsEd .optE .row select.in{flex:1 1 0;min-width:0}
+  #lsEd .optE .row select.in[data-ef$=".f"]{flex-basis:100%}
+  #lsEd .optE .row .emo-in{flex:0 0 48px;width:48px}
+  #lsEd .warn{padding:10px 12px;font-size:14px}
+}

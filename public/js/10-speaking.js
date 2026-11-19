@@ -305,7 +305,7 @@ function spResultPage(rec) {
 /* ---------- teacher: topics ---------- */
 function spTeacherHTML() {
   const T = state.speaking.tasks, half = T.filter(t => !spOk(t)).length;
-  return `<div class="edit"><h4>🧑‍🏫 Teacher tools · Speaking topics</h4>
+  return `<div class="edit sped"><h4>🧑‍🏫 Teacher tools · Speaking topics</h4>
     <p class="lbl" style="margin:0 0 10px">Write your own topics. “Style” tells the AI whether the student should speak formally (interview, presentation) or informally (chatting to a friend). Changes are saved automatically.</p>
     ${half ? `<p class="lbl" id="spHalf" style="margin:0 0 10px;color:var(--coral)">⚠️ ${half} topic${half === 1 ? ' has' : 's have'} no title or no text yet. Students do not see ${half === 1 ? 'it' : 'them'}.</p>` : ''}
     ${T.map((t, i) => `<div class="erow" style="align-items:flex-start"><div class="grow" style="display:grid;gap:6px">

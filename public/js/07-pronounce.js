@@ -493,7 +493,7 @@ function renderPronDone(sec) {
   $('#relisten').onclick = () => { PR = {sec: sec.id, mode: 'listen'}; renderPron(sec.id); };
 }
 function pronEditor(sec) {
-  return `<div class="edit"><h4>🧑‍🏫 Teacher tools · Words for letter ${sec.id}</h4>
+  return `<div class="edit pred"><h4>🧑‍🏫 Teacher tools · Words for letter ${sec.id}</h4>
     <p class="lbl" style="margin:0 0 10px">Separate words with commas. In Teacher mode you can start the test without listening first.</p>
     ${sec.groups.map((g, gi) => `<div class="erow" style="align-items:flex-start">
       <div class="grow" style="display:grid;gap:6px">
