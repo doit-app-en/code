@@ -404,6 +404,14 @@ for (const screen of SCREENS) {
     if (p0.audio && p0.audio.length > 400000) problems.push('pronounce with the speech service: the recording is longer than the server accepts (' + p0.audio.length + ')');
     if (one.ring !== '84%' || !/Something/.test(one.heard) || one.next || one.tries !== 1) problems.push('pronounce with the speech service: the score was not shown ' + JSON.stringify(one));
     if (one.over > 1) problems.push(`pronounce with the speech service: ${one.over}px wider than the phone screen`);
+    // "▶ Me" plays the student's own recording (kept in the page only): shown after a scored try, plays a WAV, a second press stops it.
+    const me = await page.evaluate(async () => {
+      const b = document.querySelector('#pMe'), r = { shown: !!b && b.offsetHeight > 0, h: b ? b.offsetHeight : 0 }; if (!b) return r;
+      const made = []; const mk = URL.createObjectURL; URL.createObjectURL = x => { made.push(x); return mk.call(URL, x); };
+      b.click(); r.label = b.innerText; r.playing = !!prMe; r.type = made[0] && made[0].type; r.size = made[0] && made[0].size;
+      b.click(); r.stopped = !prMe && /Me/.test(b.innerText); URL.createObjectURL = mk; return r;
+    });
+    if (!me.shown || me.h < 44 || !me.playing || !/Stop/.test(me.label || '') || me.type !== 'audio/wav' || !(me.size > 44) || !me.stopped) problems.push('pronounce with the speech service: "Me" (the student\'s own recording) did not show, play or stop ' + JSON.stringify(me));
     await page.screenshot({ path: path.join(shots, 'phone-pronounce-service.png'), fullPage: true });
     // Second try: the server answers "student limit" → the page says so and the next press uses the browser's recognition.
     await page.click('#pMic'); await page.waitForFunction(() => /basic check/.test(document.querySelector('#pStat').innerText), null, { timeout: 15000 });
@@ -413,8 +421,11 @@ for (const screen of SCREENS) {
     await page.evaluate(w => { window._heard = w; }, word); await page.click('#pMic');
     await page.waitForFunction(() => /100%/.test(document.querySelector('#pRes .ring').innerText), null, { timeout: 5000 });
     if (posts.length !== 2) problems.push('pronounce with the speech service: after the limit the page still called the server (' + posts.length + ' calls)');
+    if (await page.evaluate(() => document.querySelector('#pMe').offsetHeight > 0)) problems.push('pronounce with the speech service: "Me" stayed after a basic check (it would play an older try)');
     // Leaving the page while it records must switch the microphone off.
-    await page.evaluate(() => { pronNoSvc = false; pronFails = 0; PR.i = 1; renderPron(PR.sec); }); await page.click('#pMic'); await page.waitForSelector('#pMic.rec', { timeout: 5000 });
+    await page.evaluate(() => { pronNoSvc = false; pronFails = 0; PR.i = 1; renderPron(PR.sec); });
+    if (await page.evaluate(() => document.querySelector('#pMe').offsetHeight > 0)) problems.push('pronounce with the speech service: "Me" was still there on the next word');
+    await page.click('#pMic'); await page.waitForSelector('#pMic.rec', { timeout: 5000 });
     await page.evaluate(() => { location.hash = '#/'; }); await page.waitForTimeout(400);
     if (await page.evaluate(() => !!prRec)) problems.push('pronounce with the speech service: the microphone stayed on after leaving the page');
   } catch (e) { problems.push('pronounce with the speech service: could not check — ' + e.message.split('\n')[0]); }

@@ -220,7 +220,10 @@ function prClean(r) {
   try { r.proc && (r.proc.onaudioprocess = null, r.proc.disconnect()); } catch (e) {}
   try { r.stream.getTracks().forEach(t => t.stop()); } catch (e) {} try { r.ac && r.ac.close(); } catch (e) {}
 }
-function prAbort() { const r = prRec; if (!r) return; prRec = null; prClean(r); r.res(null); }
+// "▶ Me": the student's own last recording of this word, played from the page's memory (never saved, never sent anywhere else).
+let prMe = null;
+function prMeStop() { const m = prMe; if (!m) return; prMe = null; try { m.a.pause(); } catch (e) {} try { URL.revokeObjectURL(m.url); } catch (e) {} const b = $('#pMe'); if (b) b.textContent = '▶ Me'; }
+function prAbort() { prMeStop(); const r = prRec; if (!r) return; prRec = null; prClean(r); r.res(null); }
 // Records one word. Stops by itself about a second after the student stops speaking, after 5 s of silence or after 6 s; r.stop() stops it now.
 // Gives {wav, peak} (peak = the loudest moment, to tell silence from speech), or null when the page was left.
 function prRecord(stream) {
@@ -361,7 +364,7 @@ function renderPronTest(sec) {
     <div class="pbar"><i style="width:${PR.i / N * 100}%"></i></div>
     ${scaleHTML(avg, 'Your score so far')}
     <div class="pbig" id="pbig">${esc(w)}</div>
-    <div class="row pthear" style="justify-content:center"><button class="btn ghost sm" id="pHear">🔊 Listen</button><button class="btn ghost sm" id="pSlow">🐢 Slowly</button></div>
+    <div class="row pthear" style="justify-content:center"><button class="btn ghost sm" id="pHear">🔊 Listen</button><button class="btn ghost sm" id="pSlow">🐢 Slowly</button><button class="btn ghost sm" id="pMe" title="Listen to your own voice" style="display:none">▶ Me</button></div>
     <button class="mic" id="pMic" title="Press and say the word">🎤</button>
     <div class="status" id="pStat" ${SR || pronSvc() ? '' : 'data-no="1"'}>${SR || pronSvc() ? 'Press the microphone and say the word' : '⚠️ Speech recognition needs Google Chrome or Microsoft Edge.'}</div>
     <div id="pRes"></div>
@@ -374,8 +377,19 @@ function renderPronTest(sec) {
   </div>`;
   PR.tries = 0; PR.best = null; PR.busy = false;
   pronHow(); if (typeof vtLoadCaps === 'function') vtLoadCaps().then(pronHow);
-  $('#pHear').onclick = () => say(w, null, 0.85);
-  $('#pSlow').onclick = () => say(w, null, 0.55);
+  $('#pHear').onclick = () => { prMeStop(); say(w, null, 0.85); };
+  $('#pSlow').onclick = () => { prMeStop(); say(w, null, 0.55); };
+  // The last recording of this word that the full check scored. It lives in this function only: the next word starts with none.
+  let mine = null;
+  const meShow = wav => { mine = wav || null; const b = $('#pMe'); if (b) b.style.display = mine ? '' : 'none'; };
+  $('#pMe').onclick = () => {
+    if (prMe) return prMeStop();   // a second press stops it
+    if (!mine || prRec || PR.busy) return;
+    speechSynthesis.cancel();
+    const url = URL.createObjectURL(mine), a = new Audio(url), end = () => { if (prMe && prMe.a === a) prMeStop(); };
+    prMe = {a, url}; $('#pMe').textContent = '■ Stop'; a.onended = a.onerror = end;
+    try { const p = a.play(); if (p && p.catch) p.catch(end); } catch (e) { end(); }
+  };
   const advance = () => { stopAll(); PR.scores.push(PR.best ? PR.best.score : 0);
     // said, but not clearly: remembered for "Practise my mistakes" (a skipped word is not)
     if (PR.best && PR.best.score < MIST_PASS && noteWord(w)) PR.noted = (PR.noted || 0) + 1;
@@ -404,7 +418,7 @@ function renderPronTest(sec) {
   const viaSvc = async () => {
     const mic = $('#pMic'), st = $('#pStat'), live = () => document.contains(mic) && PR.mode === 'test';
     const quiet = '🤔 I didn\'t hear anything. Try again a little louder.';
-    PR.busy = true; speechSynthesis.cancel();
+    PR.busy = true; speechSynthesis.cancel(); prMeStop();
     let stream;
     try { stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}}); }
     catch (e) { if (live()) { PR.busy = false; st.textContent = e && e.name === 'NotFoundError' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : '🚫 Microphone blocked — allow microphone access in your browser.'; } return; }
@@ -429,7 +443,7 @@ function renderPronTest(sec) {
     }
     pronFails = 0;
     if (!d.scores || !d.heard) { st.textContent = quiet; return; }
-    show(pronSvcScore(w, d));
+    meShow(cap.wav); show(pronSvcScore(w, d));
   };
   $('#pMic').onclick = () => {
     if (prRec) { prRec.stop(); return; }   // a second press: "I have finished"
@@ -438,7 +452,7 @@ function renderPronTest(sec) {
     if (!SR) { toast('Please open this page in Chrome or Edge for speech recognition'); return; }
     if (recog) { recog.stop(); return; }
     if (PR.tries >= 3) return;
-    speechSynthesis.cancel();
+    speechSynthesis.cancel(); prMeStop(); meShow(null);   // the basic check keeps no recording: an older one would not match the new score
     const mic = $('#pMic'), st = $('#pStat'); let got = false;
     recog = new SR(); recog.lang = LANG; recog.interimResults = false; recog.maxAlternatives = 5;
     recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… say the word now'; };
