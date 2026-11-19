@@ -3,7 +3,7 @@ function renderLevel(lid) {
   const L = LV(lid), lessons = state.levels[lid].lessons, T = mode === 'teacher';
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › ${L.name}</div>
-  <div class="banner photo" style="--c:${L.color};--ac:${L.color};--img:url(photos/level-${L.id}.jpg)"><div class="bi">${L.icon}</div><div><h1>${L.name}</h1><p>${L.tag} · ${L.desc}</p></div></div>
+  <div class="banner photo lvban" style="--c:${L.color};--ac:${L.color};--img:url(photos/level-${L.id}.jpg)"><div class="bi">${L.icon}</div><div><h1>${L.name}</h1><p>${L.tag} · ${L.desc}</p></div></div>
   <div class="lessons">
     ${lessons.map((s, i) => `
       <div class="lcard" style="--c:${L.color}" data-open="${s.id}">
@@ -74,13 +74,13 @@ async function renderLesson(lid, sid) {
   const idx = state.levels[lid].lessons.indexOf(lesson);
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › <a href="#/level/${lid}">${LVL.name}</a> › ${esc(lesson.title)}</div>
-  <div class="banner photo slim" style="--ac:${LVL.color};--img:url(photos/lessons.jpg)"><div><span class="lv" style="background:${LVL.color}">${LVL.name} · Lesson ${idx + 1}</span><h1>${esc(lesson.title)}</h1></div></div>
-  <div class="tabs" style="--c:${LVL.color}">${TABS.map((t, i) => `<button class="tab" data-tab="${t[0]}"><span class="n">${i + 1}</span>${t[1]} ${t[2]}</button>`).join('')}</div>
-  <div class="panel" id="body"><div id="stu"></div><div id="edt"></div></div>
+  <div class="banner photo slim lsban" style="--ac:${LVL.color};--img:url(photos/lessons.jpg)"><div><span class="lv" style="background:${LVL.color}">${LVL.name} · Lesson ${idx + 1}</span><h1>${esc(lesson.title)}</h1></div></div>
+  <div class="tabs lstabs" style="--c:${LVL.color}">${TABS.map((t, i) => `<button class="tab" data-tab="${t[0]}"><span class="n">${i + 1}</span><span class="ti">${t[1]}</span><span class="tl">${t[2]}</span></button>`).join('')}</div>
+  <div class="panel lsbody" id="body"><div id="stu"></div><div id="edt"></div></div>
   <div class="lnav"><button class="btn ghost" id="prevStep">← Previous step</button><button class="btn" id="nextStep" style="background:${LVL.color}">Next step →</button></div>`;
   app.querySelectorAll('.tab').forEach(b => b.onclick = () => { curTab = b.dataset.tab; drawTab(); });
-  $('#prevStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i > 0) { curTab = TABS[i - 1][0]; drawTab(); } };
-  $('#nextStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i < 3) { curTab = TABS[i + 1][0]; drawTab(); } else { markLessonDone(LS.id); toast('Lesson finished! 🎉'); go('#/level/' + lid); } };
+  $('#prevStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i > 0) { curTab = TABS[i - 1][0]; drawTab(); stepTop(); } };
+  $('#nextStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i < 3) { curTab = TABS[i + 1][0]; drawTab(); stepTop(); } else { markLessonDone(LS.id); toast('Lesson finished! 🎉'); go('#/level/' + lid); } };
   const body = $('#body');
   body.onclick = onBodyClick; body.onchange = onBodyChange;
   body.ondragstart = e => { const c = e.target.closest('.mcard'); if (c) { M.sel = +c.dataset.mi; e.dataTransfer.setData('text', c.dataset.mi); } };
@@ -89,6 +89,8 @@ async function renderLesson(lid, sid) {
   body.ondrop = e => { const c = e.target.closest('.chip:not(.done)'); if (c) { e.preventDefault(); c.classList.remove('over'); tryMatch(+c.dataset.wi, c); } };
   drawTab();
 }
+// "Next step" / "Previous step" are at the bottom of the page: show the new step from its top, not from where the old one ended.
+function stepTop() { const t = $('.lstabs'); if (t && t.getBoundingClientRect().top < 0) t.scrollIntoView({block: 'start'}); }
 function drawTab() {
   stopAll();
   app.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === curTab));
@@ -167,7 +169,7 @@ function stuMatch() {
   const nd = Object.keys(M.done).length, all = nd === ix.length;
   const stars = M.mist === 0 ? '⭐⭐⭐' : M.mist <= 2 ? '⭐⭐' : '⭐';
   return `<h3 class="sec-t">🧩 Match the pictures</h3>
-    <p class="hint">Tap a picture, then tap the word that goes with it (or drag the picture onto the word). Matched: <b>${nd}/${ix.length}</b> · Mistakes: <b>${M.mist}</b></p>
+    <p class="hint">Tap a picture, then tap the word that goes with it<span class="dragtip"> (or drag the picture onto the word)</span>. Matched: <b>${nd}/${ix.length}</b> · Mistakes: <b>${M.mist}</b></p>
     <div class="match">
       <div class="mpics">${M.pics.map(i => { const d = M.done[i]; return `<div class="mcard ${d !== undefined ? 'done' : ''} ${M.sel === i ? 'sel' : ''}" data-mi="${i}" ${d === undefined ? 'draggable="true"' : ''} style="--pc:${PCOL[d % PCOL.length]}"><div class="pic">${imgHTML(P[i].img)}</div>${d !== undefined ? `<span class="tagn">${d + 1}</span>` : ''}</div>`; }).join('')}</div>
       <div class="mwords">${M.order.map(i => { const d = M.done[i]; return `<div class="chip ${d !== undefined ? 'done' : ''}" data-wi="${i}" style="--pc:${PCOL[d % PCOL.length]}">${d !== undefined ? `<span class="tagn" style="background:#fff;color:var(--pc)">${d + 1}</span>` : ''}${esc(P[i].word)}</div>`; }).join('')}</div>

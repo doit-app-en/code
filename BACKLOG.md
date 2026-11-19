@@ -10,7 +10,7 @@ The improvement agents (see `AGENT.md`) work from this file: each role has its o
 
 ## Design
 <!-- designer: one page or flow per run -->
-- [ ] Phone polish for the remaining pages: text sizes, buttons at least 44px high, wide tables scroll inside their own box. Done so far: home, placement test, voice test, My progress, Test your speaking, Pronounce. Still to do (one per run): level page and lesson (Watch / Listen / Match / Speak), Listening list, teacher tools. Also seen: on a tablet (561–860px) the small buttons in Pronounce (← A / B →, Slow, Play, Listen, Slowly) are still 33px high.
+- [ ] Phone polish for the remaining pages: text sizes, buttons at least 44px high, wide tables scroll inside their own box. Done so far: home, placement test, voice test, My progress, Test your speaking, Pronounce, level page and lesson (2026-11-19: one row of four steps, short title, Listen & See and Match in two columns, 44px buttons; the tablet buttons in lesson Speak are 44px too). Still to do (one per run): Listening list, teacher tools (the lesson's "Teacher tools" boxes on a phone still have 30px buttons and cut-off text boxes). Seen in the lesson: on the level page the fourth label of a lesson card ("4 to say") still drops to a second line on a 390px phone. Also seen: on a tablet (561–860px) the small buttons in Pronounce (← A / B →, Slow, Play, Listen, Slowly) are still 33px high.
 - [ ] Accessibility pass: labels for icon-only buttons, visible keyboard focus, alt text for pictures, colour contrast of small grey text.
 
 ## Content
