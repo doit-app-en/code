@@ -1114,3 +1114,22 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .lsbody .result{padding:14px;gap:12px}.lsbody .result .fb{text-align:center}
   .lnav{margin-top:12px}.lnav .btn{padding:0 16px}
 }
+/* Listening list on phones: a short banner and one slim row per exercise (picture on the left, name, then the type and the
+   result side by side), so five exercises fit on the first screen instead of one and a half */
+@media(max-width:560px){
+  .banner.lnban{min-height:0;padding:16px 20px;border-radius:22px}.banner.lnban h1{font-size:30px}.banner.lnban p{font-size:15px;margin-top:4px;line-height:1.35}
+  .lsec{margin-top:18px}.lsech{gap:2px 12px;padding-bottom:6px}.lsech h2{font-size:22px;line-height:1.25}
+  .lsech .btn.sm{min-height:44px;min-width:44px}
+  .lempty{margin-top:10px;padding:14px;border-radius:16px}
+  .lgrid{grid-template-columns:1fr;gap:8px;margin-top:10px}
+  .lcard2{flex-direction:row;flex-wrap:wrap;align-items:center;gap:5px 6px;min-height:68px;padding:10px 40px 10px 66px;border-radius:16px;border-width:2px;box-shadow:0 3px 10px rgba(29,43,83,.06)}
+  .lcard2:hover{transform:none}.lcard2:active{border-color:#00b4d8}
+  .lcard2 .lic{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:50px;text-align:center;font-size:32px;line-height:1}
+  .lcard2 .lnum{top:50%;right:12px;transform:translateY(-50%);font-size:18px;color:#bcdfe9}
+  .lcard2 b{flex:0 0 100%;font-size:17px;line-height:1.25}
+  .lcard2 .ltype,.lcard2 .pbest{font-size:12px;padding:3px 9px;white-space:nowrap}
+  /* teacher tools above the list: one full-width control per line, all 44px high */
+  .lsedit{padding:14px}.lsedit h4{font-size:17px;line-height:1.3}
+  .lsedit .row{gap:8px}.lsedit .row>.in,.lsedit .row>.btn{flex:1 1 100%;min-width:0!important;min-height:44px;margin-left:0!important;justify-content:center}
+  .lcard2>.row{flex:0 0 100%;margin-top:4px}.lcard2>.row .btn{min-height:44px;min-width:44px}
+}

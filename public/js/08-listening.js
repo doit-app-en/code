@@ -753,9 +753,9 @@ function renderListen(n) {
 function renderListenIndex() {
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › Listening</div>
-  <div class="banner photo" style="--img:url(photos/listening.jpg)"><div class="bi">🎧</div><div><h1>Listening</h1>
+  <div class="banner photo lnban" style="--img:url(photos/listening.jpg)"><div class="bi">🎧</div><div><h1>Listening</h1>
     <p>${lexs().length} exercises. Listen to the audio and do what you hear: move things, draw lines, tick, colour, write and number.</p></div></div>
-  ${mode === 'teacher' ? `<div class="edit"><h4>🧑‍🏫 Teacher tools · Listening exercises</h4>
+  ${mode === 'teacher' ? `<div class="edit lsedit"><h4>🧑‍🏫 Teacher tools · Listening exercises</h4>
     <div class="row"><select class="in" id="newType">${Object.entries(LTYPES).map(([k, t]) => `<option value="${k}">${t.icon} ${t.name}</option>`).join('')}</select>
       <input class="in" id="newGroup" list="lsGroups" value="${esc(lsGroups()[0] || LS_GROUP)}" placeholder="Section" title="Which section the new exercise goes in">
       <datalist id="lsGroups">${lsGroups().map(g => `<option value="${esc(g)}">`).join('')}</datalist>
