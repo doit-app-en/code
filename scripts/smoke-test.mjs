@@ -547,7 +547,10 @@ for (const screen of SCREENS) {
       const d = JSON.parse(q.postData() || '{}'), me = { id: 'u1', email: 'sara@example.com', name: 'Sara <Test>', role: 'student', className: 'Grade 10 A', classCode: 'ABC234', teacher: 'Mr Ahmed' };
       if (d.action === 'code') return r.fulfill({ json: d.code === 'ABC234' ? { ok: true, code: 'ABC234', className: 'Grade 10 A', teacher: 'Mr Ahmed' } : { ok: false, error: 'bad code' } });
       if (d.action === 'signup') return r.fulfill({ json: { ok: true, session: { access_token: 'a'.repeat(40), refresh_token: 'r'.repeat(20), expires_at: Math.floor(Date.now() / 1000) + 3600 }, me } });
-      return r.fulfill({ json: signed && d.action === 'me' ? { ok: true, me } : { ok: false, error: 'sign in' } });
+      // a second student for the same computer: omar@example.com signs in with a session that starts with "b"
+      const me2 = { id: 'u2', email: 'omar@example.com', name: 'Omar Test', role: 'student', className: '', classCode: '', teacher: '' }, who = /Bearer b/.test(q.headers().authorization || '') ? me2 : me;
+      if (d.action === 'login') { const m = d.email === 'omar@example.com' ? me2 : me; return r.fulfill({ json: { ok: true, session: { access_token: (m === me2 ? 'b' : 'a').repeat(40), refresh_token: 'r'.repeat(20), expires_at: Math.floor(Date.now() / 1000) + 3600 }, me: m } }); }
+      return r.fulfill({ json: signed && d.action === 'me' ? { ok: true, me: who } : { ok: false, error: 'sign in' } });
     });
     const text = () => page.evaluate(() => document.querySelector('#app').innerText), wide = async what => { const o = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth); if (o > 1) problems.push(`${L}: ${what} is ${o}px wider than the screen`); };
     await page.goto(base + '/', { waitUntil: 'load' }); await page.waitForSelector('.welcome', { timeout: 10000 }); await wide('the welcome page');
@@ -568,6 +571,8 @@ for (const screen of SCREENS) {
     await page.fill('input[name=name]', 'Sara <Test>'); await page.fill('input[name=email]', 'sara@example.com'); await page.fill('input[name=password]', 'short'); await page.click('#acctGo');
     if (!/8 letters/.test(await page.textContent('#acctFErr'))) problems.push(L + ': a short password is accepted');
     await page.screenshot({ path: path.join(shots, 'phone-accounts-signup.png') });
+    // practice that was on the device before the first account: the first account that signs in keeps it
+    await page.evaluate(async () => { lessonsDone.before = 1; await DB.put('kv', 'lessonsDone', lessonsDone); });
     await page.fill('input[name=password]', 'long-enough-1'); await page.click('#acctGo'); await page.waitForFunction(() => authSignedIn(), null, { timeout: 5000 }); await page.waitForTimeout(500);
     const r = await page.evaluate(() => ({ email: student && student.email, cls: student && student.cls, html: !!document.querySelector('#acctBtn b, #acctBtn test'), bar: !document.querySelector('#visbar').hidden }));
     if (r.email !== 'sara@example.com' || r.cls !== 'Grade 10 A' || r.html || r.bar) problems.push(L + ': after signing up the student is not the account (' + JSON.stringify(r) + ')');
@@ -578,10 +583,36 @@ for (const screen of SCREENS) {
     await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => typeof authSignedIn === 'function' && authSignedIn(), null, { timeout: 8000 }).catch(() => problems.push(L + ': the student is signed out after a reload'));
     await page.click('#acctBtn'); await page.click('#acctOut'); await page.waitForSelector('.welcome', { timeout: 5000 });
     if (await page.evaluate(() => !!student || !!localStorage.getItem('die_session'))) problems.push(L + ': signing out keeps the student or the session');
+    // Two students on one computer: each account has its own saved practice, and signing out leaves an empty visitor set.
+    const mine = () => page.evaluate(async () => ({ who: (await DB.get('kv', 'owner') || {}).id, mem: Object.keys(lessonsDone).join(), db: Object.keys(await DB.get('kv', 'lessonsDone') || {}).join(), days: Object.keys(activity.days || {}).length, mix: mixBest.best, heard: Object.keys(pronHeard).join(), goal: localStorage.getItem('die_goal'), placed: localStorage.getItem('die_placed') }));
+    const signIn = async email => { await page.evaluate(() => { location.hash = '#/login'; }); await page.waitForSelector('input[name=password]'); await page.fill('input[name=email]', email); await page.fill('input[name=password]', 'long-enough-1'); await page.click('#acctGo'); await page.waitForFunction(e => authSignedIn() && student && student.email === e && !document.querySelector('.acctpage'), email, { timeout: 5000 }); await page.waitForTimeout(300); };
+    const signOut = async () => { await page.click('#acctBtn'); await page.click('#acctOut'); await page.waitForSelector('.welcome', { timeout: 5000 }); await page.waitForTimeout(200); };
+    const same = (got, want, what) => { const g = JSON.stringify(got); if (g !== JSON.stringify(want)) problems.push(`${L}: ${what}: ${g}`); };
+    const empty = { mem: '', db: '', days: 0, mix: 0, heard: '', goal: null, placed: null };
+    same(await mine(), { who: 'visitor', ...empty }, 'after signing out the device still shows the student\'s practice');
+    await signIn('sara@example.com');
+    same(await mine(), { who: 'u1', ...empty, mem: 'before', db: 'before' }, 'the first account did not get the practice the device already had');
+    await page.evaluate(async () => { await markLessonDone('sara-lesson'); mixBest = { best: 7, plays: 1 }; await DB.put('kv', 'mixBest', mixBest); pronHeard.B = new Set(['bag']); await saveHeard(); localStorage.setItem('die_goal', '3'); localStorage.setItem('die_placed', 'a2'); });
+    const sara = { who: 'u1', mem: 'before,sara-lesson', db: 'before,sara-lesson', days: 1, mix: 7, heard: 'B', goal: '3', placed: 'a2' };
+    await signOut(); same(await mine(), { who: 'visitor', ...empty }, 'signing out did not leave an empty visitor set');
+    await page.evaluate(async () => { await markLessonDone('visitor-lesson'); });   // a visitor tries the sample, then a new student signs in: it stays with them
+    await signIn('omar@example.com');
+    same(await mine(), { who: 'u2', ...empty, mem: 'visitor-lesson', db: 'visitor-lesson', days: 1 }, 'a second student on the same device does not start with only what they did as a visitor');
+    if (/Sara|7 pairs/.test(await text())) problems.push(L + ': the second student\'s home page shows the first student');
+    await page.evaluate(async () => { await markLessonDone('omar-lesson'); localStorage.setItem('die_goal', '5'); });
+    await page.screenshot({ path: path.join(shots, 'phone-accounts-second-student.png') });
+    await signOut(); await signIn('sara@example.com'); same(await mine(), sara, 'the first student did not get their own practice back');
+    await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => typeof authSignedIn === 'function' && authSignedIn() && !!document.querySelector('#app').innerHTML, null, { timeout: 8000 }); await page.waitForTimeout(300);
+    same(await mine(), sara, 'the first student\'s practice after a reload');
+    await signOut(); await signIn('omar@example.com'); same(await mine(), { who: 'u2', ...empty, mem: 'visitor-lesson,omar-lesson', db: 'visitor-lesson,omar-lesson', days: 1, goal: '5' }, 'the second student did not get their own practice back');
+    // the page was closed in the middle of a change: the next start lays the set again and the put-away sets are untouched
+    await page.evaluate(async () => { await DB.put('kv', 'owner', { id: 'u2', laying: true }); await DB.put('kv', 'lessonsDone', { broken: 1 }); });
+    await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => typeof authSignedIn === 'function' && authSignedIn() && !!document.querySelector('#app').innerHTML, null, { timeout: 8000 }); await page.waitForTimeout(300);
+    const again = await mine(); if (again.who !== 'u2' || /broken/.test(again.mem + again.db)) problems.push(L + ': a half-finished change of student was not repaired: ' + JSON.stringify(again));
   } catch (e) { problems.push(L + ': could not check — ' + e.message.split('\n')[0]); }
   await ctx.close();
 }
 
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, accounts (welcome page, visitor sample, sign-up), voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, accounts (welcome page, visitor sample, two students on one device, sign-up), voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

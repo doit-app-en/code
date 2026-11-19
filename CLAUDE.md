@@ -44,6 +44,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
   Signed in → `student` is set from the account by `authApply()` (never from the form), the Student/Teacher switch is shown to teacher accounts only, and `window.fetch` is wrapped so that every call to this site's `/api/*` carries `Authorization: Bearer <access token>` (renewed by `authFresh()`). The browser keeps only the session in localStorage (`die_session`) and never talks to Supabase.
   On the server `identity(req)` gives the signed-in person and the student in the message is ignored; with accounts on, progress, speaking feedback and the voice test answer `sign in` to anyone else.
   A teacher account owns classes (`classes`, each with a 6-character code); a student joins one with the code (sign-up, the account menu, or the link `#/join/CODE`). A signed-in teacher gets only the students of their own classes from `GET /api/class` and the voice-test lists — no key. `TEACHER_KEY` still opens every student (the site owner; "Advanced settings" on the Students page).
+  Each account has its own saved practice on a device (`MINE`, `mineLoad()`, `mineSwitch()` in `11b-accounts.js`): the rest of the site keeps using the same IndexedDB keys, IndexedDB `owner` says whose set is there, and when somebody else signs in it is put away under `mine::<account id>` and theirs (or an empty set) is laid in its place — `await authData()` after every change of who is signed in. Signing out leaves an empty visitor set; practice from before accounts goes to the first account that signs in. **A new kind of saved practice needs a line in `MINE` and `mineLoad()`.** The course (`state`) and the teacher key stay shared by the device.
   New accounts are created already confirmed (`auth.admin.createUser`, `email_confirm: true`) because the site has no email service: emails are **not verified** and there is no "forgot my password" yet.
 - Without accounts, student/teacher mode is only a UI switch and the real protection is `TEACHER_KEY`, checked on the server.
 - The page talks to `/api/class` with the same JSON messages the old Apps Script used (see the top of `api/class.js`).
@@ -77,7 +78,7 @@ teacher's Students page. The interface is in English. The owner (Abdulmohsen) wr
 
 ## Known limits / next ideas
 
-- Accounts: emails are not verified and there is no password reset (both need an email service, e.g. Resend as Supabase's SMTP). Progress on the device is not separated per account: two students who sign in on the same computer share the device's saved progress.
+- Accounts: emails are not verified and there is no password reset (both need an email service, e.g. Resend as Supabase's SMTP). A put-away set of practice (below) stays on the device after sign-out, readable only by that account's next sign-in through the site, but it is not encrypted.
 - Nobody has run the accounts server path against the real Supabase yet (sign up, sign in, refresh, Google): the pages were tested with a pretend server only.
 - Reminder emails need a Resend account with a verified sending domain.
 - No Arabic interface yet; lesson Speak and "Practise my mistakes" still use the browser's speech recognition (the Voice level test and the Pronounce test can use Azure).

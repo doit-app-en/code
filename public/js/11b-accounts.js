@@ -42,13 +42,59 @@ function authFresh() {
   if (!authRefreshing) authRefreshing = (async () => {
     const d = await authPost({action: 'refresh', refresh_token: s.refresh_token}, false);
     if (d.ok && d.session) authKeep(d.session, auth.me);
-    else if (d.error === 'sign in') { authForget(); authApply(); toast('Please sign in again'); if (!AUTH_PAGES.includes((location.hash || '').replace(/^#\/?/, '').split('/')[0])) render(); }
+    else if (d.error === 'sign in') { authForget(); authApply(); await authData(); toast('Please sign in again'); if (!AUTH_PAGES.includes((location.hash || '').replace(/^#\/?/, '').split('/')[0])) render(); }
     authRefreshing = null;
   })();
   return authRefreshing;
 }
 function authKeep(session, me) { auth.session = session; auth.me = me || null; ls('die_session', JSON.stringify(session)); if (me) ls('die_me', JSON.stringify(me)); else lsDel('die_me'); }
 function authForget() { auth.session = null; auth.me = null; lsDel('die_session'); lsDel('die_me'); }
+
+/* ---------- each account keeps its own saved practice on this device ---------- */
+// The rest of the site always reads and writes a student's practice under the same IndexedDB keys (the list in MINE) and the two
+// localStorage keys in MINE_LS. IndexedDB 'owner' ({id}: an account id, or 'visitor') says whose practice is under those keys now.
+// When somebody else signs in, that set is put away whole under 'mine::<account id>' and the newcomer's own set (or an empty one)
+// is laid in its place; signing out leaves an empty visitor set. Nothing is deleted: a put-away set waits for its owner.
+//   - a device with practice from before accounts (no 'owner' yet) keeps it, and the first account that signs in there gets it;
+//   - a visitor who tried the sample and then signs in for the first time on this device keeps what they did.
+// A new kind of saved practice needs a line in MINE and in mineLoad(), or two students on one computer would share it.
+const MINE = {results: () => [], pron: () => ({}), pronHeard: () => ({}), listenById: () => ({}), activity: () => ({last: null, days: {}}), lessonsDone: () => ({}),
+  mistakes: () => ({}), mixBest: () => ({best: 0, plays: 0}), speakHistory: () => [], voiceHistory: () => [], voiceSeen: () => null};
+const MINE_LS = ['die_placed', 'die_goal'];
+// Reads the practice under the usual keys into the page (at start-up, and after the set was changed for another person).
+async function mineLoad() {
+  const g = async k => (await DB.get('kv', k)) || MINE[k]();
+  results = await g('results'); pronBest = await g('pron'); for (const k in pronHeard) delete pronHeard[k]; loadHeard(await g('pronHeard'));
+  listenBest = await g('listenById'); activity = await g('activity'); lessonsDone = await g('lessonsDone'); mistakes = await g('mistakes'); mixBest = await g('mixBest');
+  spHistory = await g('speakHistory'); await Promise.all(spHistory.map(r => loadMedia(r.media)));
+  vtHistory = null; vtSeen = [];   // the voice tests are read when their page opens
+}
+let mineBusy = Promise.resolve();
+// Call (and wait) after every change of who is signed in, before anything is drawn or sent to the teacher.
+function authData() { return mineBusy = mineBusy.then(mineSwitch).catch(() => {}); }
+async function mineSwitch() {
+  if (!auth.on || (auth.me && auth.me.needsProfile)) return;
+  const want = authSignedIn() ? String(auth.me.id || '') : 'visitor'; if (!want) return;
+  const o = await DB.get('kv', 'owner'), cur = (o && o.id) || '', half = !!(o && o.laying);   // half: the page was closed in the middle of a change
+  if (cur === want && !half) return;
+  if (!cur) { if (want !== 'visitor') await DB.put('kv', 'owner', {id: want}); return; }
+  const next = want === 'visitor' ? null : await DB.get('kv', 'mine::' + want);
+  if (cur === 'visitor' && !half && !next) { await DB.put('kv', 'owner', {id: want}); return; }
+  if (cur !== 'visitor' && !half) {
+    const put = {kv: {}, ls: {}, at: Date.now()};
+    for (const k in MINE) put.kv[k] = await DB.get('kv', k);
+    MINE_LS.forEach(k => put.ls[k] = ls(k));
+    await DB.put('kv', 'mine::' + cur, put);
+  }
+  await DB.put('kv', 'owner', {id: want, laying: true});
+  for (const k in MINE) { const v = next && next.kv ? next.kv[k] : undefined; await DB.put('kv', k, v === undefined || v === null ? MINE[k]() : v); }
+  MINE_LS.forEach(k => { const v = next && next.ls ? next.ls[k] : null; if (v === null || v === undefined) lsDel(k); else ls(k, v); });
+  await DB.put('kv', 'owner', {id: want});
+  stopAll(); await mineLoad();
+  syncState = ''; classList = null; classErr = ''; voiceLatest = null; voiceHist = {}; voiceOpen = new Set(); viewRes = null; VT = {mode: 'intro'}; SPK = {mode: 'pick'};
+}
+// Another tab of this browser signed in or out: this tab starts again, so it does not go on saving the other person's practice.
+window.addEventListener('storage', e => { if (e.key !== 'die_me' && e.key !== 'die_session') return; const m = lsJson('die_me'); if (((m && m.id) || '') !== ((auth.me && auth.me.id) || '')) location.reload(); });
 
 /* ---------- start-up ---------- */
 async function authInit() {
@@ -73,7 +119,7 @@ async function authInit() {
       else authForget();
     }
   }
-  authApply();
+  authApply(); await authData();
 }
 // Makes the rest of the site agree with the account: who the student is, who may use teacher mode, what the header shows.
 function authApply() {
@@ -106,12 +152,12 @@ function authPop() {
   const l = $('#acctLeave'); if (l) l.onclick = async () => { if (!confirm('Leave this class? Your teacher will not see your progress any more.')) return; const d = await authPost({action: 'leave'}); if (!d.ok) return toast(authWhy(d.error)); authKeep(auth.session, d.me); authApply(); syncProgress(); toast('You left the class'); render(true); };
 }
 document.addEventListener('click', () => { const p = $('#acctPop'); if (p) p.hidden = true; });
-function authSignOut() { authForget(); lsDel('die_visitor'); DB.put('kv', 'student', null); authApply(); toast('Signed out'); if (location.hash === '#/welcome') render(); else go('#/welcome'); }
+async function authSignOut() { authForget(); lsDel('die_visitor'); DB.put('kv', 'student', null); authApply(); await authData(); toast('Signed out'); if (location.hash === '#/welcome') render(); else go('#/welcome'); }
 // After a sign-in or a new account: keep the session, join the class that was waiting, open the home page.
 async function authEnter(d) {
   authKeep(d.session, d.me); let code = ''; try { code = sessionStorage.getItem('die_code') || ''; sessionStorage.removeItem('die_code'); } catch (e) {}
   if (code && d.me && d.me.role === 'student' && !d.me.className) { const j = await authPost({action: 'join', code}); if (j.ok) authKeep(auth.session, j.me); }
-  authApply(); if (authSignedIn()) { syncProgress(); toast('Welcome, ' + auth.me.name.split(' ')[0] + '! 👋'); }
+  authApply(); await authData(); if (authSignedIn()) { syncProgress(); toast('Welcome, ' + auth.me.name.split(' ')[0] + '! 👋'); }
   if (location.hash === '#/' || location.hash === '') render(); else go('#/');
 }
 
