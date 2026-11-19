@@ -168,7 +168,7 @@ function mistSpoken(x, res) {
   const missed = tk.filter((t, i) => t.n && !res.ok.has(i)).map(t => t.o), was = x.res, msg = mistAnswer(x, pass);
   $('#result').innerHTML = `<div class="result"><div class="ring" style="--p:${s};--rc:${col}"><span>${s}%</span></div>
     <div class="fb"><b style="color:${col}">${pass ? 'Clear! 👏' : s >= 55 ? 'Almost there! 💪' : 'Let\'s try again 🔁'}</b><div>${pass ? 'You said it clearly.' : 'Listen to the model, then say it again slowly and clearly.'}</div><div class="hint" style="margin:8px 0 0">I heard: “${esc(res.heard)}”</div>
-    ${missed.length && x.kind !== 'w' ? `<div class="hint" style="margin:4px 0 0">Practise: ${missed.map(w => `<span class="pchip" data-sayw="${esc(w)}" style="padding:3px 10px">🔊 ${esc(w)}</span>`).join(' ')}</div>` : ''}</div></div>`;
+    ${missed.length && x.kind !== 'w' ? `<div class="hint mkprac" style="margin:4px 0 0">Practise: ${missed.map(w => `<span class="pchip" data-sayw="${esc(w)}" style="padding:3px 10px">🔊 ${esc(w)}</span>`).join(' ')}</div>` : ''}</div></div>`;
   if (msg) $('#mkFb').innerHTML = `<b class="g">${msg}</b>`;
   else if (!pass && was !== 'ok') $('#mkFb').innerHTML = 'You can try again, or go on — you will see it again in another round.';
   $('#mkNav').innerHTML = MK.next();

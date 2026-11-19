@@ -881,7 +881,22 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
 .mknav{display:flex;justify-content:center;margin-top:18px}.mknav .btn{min-height:48px;min-width:200px}
 .mkend .mksum{margin:0 0 6px;font-size:20px;color:var(--navy)}
 .mkend .btn{min-height:48px}
+/* the round on every screen: 44px for everything a finger taps, and the lesson's name never pushes "Question 2 of 3" onto a second line */
+.mkhead{flex-wrap:nowrap}.mkhead .prog{flex:none}.mkfrom{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mkBody .speak .btn.sm{min-height:44px;padding:7px 16px;font-size:15px}
+#mkBody .mkprac{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+#mkBody .pchip{display:inline-flex;align-items:center;min-height:44px;padding:6px 14px!important;line-height:1.2;white-space:nowrap}
 @media(max-width:560px){
+  /* a spoken question on a phone: smaller phrase and microphone, and the score beside its words (not above them) with the words to practise in whole chips underneath */
+  #mkBody .speak{padding:0}#mkBody .target{font-size:26px;line-height:1.2;margin:4px 0 10px;overflow-wrap:anywhere}
+  #mkBody .mic{width:88px;height:88px;font-size:38px;margin:14px auto 10px;box-shadow:0 5px 0 #d44c4c}
+  #mkBody .status{font-size:15px;line-height:1.35;min-height:20px}
+  #mkBody .result{display:grid;grid-template-columns:72px minmax(0,1fr);gap:2px 14px;align-items:center;margin-top:10px;padding:12px 14px;border-radius:16px;text-align:left}
+  #mkBody .result .ring{grid-column:1;grid-row:1/span 3;width:72px;height:72px}#mkBody .result .ring span{width:56px;height:56px;font-size:19px}
+  #mkBody .result .fb{display:contents}#mkBody .result .fb>*{grid-column:2;min-width:0}
+  #mkBody .result .fb b{font-size:18px;line-height:1.25}#mkBody .result .fb>div{font-size:15px;line-height:1.35}
+  #mkBody .result .fb>.hint{font-size:14px;margin:0!important;overflow-wrap:anywhere}
+  #mkBody .result .fb>.mkprac{grid-column:1/-1;margin-top:8px!important;font-size:14px}
   .banner.mkban{min-height:0;padding:12px 16px;margin-bottom:10px;border-radius:18px}.banner.mkban h1{font-size:21px}.banner.mkban .lv{display:none}
   #mkBody{padding:16px 14px}.mkbar{margin:8px 0 12px}
   .mistk{padding:12px 14px;gap:12px}.mistk b{font-size:16px}.mistk small{display:block;font-size:13px;line-height:1.3}
