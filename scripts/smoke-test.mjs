@@ -170,7 +170,13 @@ for (const screen of SCREENS) {
     { const L = 'listening exercise', n = await page.evaluate(() => lexs().findIndex(e => e.type === 'tick' && typeof e.qs[1].o[0] === 'string') + 1), box = () => page.$eval('.lres', b => b.innerText);
       const mine = () => page.evaluate(() => ({ best: listenBest[lexs()[LS_.n - 1].id], days: Object.values(activity.days || {}).reduce((a, b) => a + b, 0) }));
       await page.evaluate(n => { location.hash = '#/listening/' + n; }, n); await page.waitForFunction(n => LS_.n === n && !!document.querySelector('#lCheck'), n, { timeout: 5000 });
+      // The audioscript is offered only after checking; every sentence has its own 🔊, the sentences of a wrong answer are marked,
+      // and it stays open (with the student's own marks) after "Show the answers".
+      const scr = () => page.evaluate(() => { const d = document.querySelector('#lScript'); return d ? { open: d.open, lines: d.querySelectorAll('.wsl .wsay').length, bad: d.querySelectorAll('.wsi.no').length, now: d.querySelectorAll('.wsl.now').length, over: Math.round(d.scrollWidth - d.clientWidth) } : null; });
+      const nLines = await page.evaluate(() => { const ex = lexs()[LS_.n - 1]; return ex.qs.reduce((a, _, i) => a + lsSeg(ex, i).length, 0); }), nQs = await page.evaluate(() => lexs()[LS_.n - 1].qs.length - 1);
+      if (await scr()) problems.push(L + ': the audioscript is offered before the answers are checked');
       const m0 = await mine(); await page.click('#lCheck'); await page.waitForSelector('#lAgain', { timeout: 5000 }); const m1 = await mine();
+      { const c = await scr(); if (!c || c.open || c.lines !== nLines || c.bad) problems.push(L + ': after "Check my answers" with nothing answered the audioscript is not a closed box with every sentence and no marks: ' + JSON.stringify(c)); }
       if (m1.best !== undefined || m1.days !== m0.days) problems.push(L + ': "Check my answers" with nothing answered counts as practice (done / a day for the streak)');
       if (!/No answers yet/.test(await box())) problems.push(L + ': "Check my answers" with nothing answered does not say "No answers yet"');
       await page.click('#lAgain'); await page.waitForSelector('#lCheck', { timeout: 5000 });
@@ -180,7 +186,11 @@ for (const screen of SCREENS) {
       await page.click('#lPlayAll'); if (!/Play all/.test(await page.$eval('#lPlayAll', b => b.innerText))) problems.push(L + ': "Stop" does not turn back into "Play all"');
       await page.click('#lCheck'); await page.waitForSelector('#lAgain', { timeout: 5000 }); const m2 = await mine(), b2 = await box();
       if (!(m2.best > 0 && m2.best < 100) || m2.days !== m0.days + 1 || !/1\//.test(b2)) problems.push(L + `: one right answer was not counted once (best ${m2.best}, activities ${m2.days - m0.days}, box "${b2.replace(/\s+/g, ' ')}")`);
+      await page.click('#lScript summary'); const lit1 = await page.evaluate(() => { document.querySelector('#lScript .wsi.no .wsay').click(); return document.querySelectorAll('#lScript .wsi.no .wsl.now').length; });   // this Chrome has no voice, so the sentence ends at once
+      { const c = await scr(); c.now = lit1; if (!c || !c.open || c.lines !== nLines || c.bad !== nQs - 1 || c.now !== 1 || c.over > 1) problems.push(L + `: the open audioscript should have ${nLines} sentences, ${nQs - 1} marked wrong and one being read: ` + JSON.stringify(c));
+        await page.screenshot({ path: path.join(shots, 'phone-listening-script.png') }); }
       await page.click('#lShow'); await page.waitForFunction(() => !document.querySelector('#lShow'), null, { timeout: 5000 }); const b3 = await box(), m3 = await mine();
+      { const c = await scr(); if (!c || !c.open || c.bad !== nQs - 1 || c.now) problems.push(L + ': "Show the answers" closes the audioscript, loses its marks or leaves a sentence lit: ' + JSON.stringify(c)); }
       if (!/These are the right answers/.test(b3) || !/Your score was 1 of/.test(b3) || /Excellent/.test(b3) || m3.best !== m2.best) problems.push(L + `: "Show the answers" is shown as the student's own result ("${b3.replace(/\s+/g, ' ')}")`);
       await page.evaluate(() => document.querySelector('.lres').scrollIntoView({ block: 'center', behavior: 'instant' })); await page.screenshot({ path: path.join(shots, 'phone-listening-answers-shown.png') });
       await page.evaluate(() => { mode = 'teacher'; setModeButtons(); render(true); }); await page.waitForSelector('#lsEd [data-ef="title"]', { timeout: 5000 });

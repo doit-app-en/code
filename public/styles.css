@@ -325,6 +325,22 @@ input.win:disabled{background:#fff;color:#4a5578;border-style:solid}
 .wscript summary{font-weight:800;cursor:pointer}
 .wscript p{margin:6px 0}
 .wscript hr{border:0;border-top:1px dashed #f0d9a0}
+.wscript summary{min-height:44px;display:flex;align-items:center;gap:6px;margin:-12px -16px;padding:0 16px;list-style:none}
+.wscript summary::-webkit-details-marker{display:none}
+.wscript summary::after{content:'▾';margin-left:auto;color:#b98a1f}
+.wscript[open] summary{margin-bottom:6px}.wscript[open] summary::after{content:'▴'}
+.wscript .wsh{color:#6b7391;font-size:14px;margin:0 0 8px}
+.wsi{border-top:1px dashed #f0d9a0;padding:8px 0 4px}
+.wsi.no{background:#fff2f2;border:2px solid var(--coral);border-radius:12px;padding:8px 10px;margin:8px 0}
+.wsi.no + .wsi{border-top:0}
+.wsn{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:14px;color:#7b61ff}
+.wsn b{font:800 16px 'Poppins'}
+.wsm{color:#c62f3b;font-weight:800}
+.wscript p.wsl{display:flex;align-items:center;gap:10px;margin:4px 0;border-radius:12px;color:var(--navy);overflow-wrap:anywhere}
+.wsl span{min-width:0}
+.wsl.now{background:#ffe9b8}
+.wsay{flex:0 0 44px;width:44px;height:44px;border:2px solid #ffcf70;border-radius:50%;background:#fff;font-size:19px;line-height:1;cursor:pointer;padding:0}
+.wsay:hover,.wsl.now .wsay{background:#ffd60a}
 @media(max-width:640px){.wq{grid-template-columns:28px 1fr 30px}.wqa{grid-column:2/3;flex-wrap:wrap;min-width:0}input.win{width:120px}}
 .lobjname{display:inline-flex;align-items:center;gap:6px}
 .lobjname .loe{font-size:26px;line-height:1}

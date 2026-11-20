@@ -747,13 +747,30 @@ function lsGrade(ex, s) {
   return {res, ok, total: res.length, pct: Math.round(ok / res.length * 100)};
 }
 const stars = p => p === 100 ? '⭐⭐⭐' : p >= 60 ? '⭐⭐' : '⭐';
+// The lines of one sentence of an exercise: [{t: text, w: who says it}]. A conversation has several lines and speakers.
+function lsSeg(ex, i) {
+  const V2 = ex.voices || ['w', 'b'], raw = ((ex.qs || ex.steps)[i] || {}).say;
+  return Array.isArray(raw) ? raw.filter(l => l && l.t) : String(raw || '').split(/\s+—\s+/).filter(Boolean).map((t, j, arr) => ({t, w: arr.length > 1 ? V2[j % 2] : undefined}));
+}
+// The audioscript, offered only after the answers were checked (so it cannot replace the listening): every sentence with its own 🔊,
+// and the sentences of a wrong answer marked. After "Show the answers" the marks are still the student's own (s.shown.res).
+function lsScriptHTML(ex, s, g) {
+  if (!g) return '';
+  const E = exN(ex), res = s.none ? null : s.shown ? s.shown.res : g.res;
+  return `<details class="wscript" id="lScript" ${s.script ? 'open' : ''}><summary>📜 Show the audioscript</summary>
+    <p class="wsh">Read what you heard. Tap 🔊 to hear one sentence again.</p>
+    ${(ex.qs || ex.steps).map((_, i) => { const bad = res && i >= E && res[i - E] === false, seg = lsSeg(ex, i);
+      return `<div class="wsi${bad ? ' no' : ''}"><div class="wsn"><b>${i < E ? 'Example' + (E > 1 ? ' ' + (i + 1) : '') : i - E + 1}</b>${bad ? '<span class="wsm">✗ Your answer was wrong. Listen to this again.</span>' : ''}</div>
+        ${seg.map((l, k) => `<p class="wsl${s.sl === i + '-' + k ? ' now' : ''}"><button class="wsay" data-sl="${i}-${k}" aria-label="Listen to this sentence" title="Listen to this sentence">🔊</button><span>${WHO[l.w] ? `<b>${WHO[l.w]}:</b> ` : ''}${esc(l.t)}</span></p>`).join('')}</div>`; }).join('')}
+  </details>`;
+}
 
 /* ---- pages ---- */
 function renderListen(n) {
   n = parseInt(n);
   if (!n || !lexs()[n - 1]) return renderListenIndex();
   if (LS_.n !== n || LS_.id !== lexs()[n - 1].id) LS_ = lsNew(n);   // the same place in the list can be another exercise (a teacher's changes, a course file)
-  LS_.now = null; LS_.all = false;   // render() has just stopped the audio
+  LS_.now = null; LS_.all = false; LS_.sl = null;   // render() has just stopped the audio
   renderListenEx(n);
 }
 function renderListenIndex() {
@@ -841,6 +858,7 @@ function renderListenEx(n) {
     : `<div class="lres" style="--c:${pcol(g.pct)}"><div class="ring" style="--p:${g.pct};--rc:${pcol(g.pct)}"><span>${g.ok}/${g.total}</span></div>
       <div><div class="lrst" style="font-size:30px">${stars(g.pct)}</div><b class="baloo lrsw" style="font-size:26px;color:${pcol(g.pct)}">${g.pct === 100 ? 'Excellent! All correct!' : g.pct >= 60 ? 'Good job!' : 'Keep practising!'}</b>
       <div class="hint" style="margin:4px 0 0">${g.pct === 100 ? 'Every answer is right. Well done!' : 'Wrong answers are marked ✗. Listen again and try once more.'}</div></div></div>`}
+    ${lsScriptHTML(ex, s, g)}
     <div class="row lxfoot" style="justify-content:center;margin-top:18px">
       ${g ? `${s.shown ? '' : '<button class="btn ghost" id="lShow">👀 Show the answers</button>'}<button class="btn sun" id="lAgain">↻ Try again</button>${n < lexs().length ? `<a class="btn" style="background:#00b4d8" href="#/listening/${n + 1}">Next exercise →</a>` : ''}`
         : `<button class="btn sun" id="lCheck">✔ Check my answers</button>`}
@@ -880,8 +898,7 @@ function lsActHTML(ex, s, g) {
           <span class="wqa">${q.pre ? `<span>${esc(q.pre)}</span>` : ''}<input class="in win" data-wi="${i}" value="${esc(v)}" ${isEx ? `style="width:${Math.max(150, String(v).length * 12 + 34)}px"` : ''} ${isEx || s.checked ? 'disabled' : ''} autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="${esc(q.q)}">${q.post ? `<span>${esc(q.post)}</span>` : ''}</span>
           ${ok !== null ? `<span class="lmark ${ok ? 'ok' : 'no'}">${ok ? '✓' : '✗'}</span>` : ''}
         </div>`; }).join('')}</div>
-      <p class="lbl" style="margin:10px 0 0">Write numbers as 8 or eight. Spell names carefully!</p>
-      ${s.checked ? `<details class="wscript"><summary>📜 Show the audioscript</summary>${ex.qs.map(q => q.say.map(l => `<p><b>${WHO[l.w] || ''}:</b> ${esc(l.t)}</p>`).join('')).join('<hr>')}</details>` : ''}`;
+      <p class="lbl" style="margin:10px 0 0">Write numbers as 8 or eight. Spell names carefully!</p>`;
   }
   if (ex.type === 'plines') {
     return `<div class="lwrap" id="lWrap">
@@ -936,11 +953,11 @@ function drawLines(ex, s, showAns) {
 function bindListen(ex, s) {
   const items = (ex.qs || ex.steps), n = s.n, re = () => { const y = window.scrollY; renderListenEx(n); window.scrollTo(0, y); };
   // What is playing is kept in the exercise's state (s.now = the sentence, s.all = "Play all" is running), because every tap on an answer draws the page again.
-  const lit = () => { if (LS_ !== s) return; app.querySelectorAll('.lstep').forEach(b => b.classList.toggle('now', +b.dataset.st === s.now)); const pa = $('#lPlayAll'); if (pa) pa.textContent = s.all ? '⏹ Stop' : '▶ Play all'; };
-  const quiet = () => { stopAll(); s.now = null; s.all = false; };
+  const lit = () => { if (LS_ !== s) return; app.querySelectorAll('.lstep').forEach(b => b.classList.toggle('now', +b.dataset.st === s.now)); app.querySelectorAll('.wsl').forEach(p => p.classList.toggle('now', p.firstElementChild.dataset.sl === s.sl)); const pa = $('#lPlayAll'); if (pa) pa.textContent = s.all ? '⏹ Stop' : '▶ Play all'; };
+  const quiet = () => { stopAll(); s.now = null; s.all = false; s.sl = null; };
   const sayStep = (i, cb) => {
-    s.now = i; lit();
-    const V2 = ex.voices || ['w', 'b'], raw = items[i].say, seg = Array.isArray(raw) ? raw : String(raw).split(/\s+—\s+/).map((t, j, arr) => ({t, w: arr.length > 1 ? V2[j % 2] : undefined})), tok = playToken; let k = 0;   // a conversation has several lines and speakers
+    s.now = i; s.sl = null; lit();
+    const seg = lsSeg(ex, i), tok = playToken; let k = 0;   // a conversation has several lines and speakers
     const nx = () => { if (tok !== playToken) return; if (k >= seg.length) { s.now = null; lit(); return cb && cb(); }
       const ln = seg[k++]; say(spellTTS(ln.t), () => setTimeout(nx, 350), lsSlow ? 0.65 : 0.85, PITCH[ln.w] || 1); };
     nx();
@@ -950,6 +967,14 @@ function bindListen(ex, s) {
     if (s.all) { quiet(); return lit(); }   // the same button stops it
     const tok = ++playToken; let i = 0; s.all = true;
     const nx = () => { if (tok !== playToken) return; if (i >= items.length) { s.all = false; return lit(); } sayStep(i++, () => setTimeout(() => tok === playToken && nx(), 1400)); }; nx(); };
+  // The audioscript (after checking): it stays open when the page is drawn again, and each line has its own 🔊 (a second tap stops it).
+  if ($('#lScript')) $('#lScript').ontoggle = e => { s.script = e.target.open; };
+  app.querySelectorAll('.wsay').forEach(b => b.onclick = () => {
+    const key = b.dataset.sl, [i, k] = key.split('-').map(Number), ln = lsSeg(ex, i)[k]; if (!ln) return;
+    if (s.sl === key) { quiet(); return lit(); }
+    const tok = ++playToken; s.all = false; s.now = null; s.sl = key; lit();
+    say(spellTTS(ln.t), () => { if (tok !== playToken || LS_ !== s) return; s.sl = null; lit(); }, lsSlow ? 0.65 : 0.85, PITCH[ln.w] || 1);
+  });
   $('#lSlow').onclick = () => { lsSlow = !lsSlow; $('#lSlow').textContent = lsSlow ? '🐢 Slow: on' : '🐢 Slow: off'; };
   if ($('#lCheck')) $('#lCheck').onclick = async () => {
     if (s.checked) return;   // a second tap
@@ -966,7 +991,7 @@ function bindListen(ex, s) {
   if ($('#lShow')) $('#lShow').onclick = () => {
     quiet(); const a = lsNew(n), g0 = lsGrade(ex, s);
     items.forEach((it, i) => { if (ex.type === 'move') a.placed[it.o] = it.z; if (isLin(ex.type)) a.links[it.n] = it.to; if (ex.type === 'write') a.ans[i] = it.a; if (ex.type === 'tick') a.ticks[i] = it.a; if (isCol(ex.type)) { if (it.z) a.placed[it.o] = it.z; else a.colours[it.s] = it.c; } if (ex.type === 'number') a.nums[it.p] = i + 1; });
-    a.checked = true; a.shown = {ok: g0.ok, total: g0.total, pct: g0.pct}; LS_ = a; re(); toast('These are the right answers ✔');   // the box keeps the student's own score
+    a.checked = true; a.shown = {ok: g0.ok, total: g0.total, pct: g0.pct, res: s.none ? null : s.shown ? s.shown.res : g0.res}; a.script = s.script; LS_ = a; re(); toast('These are the right answers ✔');   // the box keeps the student's own score
   };
   const locked = () => s.checked;
   const isEx = (key, val) => ex.steps && ex.steps[0][key] === val;
