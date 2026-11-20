@@ -232,5 +232,115 @@ Left out on purpose:
 - Same topic again: match attempts by the topic's id, and say nothing when the new score is lower except what to try next.
 - None of the speaking parts can be checked by an agent with a real voice; say so in the changelog as usual.
 
-**Angles not covered yet** (for the next runs): placement and level tests · teacher dashboards and assignments · listening ·
-apps popular with Arabic speakers · reading, spelling and graded texts · word stress and sentence rhythm (touched on 2026-11-19).
+## 2026-11-20 — Listening
+
+**Why this angle.** Listening is the site's largest section by count (84 exercises) but the narrowest by kind. Checked in the code
+before proposing (`public/js/08-listening.js`): there are nine exercise types, all of the young-learner test kind — move, draw
+lines, tick, colour, write a name or number, number the pictures; every one of the 84 default exercises is in the single group
+"A1 listening" (the groups A2–C2 exist as names but are empty); everything is read by the device's computer voice, with a pitch
+per speaker (woman, man, boy, girl); there is "Play all", a button per sentence and "Slow"; and only "Listen and write" offers the
+audioscript after checking. Lessons show the words while a phrase is heard. So the questions today were: what do other sites give
+an older student to listen to, what happens after a wrong answer, and is there practice in catching the words themselves.
+
+**Pages read** (public pages only, read through summaries in our own words; companies' pages are their own descriptions)
+
+- British Council LearnEnglish — one B1 listening lesson page: https://learnenglish.britishcouncil.org/free-resources/listening/b1/interview-about-listening-skills
+- Randall's ESL Cyber Listening Lab — home page: https://esl-lab.com/ and its own handout for teachers (June 2019): https://www.esl-lab.com/wp-content/uploads/handouts/esl-lab.pdf
+- ELLLO (English Listening Lesson Library Online) — home page: https://www.elllo.org/home/index.htm
+- Duolingo — how it teaches listening (May 2026): https://blog.duolingo.com/covering-all-the-bases-duolingos-approach-to-listening-skills/
+- Duolingo — radio-style listening lessons (2023, updated 2026): https://blog.duolingo.com/duoradio-listening-practice
+- 7ESL — dictation practice: https://7esl.com/listening/dictation/
+- Speechling — help page for its dictation: https://speechling.com/help/dictation
+- DailyDictation — home page: https://dailydictation.com
+- EnglishClub — dictation page: https://englishclub.com/listening/dictation.htm
+- LyricsTraining (songs with missing words), through three descriptions by others: Common Sense Education's review
+  https://www.commonsense.org/education/reviews/lyricstraining, a teachers' blog (2023)
+  https://teachersfirst.org/blog/2023/08/tech-tool-of-the-month-lyricstraining-part-2/ and the ECML's inventory of tools
+  https://ecml.at/Resources/ICT/tabid/5865/InventoryID/184/language/de-DE/Default.aspx
+- For teachers, on why listening is hard: a Cambridge paper (the file name gives John Field as author; 2019 copyright)
+  https://www.cambridgeenglish.org/Images/524275-second-language-listening-where-are-we-john-field-cambridge-english-teacher-.pdf,
+  Daniel Tse in the IH Journal (2023) https://ihworld.com/ih-journal/issues/issue-50/developing-word-recognition-sub-skills-in-listening
+  and Rachael Roberts on the Oxford University Press teachers' blog (2012) https://teachingenglishwithoxford.oup.com/2012/05/17/decoding-skills-listening-comprehension/
+
+How far to trust these: for ESL Cyber Listening Lab and ELLLO only the home pages and one handout were read, not a lesson page, so
+the order of steps inside a lesson and the length of recordings are from their own descriptions (the handout is from 2019).
+The British Council page was read as text: whether its transcript is folded away behind a button could not be seen. For
+DailyDictation and Speechling only a front page and a help page were read; what happens on a wrong answer in DailyDictation is
+not known here. LyricsTraining itself was not opened. The Duolingo pages do not say which of these features are paid. No app was
+installed, no account made, no exercise played. The British Council's listening pages for teenagers were looked for but not found
+by the search, so the adult site's lesson stands in for them.
+
+**What they do**
+
+- *One recording, one page, three stages.* The British Council's lesson has a matching task before the audio, the audio, then two
+  tasks (true / false, matching), the transcript, a worksheet to print and a question to discuss. Lessons are sorted A1 to C1.
+  ESL Cyber Listening Lab describes the same shape: level, topic and speakers shown first, a prediction step, multiple-choice
+  questions the learner may read before listening, an answer straight away, then the script with the key words in bold, then
+  discussion. ELLLO says most of its lessons have audio or video, a script, a few words to learn and a quiz.
+- *Real people.* ESL Cyber Listening Lab is recorded by its author with family and friends — adults and children at natural speed.
+  ELLLO's speakers come from more than a hundred countries (its page shows Jordan and Algeria among them), and it has one-minute
+  talks and a format where six people answer the same question.
+- *Sorted by level first, topic second.* Three levels at ESL Cyber Listening Lab (easy, intermediate, difficult — by topic,
+  words and speed of speech); ELLLO has beginner, intermediate and advanced with a 12-question level quiz for each.
+- *Text first, then no text.* Duolingo's article says listening exercises early in a unit show the words and later ones are sound
+  only: match a sound to a word, choose the missing word from two spoken options, type the missing word. A slow-play button is
+  always there, and its advice is to listen with eyes closed before reading. Its radio-style lessons are short spoken episodes
+  with a true / false check and "which three of these five words did you hear". Learners with hearing difficulty can switch
+  listening exercises off.
+- *Dictation, one line at a time.* 7ESL plays one line, lets the learner replay it freely, and checks word by word (right,
+  missing, different); capitals, punctuation and apostrophes are ignored and numbers may be digits or words; "show answer" counts
+  as wrong; the transcript comes afterwards. Speechling marks right and wrong words and brings back an item the learner gave up
+  on. DailyDictation's steps end with saying the sentence aloud. EnglishClub grades its dictations by length: a line or two, a
+  sentence or two, a paragraph or two.
+- *Why dictation at all.* The three teachers' articles agree: classes mostly test listening (a recording, questions, right or
+  wrong) and rarely teach it. The usual cause of a wrong answer is not missing vocabulary but not recognising known words when
+  they run together — small words lose their vowel, a final sound vanishes or changes before the next word, and there are no
+  spaces between words in speech. Their remedies are short and frequent: five minutes of writing down difficult stretches,
+  counting the words in a sentence, same / different listening, writing the full form of a reduced phrase, then comparing with
+  the script and listening again while reading. One of them adds that this works best on a text the learner has already understood.
+- *Songs.* LyricsTraining plays a music video with words missing from the lyrics; the learner types them or picks from four,
+  at four levels that blank more and more words; replaying a line costs points. The reviewers like it for older students but
+  warn about advertisements, a "buy" button, songs unsuitable for school and slang.
+
+**What I chose to propose, and what I left out**
+
+Proposed in `BACKLOG.md` (best first): a short conversation with questions for A2–B1 · listen and build the sentence · the script
+after checking in every exercise · little words: "What did you hear?" · a teacher's own voice in a listening exercise.
+
+Left out on purpose:
+- *Songs and music videos* (LyricsTraining). Other people's videos and lyrics cannot be brought into the site, a link out leads
+  to advertisements, and music is a matter of the school's and families' choice here — not for an agent to introduce.
+- *Videos and recordings of real speakers from other sites* (ELLLO, ESL Cyber Listening Lab). Nothing may be copied; the honest
+  equivalent is the teacher's own recording (idea 5).
+- *A discussion question with comments under each recording* (British Council). Public comments by school students need
+  moderation and are an accounts-and-safety decision far bigger than the feature. A teacher can ask the question in class.
+- *Printable worksheets.* Useful to a teacher, but it is a second kind of content to keep in step with every exercise; later.
+- *A limit on how many times the audio can be played, as in exams.* The site is for practice; the articles point the other way
+  (replay a short stretch many times). An "exam mode" could be a later option for a teacher.
+- *A 12-question listening level quiz* (ELLLO). Belongs with the placement-test angle, which has listening questions already.
+- *Wrong listening answers into "Practise my mistakes".* Already in the backlog as what is left of that idea.
+- *Accents from many countries.* The device's voices are what they are; the site teaches British English.
+
+**Notes for whoever builds these**
+
+- Conversation with questions: write every conversation ourselves, about 100–150 words at A2 and up to 200 at B1, two speakers
+  with clearly different voices (a man and a girl, not two women) because the computer voices are told apart only by pitch.
+  Questions follow the order of the recording; every answer must be findable in one line, so the script can mark it. New default
+  exercises reach existing devices through `LISTEN_V` / `upgradeListen`, as now; put them in the groups "A2 listening" and
+  "B1 listening" that already exist as names.
+- Listen and build the sentence: reuse `wNorm()`-style cleaning (it already treats "8" and "eight" alike in "Listen and write")
+  and `heardFix()` in `judge()` for clock times; accept "I am" for "I'm" here, whatever is decided for lesson Speak. For the
+  tap-the-words version take the two extra words from other phrases of the same lesson. Only phrases with text (`txtOk()`).
+  Cap a round at about eight phrases.
+- Script after checking: the sentences are in each exercise already (`say` / steps); escape with `esc()`; stop any playing audio
+  when a line's 🔊 is pressed (`quiet()`), and keep the script closed again after "Try again".
+- Little words: keep to contrasts a computer voice is likely to make (can / can't with the British long vowel, he's / he was,
+  I'll go / I go, there's a / there are) and avoid ones that depend on a weak vowel the voice may not produce. Show the sentence
+  after every answer, right or wrong — the point is to connect the sound with the words.
+- Teacher's voice: a lesson's voice track already shows how a recording is stored with the course and exported; follow that.
+  Check the size of an exported course with one-minute recordings before promising it.
+- As always, none of this can be heard by an agent; say so in the changelog, and see the two "needs the owner's ear" notes.
+
+**Angles not covered yet** (for the next runs): placement and level tests · teacher dashboards and assignments ·
+apps popular with Arabic speakers · reading, spelling and graded texts · word stress and sentence rhythm (touched on 2026-11-19) ·
+listening sites made for teenagers (the British Council's teens pages were not reached on 2026-11-20).
