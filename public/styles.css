@@ -957,6 +957,30 @@ header.top{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e8f0}
   .mxgame .tagn{width:24px;height:24px;top:-8px;right:-8px}
   .mxend .row .btn{flex:1 1 100%}
 }
+/* A short phone screen (most phones with the browser's own bars showing, and every small phone): the four pictures stand in one row,
+   so the whole board — clock, pictures and words — stays above the bottom tab bar while the clock runs; the result box is tighter too. */
+@media(max-width:560px) and (max-height:720px){
+  .mxtop{flex-wrap:nowrap;gap:8px}.mxb{white-space:nowrap}.mxbar{margin:6px 0 10px}
+  .mxgame .match{gap:12px}.mxgame .mpics{grid-template-columns:repeat(4,1fr);gap:8px}
+  .mxgame .mcard{height:74px;padding:4px;border-radius:14px}.mxgame .mcard .emo{font-size:40px}.mxgame .mcard .pic img{max-height:58px}
+  .mxgame .mwords{gap:8px}.mxgame .chip{min-height:54px;font-size:15px;border-radius:14px}
+  .mxgame .tagn{width:20px;height:20px;font-size:12px;top:-7px;right:-6px}
+  .mxintro{padding:14px 12px}.mxintro .e{font-size:34px}
+  .mxend{padding:14px 12px;margin-top:0}.mxend .stars{font-size:30px;line-height:1.1}.mxend h3{font-size:22px}
+  .mxend .mxsum{font-size:18px}.mxend .mxsum b{font-size:24px}.mxend .hint{margin-bottom:10px!important}.mxend .row{gap:8px}
+}
+@media(max-width:359px){
+  .mxtime{font-size:17px;padding:4px 10px}.mxscore{font-size:15px}.mxscore b{font-size:19px}.mxb{font-size:13px}
+  .mxgame .mpics{gap:6px}.mxgame .mcard{height:64px}.mxgame .mcard .emo{font-size:34px}.mxgame .mcard .pic img{max-height:50px}
+}
+/* Tablets: the four pictures fill the row and the words stand two by two under them (they were four narrow pictures on the left
+   over four words as wide as the page). */
+@media(min-width:561px) and (max-width:860px){
+  .mxgame .mpics{grid-template-columns:repeat(4,1fr);gap:14px}.mxgame .match{gap:18px}
+  .mxgame .mwords{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .mxgame .mwords .chip{min-height:64px;display:grid;place-items:center}
+  .mxintro .btn{min-width:260px}.mxend .btn{min-width:180px}
+}
 
 /* ---------- Test your speaking: sizes that were inline, and the phone layout ---------- */
 .sph.warn{background:none;border:0;border-radius:0;padding:0;margin:16px 0 6px;font-weight:800}
