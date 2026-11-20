@@ -288,9 +288,9 @@ function renderStudents() {
   const mail = r => `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent('Time to practise English! 🎧')}&body=${encodeURIComponent(`Hello ${r.name},\n\nWe miss you in Do it English! Please open the page and do a short listening or pronunciation exercise today.\n\nYour progress: ${r.overall}%\n\nSee you soon!`)}`;
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › Students</div>
-  <div class="banner photo" style="--img:url(photos/students.jpg)"><div class="bi">🧑‍🏫</div><div><h1>Students' progress</h1><p>See every student's progress and when they last practised.</p></div></div>
-  <div class="panel" style="margin-top:16px">
-    <div class="row" style="justify-content:space-between"><h3 class="sec-t" style="font-size:24px">📊 Students ${all ? `(${shown.length < all ? shown.length + ' of ' + all : all})` : ''}</h3>
+  <div class="banner photo stban" style="--img:url(photos/students.jpg)"><div class="bi">🧑‍🏫</div><div><h1>Students' progress</h1><p>See every student's progress and when they last practised.</p></div></div>
+  <div class="panel stpanel" style="margin-top:16px">
+    <div class="row sthead" style="justify-content:space-between"><h3 class="sec-t" style="font-size:24px">📊 Students ${all ? `(${shown.length < all ? shown.length + ' of ' + all : all})` : ''}</h3>
       ${syncUrl() && !classLoading ? '<button class="btn sm" id="refresh">↻ Refresh</button>' : ''}</div>
     ${classLoading ? loadBox('Loading your students…') : classErr ? (classRetry ? stateBox(navigator.onLine === false ? '📡' : '⚠️', 'The students could not be loaded', classErr, 'stRetry') : `<div class="warn">⚠️ ${esc(classErr)}</div>`) : ''}
     ${!all ? (classLoading || classErr ? '' : `<div class="empty"><div class="e">👥</div>${authTeacher() ? 'No students yet. Give your students the class code: they appear here after they create their account with it.' : syncUrl() ? 'No students yet. Students appear here after they write their details on the “My progress” page.' : 'Connect the class server below to see all your students here.'}</div>`) : `
@@ -305,9 +305,9 @@ function renderStudents() {
         <td class="smail">${r.email ? `<a class="btn sm ghost" href="${mail(r)}" title="Write a reminder email" aria-label="Write a reminder email to ${esc(r.name)}">✉️<span> Send a reminder</span></a>` : ''}</td></tr>`).join('')}
     </tbody></table></div>
     ${voiceErr && !classLoading ? `<div class="vnote"><span>⚠️ The voice test results could not be loaded. ${esc(netWhy())}</span> <button class="btn sm" id="voiceRetry">↻ Try again</button></div>` : ''}`}
-    <p class="lbl" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.${voiceLatest ? ' Voice test = the student\'s newest voice level test; “View” opens the full result, and “Show all tests” lists the older ones.' : ''}</p>
+    <p class="lbl stleg" style="margin:10px 0 0">Green = practised in the last day · Yellow = 2–6 days · Red = 7 days or more. ✉️ opens your email app with a reminder ready to send.${voiceLatest ? ' Voice test = the student\'s newest voice level test; “View” opens the full result, and “Show all tests” lists the older ones.' : ''}</p>
   </div>
-  <div class="panel" style="margin-top:16px">
+  <div class="panel stsrv" style="margin-top:16px">
     <h3 class="sec-t" style="font-size:24px">🔌 Class server & reminder emails</h3>
     <p class="hint">Without the class server, each student's progress stays on their own device. This website has its own class server (Supabase database): leave the address empty to use it, and write the teacher key that is set as <code>TEACHER_KEY</code> in Vercel. You then see every student here.</p>
     <div class="setg" style="grid-template-columns:2fr 1fr auto auto">

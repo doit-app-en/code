@@ -1423,3 +1423,55 @@ body.acct-front .navlinks a.hide-sm,body.acct-front .tabbar{display:none!importa
   .bsw{padding:8px 11px;font-size:16px}.bsfull{font-size:19px}
   .bsnav .btn{min-width:0;flex:1 1 100%}.bsend .row .btn{flex:1 1 100%}
 }
+/* ---------- teacher's Students page on phones and tablets (designer, 2026-11-20): a short banner, a shorter card per student
+   (Listening / Pronounce / Lessons side by side, an empty class hidden, "Not taken" on one line), two cards side by side on a tablet,
+   44px buttons and 48px boxes with 16px text, nothing wider than a 320px screen; "My classes" as tidy rows ---------- */
+@media(max-width:860px){
+  .sthead{flex-wrap:nowrap;gap:10px}.sthead .sec-t{margin:0;min-width:0}
+  .sthead .btn,.stpanel .vnote .btn,.stpanel .statebox .btn{min-height:44px;padding-left:14px;padding-right:14px;white-space:nowrap;flex:none}
+  .stbar{margin:12px 0}.stbar select{font-size:16px;min-height:48px}
+  .rtable.cards tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:8px;padding:14px 14px 12px}
+  .rtable.cards td{grid-column:1/-1;flex-wrap:wrap;gap:4px 12px}
+  .rtable.cards td.sname{overflow-wrap:anywhere;line-height:1.25;padding-bottom:9px}.rtable.cards td.sname .lbl{font-size:13px;margin-top:2px}
+  .rtable.cards td[data-l="Class"]:empty{display:none}
+  .rtable.cards td[data-l="Class"]{overflow-wrap:anywhere;font-weight:700}
+  .rtable.cards td[data-l="Listening"],.rtable.cards td[data-l="Pronounce"],.rtable.cards td[data-l="Lessons"]{grid-column:auto;flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;gap:1px;text-align:center;background:#f1f4fa;border:0;border-radius:12px;padding:8px 4px;margin:9px 0 3px;font-weight:800;font-size:17px;color:var(--navy)}
+  .rtable.cards td[data-l="Listening"]:before,.rtable.cards td[data-l="Pronounce"]:before,.rtable.cards td[data-l="Lessons"]:before{font-size:12px;text-align:center}
+  .rtable.cards td.vcell:has(>.lbl:only-child){display:flex;min-height:38px}.rtable.cards td.vcell:has(>.lbl:only-child):before{display:inline;margin:0}
+  .rtable.cards td.vcell:has(>.lbl:only-child) .lbl{margin:0}
+  .rtable.cards .vlink{min-height:44px}
+  .rtable.cards td[data-l="Last practised"]{min-height:44px;justify-content:space-between}
+  .rtable.cards td[data-l="Last practised"] .lbl{flex:1 1 100%;text-align:right}
+  .rtable.cards td.smail{padding-top:8px}
+  .stleg{font-size:13px;line-height:1.5}
+  .stsrv .in,#acctClasses .in{min-height:48px;font-size:16px}
+  .stsrv .setg .btn{min-height:48px}
+  .stsrv .setup summary{padding:12px 0;line-height:1.35}.stsrv .setup{padding:4px 16px}.stsrv .setup[open]{padding-bottom:14px}
+  .stsrv .setup .row .btn{min-height:44px}
+  .acctadv summary{min-height:44px;padding:11px 4px}
+  #acctClasses .acctcl .btn{min-height:44px}
+  #acctClasses form .btn{min-height:48px}
+}
+@media(min-width:641px) and (max-width:860px){
+  .rtable.cards tbody{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+  .rtable.cards tr{margin:0}
+  .stbar label{max-width:320px}
+}
+@media(max-width:640px){
+  .banner.stban{min-height:0;padding:16px 20px;border-radius:22px}.banner.stban h1{font-size:28px;line-height:1.1}.banner.stban p{font-size:15px;margin-top:4px;line-height:1.35}
+  .stpanel .sec-t,.stsrv .sec-t,#acctClasses .sec-t{font-size:21px!important;line-height:1.25}
+  .stpanel .empty{padding:18px 6px}
+  .stsrv .hint,#acctClasses .hint{font-size:15px;line-height:1.45}
+  .stsrv .setup ol{padding-left:20px;font-size:15px;line-height:1.6}
+  #acctClasses .acctcl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;padding:12px}
+  #acctClasses .acctcl>div{overflow-wrap:anywhere}
+  #acctClasses .acctcl code{font-size:20px;padding:6px 10px}
+  #acctClasses .acctcl .btn{grid-column:1/-1;width:100%}
+  #acctClasses form .in{flex:1 1 100%!important}#acctClasses form .btn{width:100%}
+}
+/* the top bar on the narrowest phones (320px): the Student/Teacher switch was 16px wider than the screen, so every page could be pushed sideways */
+@media(max-width:350px){
+  .top{padding-left:10px;padding-right:10px;gap:6px}
+  .brand{font-size:17px;gap:6px}.brand .logo{width:32px;height:32px;font-size:16px}
+  .navlinks{gap:3px}.seg button{padding:7px 7px}
+}
