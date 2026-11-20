@@ -124,7 +124,7 @@ function mistAnswer(x, ok) {
 function onMistClick(e) {
   const t = e.target, x = MK && MK.q[MK.i];
   if (MK && MK.end && Date.now() - MK.shown < MIST_TAP && t.closest('a')) return e.preventDefault();   // the second tap of a double tap on "See my result" landing on "Home"
-  const sw = t.closest('[data-sayw]'); if (sw) return say(sw.dataset.sayw, null, 0.75);
+  const sw = t.closest('[data-sayw]'); if (sw) { micOffToHear(); return say(sw.dataset.sayw, null, 0.75); }
   const o = t.closest('.mkopt');
   if (o && x && x.kind === 'm' && !x.res) {
     const ok = x.opts[+o.dataset.o] === x.item.word, msg = mistAnswer(x, ok);
@@ -136,8 +136,8 @@ function onMistClick(e) {
   const b = t.closest('[data-act]'); if (!b) return;
   if ((b.dataset.act === 'again' || (b.dataset.act === 'next' && x && !x.res)) && Date.now() - MK.shown < MIST_TAP) return;   // the second tap of a double tap
   switch (b.dataset.act) {
-    case 'hear': say(x.item.text); break;
-    case 'slow': say(x.item.text, null, 0.6); break;
+    case 'hear': micOffToHear(); say(x.item.text); break;
+    case 'slow': micOffToHear(); say(x.item.text, null, 0.6); break;
     case 'mic': mistMic(x); break;
     case 'again': renderMistakes(); break;
     case 'next':

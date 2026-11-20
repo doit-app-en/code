@@ -377,8 +377,11 @@ function renderPronTest(sec) {
   </div>`;
   PR.tries = 0; PR.best = null; PR.busy = false;
   pronHow(); if (typeof vtLoadCaps === 'function') vtLoadCaps().then(pronHow);
-  $('#pHear').onclick = () => { prMeStop(); say(w, null, 0.85); };
-  $('#pSlow').onclick = () => { prMeStop(); say(w, null, 0.55); };
+  // The model is never played into a listening microphone (it would be scored as the student's own word).
+  const hearOk = () => { if (prRec) { toast('The microphone is listening — say the word, or press the microphone to stop'); return false; }
+    micQuiet($('#pMic'), $('#pStat'), 'Listen first, then press the microphone and say the word'); prMeStop(); return true; };
+  $('#pHear').onclick = () => { if (hearOk()) say(w, null, 0.85); };
+  $('#pSlow').onclick = () => { if (hearOk()) say(w, null, 0.55); };
   // The last recording of this word that the full check scored. It lives in this function only: the next word starts with none.
   let mine = null;
   const meShow = wav => { mine = wav || null; const b = $('#pMe'); if (b) b.style.display = mine ? '' : 'none'; };

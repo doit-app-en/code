@@ -242,6 +242,56 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Lesson "Listen & See" and "Speak" on a phone with a pretend voice and a pretend microphone that answers only when told to:
+// "Play all" can be stopped, "Listen" switches a listening microphone off (it must not hear the model), an answer that arrives after
+// "Next phrase" is not shown on the next phrase, "7:00" is read as "seven o'clock", and a lesson left while its pictures load is not drawn over the next page.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage();
+  watch(page, 'lesson listen and speak');
+  try {
+    await page.addInitScript(() => {
+      window._recs = [];
+      window.SpeechRecognition = window.webkitSpeechRecognition = class { constructor() { window._recs.push(this); } start() { this.on = true; setTimeout(() => this.on && this.onstart && this.onstart(), 10); }
+        fire(t) { this.on = false; if (this.onresult) this.onresult({ results: [[{ transcript: t }]] }); if (this.onend) this.onend(); } stop() {} abort() { this.on = false; } };
+      window.SpeechSynthesisUtterance = class { constructor(t) { this.text = t; } };
+      window._said = [];
+      Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { speaking: false, pending: false, getVoices: () => [{ name: 'UK', lang: 'en-GB', localService: true }], cancel() {}, resume() {}, pause() {}, addEventListener() {}, speak(u) { window._said.push(u.text); setTimeout(() => u.onend && u.onend(), 150); } } });
+    });
+    await page.goto(base + '/', { waitUntil: 'load' }); await page.waitForFunction(() => typeof state !== 'undefined' && state && state.levels);
+    await page.evaluate(() => { location.hash = '#/lesson/a1/' + state.levels.a1.lessons[0].id; }); await page.waitForSelector('[data-tab=listen]'); await page.click('[data-tab=listen]');
+    const pa = () => page.evaluate(() => ({ btn: document.querySelector('[data-act=playall]').textContent, lit: document.querySelectorAll('.phr.active').length }));
+    await page.click('[data-act=playall]'); await page.waitForTimeout(100); const p1 = await pa();
+    await page.click('[data-act=playall]'); await page.waitForTimeout(100); const p2 = await pa(), n2 = await page.evaluate(() => _said.length);
+    await page.waitForTimeout(1200); const n3 = await page.evaluate(() => _said.length);
+    if (!/Stop/.test(p1.btn) || p1.lit !== 1 || !/Play all/.test(p2.btn) || p2.lit !== 0 || n3 !== n2) problems.push('lesson Listen & See: "Play all" should be "Stop" while it runs, and stop when pressed again ' + JSON.stringify({ p1, p2, n2, n3 }));
+    await page.click('[data-act=playall]'); await page.waitForFunction(() => /Play all/.test(document.querySelector('[data-act=playall]').textContent), null, { timeout: 8000 }).catch(() => problems.push('lesson Listen & See: the button is not "Play all" again after the last phrase'));
+    await page.click('[data-tab=speak]'); await page.waitForSelector('#mic');
+    const sp = () => page.evaluate(() => ({ on: !!recog, rec: document.querySelector('#mic').classList.contains('rec'), st: document.querySelector('#status').textContent, res: document.querySelector('#result').innerText.trim().length, best: Object.keys(S.best).length, ph: document.querySelector('.speak .prog').textContent }));
+    await page.click('#mic'); await page.waitForTimeout(60); const a1 = await sp(); await page.click('[data-act=hear]'); await page.waitForTimeout(60); const a2 = await sp();
+    await page.evaluate(() => _recs[_recs.length - 1].fire("I wake up at seven o'clock")); await page.waitForTimeout(60); const a3 = await sp();
+    if (!a1.on || !a1.rec || a2.on || a2.rec || !/Listen first/.test(a2.st) || a3.res || a3.best) problems.push('lesson Speak: "Listen" pressed while the microphone listens should switch the microphone off, and what it hears afterwards must not be scored ' + JSON.stringify({ a1, a2, a3 }));
+    await page.click('#mic'); await page.waitForTimeout(60); await page.click('[data-act=snext]'); await page.evaluate(() => _recs[_recs.length - 1].fire("I wake up at seven o'clock")); await page.waitForTimeout(60); const b1 = await sp();
+    if (b1.res || b1.best || !/Phrase 2/.test(b1.ph)) problems.push('lesson Speak: an answer that arrives after "Next phrase" is shown or saved on the next phrase ' + JSON.stringify(b1));
+    await page.click('[data-act=sprev]'); await page.click('#mic'); await page.waitForTimeout(60); await page.evaluate(() => _recs[_recs.length - 1].fire('I wake up at 7:00')); await page.waitForTimeout(60);
+    const c1 = await page.evaluate(() => ({ score: Object.values(S.best)[0], red: document.querySelectorAll('#tgt .w.no').length }));
+    if (!(c1.score >= 90) || c1.red) problems.push('lesson Speak: "I wake up at 7:00" should count as "I wake up at seven o\'clock." ' + JSON.stringify(c1));
+    await page.screenshot({ path: path.join(shots, 'phone-lesson-speak-result.png') });
+    // "Practise my mistakes" has the same buttons: "Listen" switches its microphone off too.
+    await page.evaluate(async () => { const L = state.levels.a1.lessons[0]; noteMistake('s', L, L.speaking[1]); location.hash = '#/mistakes'; }); await page.waitForSelector('[data-act=start], #mic');
+    if (await page.$('[data-act=start]')) await page.click('[data-act=start]');
+    await page.waitForSelector('#mic'); await page.click('#mic'); await page.waitForTimeout(60); const m1 = await page.evaluate(() => !!recog); await page.click('[data-act=hear]'); await page.waitForTimeout(60);
+    const m2 = await page.evaluate(() => ({ on: !!recog, rec: document.querySelector('#mic').classList.contains('rec'), st: document.querySelector('#status').textContent }));
+    if (!m1 || m2.on || m2.rec || !/Listen first/.test(m2.st)) problems.push('Practise my mistakes: "Listen" pressed while the microphone listens should switch the microphone off ' + JSON.stringify({ m1, m2 }));
+    // Leaving a lesson while its pictures are still being read from the device's storage.
+    await page.evaluate(async () => { const L = state.levels.a1.lessons[0], id = await storeMedia(new Blob(['x'], { type: 'image/png' })); delete urlCache[id]; L.phrases[0].img = { m: id };
+      const get = DB.get.bind(DB); DB.get = (s, k) => s === 'media' ? new Promise(r => setTimeout(() => get(s, k).then(r), 400)) : get(s, k);
+      location.hash = '#/lesson/a1/' + L.id; setTimeout(() => { location.hash = '#/progress'; }, 100); });
+    await page.waitForTimeout(800);
+    if (await page.evaluate(() => !!document.querySelector('.lstabs'))) problems.push('lesson: a lesson left while its pictures were loading is drawn over the page the student went to');
+  } catch (e) { problems.push('lesson listen and speak: ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 // Mixed match on a phone: locked until two lessons are finished, then a short round (MIX_SECS shortened) with one wrong pair,
 // the result, the student's own best kept on the device, and a second round that does not beat it.
 {

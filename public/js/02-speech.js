@@ -53,6 +53,21 @@ async function say(text, onend, rate = 0.9, pitch = 1) {
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recog = null, recorder = null, playToken = 0;
+// Switches a listening microphone (speech recognition) off for good: whatever it sends afterwards is ignored, so a late answer is never
+// shown on the next phrase and its "end" cannot switch off a microphone that was started after it. Returns true when one was listening.
+function recogOff() {
+  if (!recog) return false;
+  const r = recog; recog = null; r.onstart = r.onresult = r.onerror = r.onend = null;
+  try { r.abort(); } catch (e) {}
+  return true;
+}
+// "Listen" pressed while the microphone is listening: the microphone goes off first, or it would hear the computer's voice and score it
+// as the student's answer.
+function micQuiet(mic, st, text) {
+  if (!recogOff()) return false;
+  if (mic) mic.classList.remove('rec'); if (st) st.textContent = text;
+  return true;
+}
 function stopAll() {
   if (typeof spAbort === 'function') spAbort();
   if (typeof vtAbort === 'function') vtAbort();
@@ -60,7 +75,7 @@ function stopAll() {
   playToken++;
   try { speechSynthesis.cancel(); } catch (e) {}
   clearInterval(ptIv); Music.stop();
-  if (recog) { try { recog.abort(); } catch (e) {} recog = null; }
+  recogOff();
   if (recorder && recorder.state === 'recording') { recorder._cancel = true; recorder.stop(); }
   document.querySelectorAll('audio,video').forEach(m => m.pause());
 }

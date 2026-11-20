@@ -70,7 +70,9 @@ async function renderLesson(lid, sid) {
   if (!LS || LS.id !== lesson.id) { curTab = 'video'; M = {}; S = {i:0, best:{}}; }
   LID = lid; LS = lesson; LVL = LV(lid);
   const ids = [lesson.video && lesson.video.m, lesson.audio && lesson.audio.m, ...lesson.phrases.map(p => p.img && p.img.m), ...lesson.matching.map(p => p.img && p.img.m)];
+  const here = location.hash;
   await Promise.all(ids.filter(Boolean).map(loadMedia));
+  if (location.hash !== here) return;   // the student left while the lesson's pictures, track or video were loading: do not draw over that page
   const idx = state.levels[lid].lessons.indexOf(lesson);
   app.innerHTML = `
   <div class="crumbs"><a href="#/">Home</a> › <a href="#/level/${lid}">${LVL.name}</a> › ${esc(lesson.title)}</div>
@@ -80,7 +82,7 @@ async function renderLesson(lid, sid) {
   <div class="lnav"><button class="btn ghost" id="prevStep">← Previous step</button><button class="btn" id="nextStep" style="background:${LVL.color}">Next step →</button></div>`;
   app.querySelectorAll('.tab').forEach(b => b.onclick = () => { curTab = b.dataset.tab; drawTab(); });
   $('#prevStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i > 0) { curTab = TABS[i - 1][0]; drawTab(); stepTop(); } };
-  $('#nextStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i < 3) { curTab = TABS[i + 1][0]; drawTab(); stepTop(); } else { markLessonDone(LS.id); toast('Lesson finished! 🎉'); go('#/level/' + lid); } };
+  $('#nextStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i < 3) { curTab = TABS[i + 1][0]; drawTab(); stepTop(); } else { markLessonDone(LS.id); toast('Lesson finished! 🎉'); curTab = 'video'; M = {}; S = {i:0, best:{}}; go('#/level/' + lid); } };   // opened again, a finished lesson starts at step 1
   const body = $('#body');
   body.onclick = onBodyClick; body.onchange = onBodyChange;
   body.ondragstart = e => { const c = e.target.closest('.mcard'); if (c) { M.sel = +c.dataset.mi; e.dataTransfer.setData('text', c.dataset.mi); } };
@@ -133,10 +135,13 @@ function stuListen() {
   return `<h3 class="sec-t">🎧 Listen & See</h3>
     <p class="hint">${LS.audio ? 'Play the voice track — each picture lights up when you hear its phrase. Tap a picture to jump to it.' : 'Tap a picture to hear the phrase, or press “Play all”.'}</p>
     <div class="stage" id="stage">${stageHTML(-1)}</div>
-    ${LS.audio ? `<audio id="trk" controls src="${urlCache[LS.audio.m] || ''}"></audio>` : `<button class="btn sun" data-act="playall">▶ Play all</button>`}
+    ${LS.audio ? `<audio id="trk" controls src="${urlCache[LS.audio.m] || ''}"></audio>` : `<button class="btn sun" data-act="playall">${PA_PLAY}</button>`}
     <div class="phr-grid">${ph.map((p, i) => !txtOk(p) ? '' : `<div class="phr" data-pi="${i}"><div class="pic">${imgHTML(p.img)}</div><div class="pt">${esc(p.text)}</div>${LS.audio ? `<span class="tm">${fmt(p.time)}</span>` : ''}</div>`).join('')}</div>`;
 }
-let activeP = -1;
+let activeP = -1, playingAll = false;
+const PA_PLAY = '▶ Play all', PA_STOP = '⏹ Stop';
+// "Play all" is "Stop" while it runs.
+function playAllIs(on) { playingAll = on; const b = $('#stu [data-act="playall"]'); if (b) b.textContent = on ? PA_STOP : PA_PLAY; }
 function setActive(i) {
   if (i === activeP) return; activeP = i;
   document.querySelectorAll('.phr').forEach(el => el.classList.toggle('active', +el.dataset.pi === i));
@@ -229,12 +234,14 @@ const norm = s => String(s).toLowerCase().replace(/[’‘`]/g, "'").replace(/[^
 const tokens = text => text.split(/\s+/).filter(Boolean).map(o => ({o, n: norm(o).replace(/ /g, '')}));
 function lev(a, b) { const m = a.length, n = b.length; if (!m) return n; if (!n) return m; let prev = Array.from({length: n + 1}, (_, j) => j);
   for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; } return prev[n]; }
-const NUM = {zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9',ten:'10'};
+const NUM = {zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9',ten:'10',eleven:'11',twelve:'12'};
+// Speech recognition may write "seven o'clock" as "7:00": read it back as the words the student said.
+const heardFix = s => String(s).replace(/\b(\d{1,2}):00\b/g, "$1 o'clock");
 const wEq = (a, b) => { a = a.replace(/'/g, ''); b = b.replace(/'/g, ''); if (a === b || NUM[a] === b || NUM[b] === a) return true; return a.length >= 6 && a[0] === b[0] && lev(a, b) <= 1; };
 function judge(target, alts) {
   const tk = tokens(target), tw = tk.map(t => t.n); let best = null;
   for (const alt of alts) {
-    const hw = norm(alt).split(' ').filter(Boolean), n = tw.length, m = hw.length;
+    const said = heardFix(alt), hw = norm(said).split(' ').filter(Boolean), n = tw.length, m = hw.length;
     const dp = Array.from({length: n + 1}, () => new Array(m + 1).fill(0));
     for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) dp[i][j] = tw[i - 1] && wEq(tw[i - 1], hw[j - 1]) ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
     const ok = new Set(); let i = n, j = m;
@@ -242,7 +249,7 @@ function judge(target, alts) {
     const real = tw.filter(Boolean).length || 1;
     const wordScore = ok.size / real;
     const extra = Math.max(0, m - real) / real;
-    const A = norm(target).replace(/'/g, ''), B = norm(alt).replace(/'/g, '');
+    const A = norm(target).replace(/'/g, ''), B = norm(said).replace(/'/g, '');
     const cs = 1 - lev(A, B) / Math.max(A.length, B.length, 1);
     const score = Math.max(0, Math.round(100 * (0.7 * wordScore + 0.3 * cs) - extra * 10));
     if (!best || score > best.score) best = {score, heard: alt, ok};
@@ -264,19 +271,22 @@ function showResult(res) {
   if (s >= 90) say('Excellent!', null, 1);
 }
 const srErrText = err => err === 'not-allowed' || err === 'service-not-allowed' ? '🚫 Microphone blocked — allow microphone access in your browser.' : err === 'no-speech' ? '🤔 I didn\'t hear anything. Try again a little louder.' : err === 'audio-capture' ? '🎤 No microphone was found. Check that your device has one and that it is switched on.' : err === 'network' ? '🌐 Speech recognition needs an internet connection.' : 'Something went wrong (' + err + '). Try again.';
+// Lesson Speak and "Practise my mistakes" (same ids): the model is never played into a listening microphone.
+function micOffToHear() { micQuiet($('#mic'), $('#status'), 'Listen first, then press the microphone and speak'); }
 function startMic() {
   if (!SR) { toast('Please open this page in Chrome or Edge for speech recognition'); return; }
   const mic = $('#mic'), st = $('#status');
   if (recog) { recog.stop(); return; }
   speechSynthesis.cancel();
   const it = spk()[S.i];
-  recog = new SR(); recog.lang = LANG; recog.interimResults = false; recog.maxAlternatives = 5; recog.continuous = false;
+  const r = recog = new SR(); r.lang = LANG; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
   let got = false;
-  recog.onstart = () => { mic.classList.add('rec'); st.textContent = '🎙 Listening… speak now'; };
-  recog.onresult = e => { got = true; const alts = [...e.results[0]].map(a => a.transcript); st.textContent = 'Checking…'; showResult(judge(it.text, alts)); st.textContent = 'Press the microphone to try again'; };
-  recog.onerror = e => { st.textContent = srErrText(e.error); };
-  recog.onend = () => { mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and speak'; };
-  try { recog.start(); } catch (e) { recog = null; }
+  const live = () => recog === r && spk()[S.i] === it && document.contains(mic);   // still this try of this phrase
+  r.onstart = () => { if (!live()) return; mic.classList.add('rec'); st.textContent = '🎙 Listening… speak now'; };
+  r.onresult = e => { if (!live()) return; got = true; const alts = [...e.results[0]].map(a => a.transcript); st.textContent = 'Checking…'; showResult(judge(it.text, alts)); st.textContent = 'Press the microphone to try again'; };
+  r.onerror = e => { if (live()) st.textContent = srErrText(e.error); };
+  r.onend = () => { if (recog !== r) return; mic.classList.remove('rec'); recog = null; if (!got && st.textContent.startsWith('🎙')) st.textContent = 'Press the microphone and speak'; };
+  try { r.start(); } catch (e) { if (recog === r) recog = null; }
 }
 
 /* ---- teacher picture editor ---- */
@@ -289,6 +299,7 @@ function picEdit(kind, i, img) {
 /* ---- events in lesson body ---- */
 function bindStu() {
   activeP = -1;
+  if (playingAll) { playToken++; playingAll = false; }   // the page was drawn again (a new "Play all" button): the old run must not go on behind it
   const trk = $('#trk');
   if (trk) trk.ontimeupdate = () => {
     const t = trk.currentTime; let a = -1, at = -1;
@@ -300,9 +311,9 @@ async function onBodyClick(e) {
   const t = e.target;
   // student actions
   const sayEl = t.closest('[data-say]'); if (sayEl) return say(LS.phrases[+sayEl.dataset.say].text);
-  const sw = t.closest('[data-sayw]'); if (sw) return say(sw.dataset.sayw, null, 0.75);
+  const sw = t.closest('[data-sayw]'); if (sw) { micOffToHear(); return say(sw.dataset.sayw, null, 0.75); }
   const ph = t.closest('.phr');
-  if (ph) { const i = +ph.dataset.pi, trk = $('#trk'); if (trk) { trk.currentTime = LS.phrases[i].time; trk.play(); } else { playToken++; setActive(i); say(LS.phrases[i].text); } return; }
+  if (ph) { const i = +ph.dataset.pi, trk = $('#trk'); if (trk) { trk.currentTime = LS.phrases[i].time; trk.play(); } else { playToken++; playAllIs(false); setActive(i); say(LS.phrases[i].text); } return; }
   const mc = t.closest('.mcard');
   if (mc && !mc.classList.contains('done')) { M.sel = +mc.dataset.mi; document.querySelectorAll('.mcard').forEach(c => c.classList.toggle('sel', c === mc)); return; }
   const ch = t.closest('.chip'); if (ch && !ch.classList.contains('done')) return tryMatch(+ch.dataset.wi, ch);
@@ -310,13 +321,14 @@ async function onBodyClick(e) {
   const act = b.dataset.act, k = b.dataset.kind, i = +b.dataset.idx;
   switch (act) {
     case 'playall': {
+      if (playingAll) { playToken++; playAllIs(false); try { speechSynthesis.cancel(); } catch (e) {} setActive(-1); break; }   // the same button stops it
       const tok = ++playToken, ix = LS.phrases.map((_, i) => i).filter(i => txtOk(LS.phrases[i])); let n = 0;
-      const next = () => { if (tok !== playToken || n >= ix.length) { if (tok === playToken) setActive(-1); return; } const i = ix[n++]; setActive(i); say(LS.phrases[i].text, () => setTimeout(next, 700)); };
-      next(); break;
+      const next = () => { if (tok !== playToken || n >= ix.length) { if (tok === playToken) { setActive(-1); playAllIs(false); } return; } const i = ix[n++]; setActive(i); say(LS.phrases[i].text, () => setTimeout(next, 700)); };
+      playAllIs(true); next(); break;
     }
     case 'mreset': resetMatch(); drawStu(); break;
-    case 'hear': say(spk()[S.i].text); break;
-    case 'slow': say(spk()[S.i].text, null, 0.6); break;
+    case 'hear': micOffToHear(); say(spk()[S.i].text); break;
+    case 'slow': micOffToHear(); say(spk()[S.i].text, null, 0.6); break;
     case 'mic': startMic(); break;
     case 'snext': stopAll(); S.i = (S.i + 1) % Math.max(1, spk().length); drawStu(); break;
     case 'sprev': stopAll(); S.i = Math.max(0, S.i - 1); drawStu(); break;
@@ -342,9 +354,12 @@ async function onBodyClick(e) {
     case 'copyph': LS.phrases.forEach(p => { if (p.text && !LS.speaking.some(s => s.text === p.text)) LS.speaking.push({id: uid(), text: p.text}); }); await save(); drawTab(); break;
   }
 }
-function drawStuKeepAudio() { // refresh time labels without restarting the track
-  document.querySelectorAll('.phr').forEach(el => { const tm = el.querySelector('.tm'); if (tm) tm.textContent = fmt(LS.phrases[+el.dataset.pi].time); });
+function drawStuKeepAudio() { // refresh the tiles (time, words, picture) without restarting the track
+  document.querySelectorAll('.phr').forEach(el => { const p = LS.phrases[+el.dataset.pi], tm = el.querySelector('.tm'), pt = el.querySelector('.pt'), pic = el.querySelector('.pic'); if (!p) return;
+    if (tm) tm.textContent = fmt(p.time); if (pt) pt.textContent = p.text; if (pic) pic.innerHTML = imgHTML(p.img); });
 }
+// The tiles on the page are exactly the finished phrases (so a change can be written into them without drawing the step again).
+const tilesFit = () => [...document.querySelectorAll('.phr')].map(el => el.dataset.pi).join() === LS.phrases.map((p, i) => txtOk(p) ? i : '').filter(x => x !== '').join();
 async function onBodyChange(e) {
   const t = e.target, k = t.dataset.kind, i = +t.dataset.idx;
   if (t.dataset.upload === 'video' || t.dataset.upload === 'audio') {
@@ -362,7 +377,7 @@ async function onBodyChange(e) {
   else item[f] = t.value;
   await save();
   { const en = $('#edNote'); if (en) en.textContent = edNoteText(); }
-  if (curTab === 'listen' && $('#trk') && f !== 'text') drawStuKeepAudio(); else { if (curTab === 'match') M = {}; drawStu(); }
+  if (curTab === 'listen' && $('#trk') && tilesFit()) drawStuKeepAudio(); else { if (curTab === 'match') M = {}; drawStu(); }   // a playing track is not started again by every change
 }
 async function toggleRec(btn) {
   if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
