@@ -380,6 +380,8 @@ for (const screen of SCREENS) {
     await page.click('#bsGo'); await page.waitForSelector('#bsIntro', { timeout: 5000 }); await page.waitForTimeout(150);
     await page.screenshot({ path: path.join(shots, 'phone-listen-build-intro.png') });
     await page.click('#bsStart'); await page.waitForSelector('#bsBank', { timeout: 5000 });
+    // A double tap on "Start" (its second tap lands on a word button) must not put a word into the sentence. (Word buttons and "Next" wake up after 400 ms.)
+    a.start = await page.evaluate(() => { document.querySelector('#bsBank .bsw').click(); return BS.q[0].ans.length; }); await page.waitForTimeout(450);
     // The word buttons of the phrase on the screen, in the right order (the places of its words among the buttons).
     const order = () => page.evaluate(() => { const x = BS.q[BS.i], used = []; return x.want.map(w => { const i = x.bank.findIndex((b, i) => b.n === w.n && !used.includes(i)); used.push(i); return i; }); });
     const tap = async list => { for (const i of list) await page.click(`#bsBank .bsw[data-b="${i}"]`); };
@@ -392,26 +394,27 @@ for (const screen of SCREENS) {
     const o1 = await order(), extra = await page.evaluate(() => { const x = BS.q[BS.i]; return x.bank.findIndex(b => !x.want.some(w => w.n === b.n)); });
     await tap([o1[1], o1[0], extra, ...o1.slice(3)]); await page.screenshot({ path: path.join(shots, 'phone-listen-build-question.png') });
     a.fit = await fits();
-    await page.click('#bsCheck'); await page.waitForSelector('#bsLine .bsw.no', { timeout: 5000 }); await page.waitForTimeout(150);
+    await page.focus('#bsCheck'); await page.keyboard.press('Enter'); await page.waitForSelector('#bsLine .bsw.no', { timeout: 5000 }); await page.waitForTimeout(150);
     await page.screenshot({ path: path.join(shots, 'phone-listen-build-wrong.png') });
-    a.wrong = await page.evaluate(() => ({ ok: document.querySelectorAll('#bsLine .bsw.ok').length, no: document.querySelectorAll('#bsLine .bsw.no').length, fb: document.querySelector('#bsFb').innerText.replace(/\s+/g, ' '), mist: Object.keys(mistakes).length, over: BS.q[0].over }));
+    // a word that does not belong stands where the word left out should be: it is marked, and no "?" as well (a "?" is only for a place with no word); the keyboard stays on "Check"
+    a.wrong = await page.evaluate(() => ({ ok: document.querySelectorAll('#bsLine .bsw.ok').length, no: document.querySelectorAll('#bsLine .bsw.no').length, gap: document.querySelectorAll('#bsLine .bsgap').length, focus: document.activeElement.id, fb: document.querySelector('#bsFb').innerText.replace(/\s+/g, ' '), mist: Object.keys(mistakes).length, over: BS.q[0].over }));
     await page.setViewportSize({ width: 320, height: 640 }); await page.waitForTimeout(150); a.fit320 = await fits();
     await page.screenshot({ path: path.join(shots, 'phone-320-listen-build.png') }); await page.setViewportSize({ width: 390, height: 800 });
     for (let n = await page.evaluate(() => BS.q[0].ans.length); n > 0; n--) await page.click('#bsLine .bsw');   // every word out again
     await tap(o1); await page.click('#bsCheck'); await page.waitForSelector('#bsNext', { timeout: 5000 }); await page.waitForTimeout(150);
     a.fixed = await page.evaluate(() => BS.q[0].res + ' | ' + document.querySelector('#bsFull').innerText.includes(BS.q[0].text));
-    await page.screenshot({ path: path.join(shots, 'phone-listen-build-right.png') });
+    await page.screenshot({ path: path.join(shots, 'phone-listen-build-right.png') }); await page.waitForTimeout(450);
     // 2: a double tap on "Next" does not show the next answer; then "Show the answer". The others: right the first time.
     a.double = await page.evaluate(() => { document.querySelector('#bsNext').click(); document.querySelector('#bsShowA').click(); return BS.i !== 1 || BS.q[1].over; });
     await page.waitForTimeout(450); await page.click('#bsShowA'); await page.waitForSelector('#bsNext');
-    for (let i = 2; i < a.n; i++) { await page.click('#bsNext'); await page.waitForSelector('#bsBank'); await tap(await order()); await page.click('#bsCheck'); await page.waitForSelector('#bsNext'); }
-    await page.click('#bsNext'); await page.waitForSelector('#bsEnd', { timeout: 5000 }); await page.waitForTimeout(450);
+    for (let i = 2; i < a.n; i++) { await page.waitForTimeout(450); await page.click('#bsNext'); await page.waitForSelector('#bsBank'); await page.waitForTimeout(450); await tap(await order()); await page.click('#bsCheck'); await page.waitForSelector('#bsNext'); }
+    await page.waitForTimeout(450); await page.click('#bsNext'); await page.waitForSelector('#bsEnd', { timeout: 5000 }); await page.waitForTimeout(450);
     await page.screenshot({ path: path.join(shots, 'phone-listen-build-result.png') });
     a.end = await page.evaluate(() => ({ text: document.querySelector('#bsEnd').innerText.replace(/\s+/g, ' '), res: BS.q.map(x => x.res).join(','), mist: Object.keys(mistakes).filter(k => k[0] === 's').length, days: activity.days[todayKey()] || 0, link: !!document.querySelector('#bsBody #mistGo'), over: document.documentElement.scrollWidth - innerWidth }));
     await page.click('#bsAgain'); await page.waitForSelector('#bsBank', { timeout: 5000 });
     a.last = await page.evaluate(() => { const again = BS.i === 0 && BS.q.every(x => !x.res); mode = 'teacher'; renderHome(); const teacher = !!document.querySelector('#bsGo'); mode = 'student'; renderProgress(); return { again, teacher, progress: !!document.querySelector('#bsGo') }; });
-    if (!a.none || !/Listen and build/.test(a.home) || a.n !== 4 || !a.bank || !a.check0 || a.fit.over > 1 || a.fit.small || a.fit320.over > 1 || a.fit320.small
-      || !a.wrong.no || !/Not yet/.test(a.wrong.fb) || a.wrong.mist !== 1 || a.wrong.over || a.fixed !== 'fixed | true' || a.double
+    if (!a.none || !/Listen and build/.test(a.home) || a.n !== 4 || !a.bank || !a.check0 || a.start || a.fit.over > 1 || a.fit.small || a.fit320.over > 1 || a.fit320.small
+      || !a.wrong.no || a.wrong.gap || a.wrong.focus !== 'bsCheck' || !/Not yet/.test(a.wrong.fb) || a.wrong.mist !== 1 || a.wrong.over || a.fixed !== 'fixed | true' || a.double
       || !new RegExp(`${a.n - 2} of ${a.n} right the first time`).test(a.end.text) || a.end.res !== 'fixed,shown' + ',ok'.repeat(a.n - 2) || a.end.mist !== 2 || a.end.days < 1 || !a.end.link || a.end.over > 1
       || !a.last.again || a.last.teacher || !a.last.progress)
       problems.push('listen and build: the round, the marks, the result or the link is wrong ' + JSON.stringify(a));
