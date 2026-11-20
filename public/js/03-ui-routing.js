@@ -1,7 +1,10 @@
 /* ================= picture helper ================= */
 function imgHTML(img) {
   if (img && img.m) return urlCache[img.m] ? `<img src="${urlCache[img.m]}" alt="">` : `<span class="emo">🖼️</span>`;
-  return `<span class="emo">${esc((img && img.e) || '🖼️')}</span>`;
+  const e = (img && img.e) || '🖼️';
+  // Two or three emoji typed as one picture ("🍎🍌") are drawn smaller and on one line, so they stay inside their box.
+  let n = 1; try { n = [...new Intl.Segmenter().segment(String(e).trim())].length; } catch (x) {}
+  return `<span class="emo">${n > 1 ? `<span class="emx${n > 2 ? ' m3' : ''}">${esc(e)}</span>` : esc(e)}</span>`;
 }
 
 /* ================= hero scene ================= */

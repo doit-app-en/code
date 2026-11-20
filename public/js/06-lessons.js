@@ -6,7 +6,7 @@ function renderLevel(lid) {
   <div class="banner photo lvban" style="--c:${L.color};--ac:${L.color};--img:url(photos/level-${L.id}.jpg)"><div class="bi">${L.icon}</div><div><h1>${L.name}</h1><p>${L.tag} · ${L.desc}</p></div></div>
   <div class="lessons">
     ${lessons.map((s, i) => `
-      <div class="lcard" style="--c:${L.color}" data-open="${s.id}">
+      <div class="lcard" style="--c:${L.color}" data-open="${s.id}" tabindex="0" role="link">
         <span class="num">LESSON ${i + 1}</span>
         <h3>${esc(s.title)}</h3>
         <div class="badges">
@@ -27,7 +27,8 @@ function renderLevel(lid) {
   </div>
   ${!lessons.length && !T ? `<div class="panel empty" style="margin-top:20px"><div class="e">📭</div>No lessons yet in this level.</div>` : ''}
   ${!T ? `<div class="note">🧑‍🏫 Teachers: switch to <b>Teacher</b> mode (top right) to add lessons, videos, voice tracks, pictures and questions.</div>` : ''}`;
-  app.querySelectorAll('[data-open]').forEach(el => el.onclick = e => { if (e.target.closest('button')) return; go(`#/lesson/${lid}/${el.dataset.open}`); });
+  app.querySelectorAll('[data-open]').forEach(el => { el.onclick = e => { if (e.target.closest('button')) return; go(`#/lesson/${lid}/${el.dataset.open}`); };
+    el.onkeydown = e => { if (e.key === 'Enter' && e.target === el) el.click(); }; });   // a lesson card is not a real link: Enter opens it for a student who uses the keyboard
   if (!T) return;
   $('#addLesson').onclick = async () => {
     const t = $('#newTitle').value.trim() || 'New lesson';
@@ -85,7 +86,13 @@ async function renderLesson(lid, sid) {
   $('#nextStep').onclick = () => { const i = TABS.findIndex(t => t[0] === curTab); if (i < 3) { curTab = TABS[i + 1][0]; drawTab(); stepTop(); } else { markLessonDone(LS.id); toast('Lesson finished! 🎉'); curTab = 'video'; M = {}; S = {i:0, best:{}}; go('#/level/' + lid); } };   // opened again, a finished lesson starts at step 1
   const body = $('#body');
   body.onclick = onBodyClick; body.onchange = onBodyChange;
-  body.ondragstart = e => { const c = e.target.closest('.mcard'); if (c) { M.sel = +c.dataset.mi; e.dataTransfer.setData('text', c.dataset.mi); } };
+  // A dragged picture is the chosen picture and is lit like a tapped one: dropped on a wrong word or beside the words it stays chosen,
+  // and a choice the student cannot see made the next click on a word a "mistake".
+  body.ondragstart = e => { const c = e.target.closest('.mcard:not(.done)'); if (c) { matchSelect(c); e.dataTransfer.setData('text', c.dataset.mi); } };
+  // Keyboard: the pictures, words and phrases are not real buttons, so Enter or Space presses the one that has the focus.
+  body.onkeydown = e => { const el = e.target; if ((e.key !== 'Enter' && e.key !== ' ') || !el.matches || !el.matches('.mcard, .mwords .chip, .pchip, .phr')) return;
+    e.preventDefault(); el.click();
+    if (!el.isConnected) { const n = $('#stu .mcard:not(.done)') || $('#stu [data-act="mreset"]'); if (n) n.focus(); } };   // a right answer draws the game again: go on from the next picture
   body.ondragover = e => { const c = e.target.closest('.chip:not(.done)'); if (c) { e.preventDefault(); c.classList.add('over'); } };
   body.ondragleave = e => { const c = e.target.closest('.chip'); if (c) c.classList.remove('over'); };
   body.ondrop = e => { const c = e.target.closest('.chip:not(.done)'); if (c) { e.preventDefault(); c.classList.remove('over'); tryMatch(+c.dataset.wi, c); } };
@@ -110,11 +117,17 @@ function stuVideo() {
   const v = LS.video; let player;
   if (!v) player = `<div class="empty" style="background:#f7f9ff;border-radius:18px"><div class="e">🎬</div>No video yet. ${mode === 'teacher' ? 'Add one in the teacher tools below.' : 'Your teacher will add one soon!'}</div>`;
   else if (v.type === 'yt') player = `<div class="vwrap"><iframe src="https://www.youtube.com/embed/${esc(v.id)}?rel=0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
-  else player = `<div class="vwrap"><video controls playsinline src="${esc(v.type === 'file' ? (urlCache[v.m] || '') : v.url)}"></video></div>`;
+  else if (v.type === 'file' && !urlCache[v.m]) player = vidBadHTML();   // the file is not on this device (a course opened without its video)
+  else player = `<div class="vwrap"><video id="lvid" controls playsinline src="${esc(v.type === 'file' ? urlCache[v.m] : v.url)}"></video></div>`;
   return `<h3 class="sec-t">🎬 Watch & meet new phrases</h3><p class="hint">Watch the video carefully. Then tap the phrases below to hear them again.</p>
     ${player}
-    ${LS.phrases.some(txtOk) ? `<div class="chips">${LS.phrases.map((p, i) => txtOk(p) ? `<span class="pchip" data-say="${i}">🔊 ${esc(p.text)}</span>` : '').join('')}</div>` : ''}`;
+    ${LS.phrases.some(txtOk) ? `<div class="chips">${LS.phrases.map((p, i) => txtOk(p) ? `<span class="pchip" data-say="${i}" tabindex="0" role="button">🔊 ${esc(p.text)}</span>` : '').join('')}</div>` : ''}`;
 }
+// A video the browser cannot play (a link to a web page instead of a video file, a file that is gone) was a black box with no word of why.
+const vidBadHTML = () => `<div class="empty vbad" id="vbad" style="background:#f7f9ff;border-radius:18px"><div class="e">🎬</div>${mode === 'teacher'
+  ? 'This video cannot be played here. Use a YouTube link, a link that ends in .mp4, or upload the video file below.'
+  : 'This video cannot be played right now. You can go on with the phrases below and the next steps.'}</div>`;
+function vidBad() { const w = $('#stu .vwrap'); if (w && $('#lvid')) w.outerHTML = vidBadHTML(); }
 function edVideo() {
   const v = LS.video;
   return `<div class="edit"><h4>🧑‍🏫 Teacher tools · Video</h4>
@@ -136,7 +149,7 @@ function stuListen() {
     <p class="hint">${LS.audio ? 'Play the voice track — each picture lights up when you hear its phrase. Tap a picture to jump to it.' : 'Tap a picture to hear the phrase, or press “Play all”.'}</p>
     <div class="stage" id="stage">${stageHTML(-1)}</div>
     ${LS.audio ? `<audio id="trk" controls src="${urlCache[LS.audio.m] || ''}"></audio>` : `<button class="btn sun" data-act="playall">${PA_PLAY}</button>`}
-    <div class="phr-grid">${ph.map((p, i) => !txtOk(p) ? '' : `<div class="phr" data-pi="${i}"><div class="pic">${imgHTML(p.img)}</div><div class="pt">${esc(p.text)}</div>${LS.audio ? `<span class="tm">${fmt(p.time)}</span>` : ''}</div>`).join('')}</div>`;
+    <div class="phr-grid">${ph.map((p, i) => !txtOk(p) ? '' : `<div class="phr" data-pi="${i}" tabindex="0" role="button"><div class="pic">${imgHTML(p.img)}</div><div class="pt">${esc(p.text)}</div>${LS.audio ? `<span class="tm">${fmt(p.time)}</span>` : ''}</div>`).join('')}</div>`;
 }
 let activeP = -1, playingAll = false;
 const PA_PLAY = '▶ Play all', PA_STOP = '⏹ Stop';
@@ -176,17 +189,20 @@ function stuMatch() {
   return `<h3 class="sec-t">🧩 Match the pictures</h3>
     <p class="hint">Tap a picture, then tap the word that goes with it<span class="dragtip"> (or drag the picture onto the word)</span>. Matched: <b>${nd}/${ix.length}</b> · Mistakes: <b>${M.mist}</b></p>
     <div class="match">
-      <div class="mpics">${M.pics.map(i => { const d = M.done[i]; return `<div class="mcard ${d !== undefined ? 'done' : ''} ${M.sel === i ? 'sel' : ''}" data-mi="${i}" ${d === undefined ? 'draggable="true"' : ''} style="--pc:${PCOL[d % PCOL.length]}"><div class="pic">${imgHTML(P[i].img)}</div>${d !== undefined ? `<span class="tagn">${d + 1}</span>` : ''}</div>`; }).join('')}</div>
-      <div class="mwords">${M.order.map(i => { const d = M.done[i]; return `<div class="chip ${d !== undefined ? 'done' : ''}" data-wi="${i}" style="--pc:${PCOL[d % PCOL.length]}">${d !== undefined ? `<span class="tagn" style="background:#fff;color:var(--pc)">${d + 1}</span>` : ''}${esc(P[i].word)}</div>`; }).join('')}</div>
+      <div class="mpics">${M.pics.map(i => { const d = M.done[i]; return `<div class="mcard ${d !== undefined ? 'done' : ''} ${M.sel === i ? 'sel' : ''}" data-mi="${i}" ${d === undefined ? 'draggable="true" tabindex="0" role="button"' : ''} style="--pc:${PCOL[d % PCOL.length]}"><div class="pic">${imgHTML(P[i].img)}</div>${d !== undefined ? `<span class="tagn">${d + 1}</span>` : ''}</div>`; }).join('')}</div>
+      <div class="mwords">${M.order.map(i => { const d = M.done[i]; return `<div class="chip ${d !== undefined ? 'done' : ''}" data-wi="${i}" ${d === undefined ? 'tabindex="0" role="button"' : ''} style="--pc:${PCOL[d % PCOL.length]}">${d !== undefined ? `<span class="tagn" style="background:#fff;color:var(--pc)">${d + 1}</span>` : ''}${esc(P[i].word)}</div>`; }).join('')}</div>
     </div>
     ${all ? `<div class="win"><div class="stars">${stars}</div><h3>Fantastic! All matched 🎉</h3><p class="hint" style="margin:0 0 12px">You made ${M.mist} mistake${M.mist === 1 ? '' : 's'}.</p><button class="btn sun" data-act="mreset">↻ Play again</button></div>` : ''}`;
 }
+function matchSelect(card) { M.sel = +card.dataset.mi; document.querySelectorAll('#stu .mcard').forEach(c => c.classList.toggle('sel', c === card)); }
 function tryMatch(wi, chipEl) {
   if (M.sel === null || M.sel === undefined) { chipEl.classList.add('shake'); setTimeout(() => chipEl.classList.remove('shake'), 450); toast('First choose a picture 👆'); return; }
   if (M.done[wi] !== undefined) return;
   // Two pairs with the same word (two pictures of "orange"): either word box is right for either picture.
   if (wi !== M.sel && LS.matching[M.sel] && sameWord(LS.matching[wi], LS.matching[M.sel])) { const o = M.order, a = o.indexOf(wi), b = o.indexOf(M.sel); [o[a], o[b]] = [o[b], o[a]]; wi = M.sel; }
-  if (wi === M.sel) { M.done[wi] = Object.keys(M.done).length; say(LS.matching[wi].word); M.sel = null; drawStu(); }
+  if (wi === M.sel) { M.done[wi] = Object.keys(M.done).length; say(LS.matching[wi].word); M.sel = null; drawStu();
+    // The last pair: on a small phone the "All matched" box opened under the screen's edge, behind the bottom menu — bring it into view.
+    const w = $('#stu .win'); if (w) { const r = w.getBoundingClientRect(), tb = $('.tabbar'), lim = tb && getComputedStyle(tb).display !== 'none' ? tb.getBoundingClientRect().top : innerHeight; if (r.bottom > lim || r.top < 0) w.scrollIntoView({block: 'center'}); } }
   else {
     M.mist++; noteMistake('m', LS, LS.matching[M.sel]);   // remembered for "Practise my mistakes" (09b-mistakes.js)
     const card = document.querySelector(`.mcard[data-mi="${M.sel}"]`);
@@ -300,6 +316,7 @@ function picEdit(kind, i, img) {
 function bindStu() {
   activeP = -1;
   if (playingAll) { playToken++; playingAll = false; }   // the page was drawn again (a new "Play all" button): the old run must not go on behind it
+  const vid = $('#lvid'); if (vid) { vid.onerror = vidBad; if (vid.error) vidBad(); }
   const trk = $('#trk');
   if (trk) trk.ontimeupdate = () => {
     const t = trk.currentTime; let a = -1, at = -1;
@@ -315,7 +332,7 @@ async function onBodyClick(e) {
   const ph = t.closest('.phr');
   if (ph) { const i = +ph.dataset.pi, trk = $('#trk'); if (trk) { trk.currentTime = LS.phrases[i].time; trk.play(); } else { playToken++; playAllIs(false); setActive(i); say(LS.phrases[i].text); } return; }
   const mc = t.closest('.mcard');
-  if (mc && !mc.classList.contains('done')) { M.sel = +mc.dataset.mi; document.querySelectorAll('.mcard').forEach(c => c.classList.toggle('sel', c === mc)); return; }
+  if (mc && !mc.classList.contains('done')) return matchSelect(mc);
   const ch = t.closest('.chip'); if (ch && !ch.classList.contains('done')) return tryMatch(+ch.dataset.wi, ch);
   const b = t.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, k = b.dataset.kind, i = +b.dataset.idx;
@@ -344,8 +361,12 @@ async function onBodyClick(e) {
     case 'del': LS[k].splice(i, 1); await save(); drawTab(); break;
     case 'now': { const trk = $('#trk'); if (!trk) return toast('Add a voice track first'); LS.phrases[i].time = +trk.currentTime.toFixed(1); await save(); drawEd(); bindStu(); drawStuKeepAudio(); toast('Time set to ' + fmt(LS.phrases[i].time)); break; }
     case 'vidurl': {
-      const u = $('#vurl').value.trim(); if (!u) return toast('Paste a link first');
-      const y = ytId(u); LS.video = y ? {type: 'yt', id: y, src: u} : {type: 'url', url: u, src: u};
+      let u = $('#vurl').value.trim(); if (!u) return toast('Paste a link first');
+      const y = ytId(u);
+      if (!y) {   // not YouTube: it must at least be a web address ("example.com/film.mp4" gets its https://)
+        if (!/^https?:\/\/\S+$/i.test(u) && !/^[\w-]+(\.[\w-]+)+(:\d+)?([\/?#]\S*)?$/.test(u)) return toast('This is not a link. Paste a YouTube link or a link that ends in .mp4');
+        if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+      } LS.video = y ? {type: 'yt', id: y, src: u} : {type: 'url', url: u, src: u};
       await save(); drawTab(); toast('Video added'); break;
     }
     case 'vidrm': LS.video = null; await save(); drawTab(); break;

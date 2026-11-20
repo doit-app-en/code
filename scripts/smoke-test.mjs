@@ -131,6 +131,14 @@ for (const screen of SCREENS) {
     const mt = await page.evaluate(() => { const w = document.querySelector('#stu .win'); w.scrollIntoView({ block: 'center', behavior: 'instant' }); return { mist: M.mist, win: Math.round(w.getBoundingClientRect().width), box: Math.round(document.querySelector('#stu').getBoundingClientRect().width), over: document.documentElement.scrollWidth - innerWidth }; });
     if (mt.mist !== 1 || mt.win < mt.box - 2 || mt.over > 1) problems.push('lesson Match: the "All matched" box is not as wide as the page, or the mistakes count is wrong ' + JSON.stringify(mt));
     await page.waitForTimeout(200); await page.screenshot({ path: path.join(shots, 'phone-lesson-match-win.png') });
+    // The same game with the keyboard, a dragged picture that stays lit as the chosen one, and a video that cannot be played says so.
+    await page.click('[data-act=mreset]'); await page.focus('#stu .mcard'); await page.keyboard.press('Enter');
+    const kb = await page.evaluate(() => ({ sel: M.sel, lit: document.querySelectorAll('#stu .mcard.sel').length })); await page.focus(`#stu .chip[data-wi="${kb.sel}"]`); await page.keyboard.press(' ');
+    kb.done = await page.evaluate(() => Object.keys(M.done).length); kb.focus = await page.evaluate(() => document.activeElement.classList.contains('mcard'));
+    kb.drag = await page.evaluate(() => { const c = document.querySelector('#stu .mcard:not(.done)'); c.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() })); return M.sel === +c.dataset.mi && c.classList.contains('sel'); });
+    await page.evaluate(() => { LS.video = { type: 'url', url: 'https://127.0.0.1:9/page', src: 'x' }; curTab = 'video'; drawTab(); }); await page.waitForSelector('#vbad', { timeout: 5000 }).then(() => { kb.bad = true; }).catch(() => {});
+    await page.screenshot({ path: path.join(shots, 'phone-lesson-video-cannot-play.png') }); await page.evaluate(() => { LS.video = null; drawTab(); });
+    if (kb.lit !== 1 || kb.done !== 1 || !kb.focus || !kb.drag || !kb.bad) problems.push('lesson Match and Watch: Enter / Space should choose a picture and its word, a dragged picture should be lit as chosen, and a video that cannot be played should say so ' + JSON.stringify(kb));
     await page.click('[data-tab=speak]'); await page.click('#nextStep'); await page.waitForSelector('.lcard .badge.fin', { timeout: 5000 });
     if (await page.evaluate(() => document.querySelectorAll('.lcard .badge.fin').length) !== 1) problems.push('lesson: after "Finish lesson" exactly one lesson should be marked Finished on the level page');
     await page.screenshot({ path: path.join(shots, 'phone-level-finished.png') });

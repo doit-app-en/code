@@ -1346,3 +1346,7 @@ body.acct-front .navlinks a.hide-sm,body.acct-front .tabbar{display:none!importa
   #lsEd .optE .row .emo-in{flex:0 0 48px;width:48px}
   #lsEd .warn{padding:10px 12px;font-size:14px}
 }
+/* Lessons with the keyboard: the lesson cards, the Match pictures and words and the phrases can be reached with Tab; this ring shows where the focus is. */
+.lcard:focus-visible,.lsbody .mcard:focus-visible,.lsbody .mwords .chip:focus-visible,.lsbody .pchip:focus-visible,.lsbody .phr:focus-visible{outline:3px solid var(--navy);outline-offset:3px}
+/* Several emoji typed as one picture: smaller and on one line (imgHTML). */
+.emo .emx{font-size:.62em;white-space:nowrap}.emo .emx.m3{font-size:.42em}
