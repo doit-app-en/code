@@ -364,6 +364,61 @@ for (const screen of SCREENS) {
   await ctx.close();
 }
 
+// Listen and build on a phone: locked until a lesson is finished, then a whole round through the real word buttons — one sentence
+// wrong first and then fixed, one shown, the others right — the marks, the result, the mistakes list, and the page at 320px.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } }), page = await ctx.newPage();
+  watch(page, 'listen and build');
+  try {
+    await page.goto(base + '/#/', { waitUntil: 'load' }); await page.waitForSelector('.lvl', { timeout: 10000 });
+    const a = { none: await page.evaluate(() => !document.querySelector('#bsGo')) };
+    await page.evaluate(() => { location.hash = '#/build'; }); await page.waitForSelector('#bsLocked', { timeout: 5000 });
+    await page.evaluate(async () => { const s = state.levels.a1.lessons[0]; lessonsDone[s.id] = Date.now(); await DB.put('kv', 'lessonsDone', lessonsDone); location.hash = '#/'; });
+    await page.waitForSelector('#bsGo', { timeout: 5000 });
+    a.home = await page.evaluate(() => { const e = document.querySelector('#bsGo'); e.scrollIntoView({ block: 'center', behavior: 'instant' }); return e.innerText.replace(/\s+/g, ' '); }); await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(shots, 'phone-home-listen-build.png') });
+    await page.click('#bsGo'); await page.waitForSelector('#bsIntro', { timeout: 5000 }); await page.waitForTimeout(150);
+    await page.screenshot({ path: path.join(shots, 'phone-listen-build-intro.png') });
+    await page.click('#bsStart'); await page.waitForSelector('#bsBank', { timeout: 5000 });
+    // The word buttons of the phrase on the screen, in the right order (the places of its words among the buttons).
+    const order = () => page.evaluate(() => { const x = BS.q[BS.i], used = []; return x.want.map(w => { const i = x.bank.findIndex((b, i) => b.n === w.n && !used.includes(i)); used.push(i); return i; }); });
+    const tap = async list => { for (const i of list) await page.click(`#bsBank .bsw[data-b="${i}"]`); };
+    // (only the page's own part is measured: at 320px the site's header is a little wider than the screen)
+    const fits = () => page.evaluate(() => ({ over: Math.round(Math.max(...[...document.querySelectorAll('#bsBody, #bsBody *')].map(e => e.getBoundingClientRect().right)) - innerWidth), small: [...document.querySelectorAll('#bsBody button:not(.used)')].filter(b => b.getBoundingClientRect().height < 44).length }));
+    a.n = await page.evaluate(() => BS.q.length);
+    a.bank = await page.evaluate(() => BS.q.every(x => x.bank.length === x.want.length + 2 && x.bank.every(b => /^[A-Za-z0-9']+$/.test(b.w)) && !/^[A-HJ-Z]/.test(x.bank.find(b => b.n === x.want[0].n).w) && !document.querySelector('#bsQ').innerText.includes(x.text)));
+    a.check0 = await page.evaluate(() => document.querySelector('#bsCheck').disabled);
+    // 1: its words in the wrong order with one left out and a word that does not belong → marks, then fixed.
+    const o1 = await order(), extra = await page.evaluate(() => { const x = BS.q[BS.i]; return x.bank.findIndex(b => !x.want.some(w => w.n === b.n)); });
+    await tap([o1[1], o1[0], extra, ...o1.slice(3)]); await page.screenshot({ path: path.join(shots, 'phone-listen-build-question.png') });
+    a.fit = await fits();
+    await page.click('#bsCheck'); await page.waitForSelector('#bsLine .bsw.no', { timeout: 5000 }); await page.waitForTimeout(150);
+    await page.screenshot({ path: path.join(shots, 'phone-listen-build-wrong.png') });
+    a.wrong = await page.evaluate(() => ({ ok: document.querySelectorAll('#bsLine .bsw.ok').length, no: document.querySelectorAll('#bsLine .bsw.no').length, fb: document.querySelector('#bsFb').innerText.replace(/\s+/g, ' '), mist: Object.keys(mistakes).length, over: BS.q[0].over }));
+    await page.setViewportSize({ width: 320, height: 640 }); await page.waitForTimeout(150); a.fit320 = await fits();
+    await page.screenshot({ path: path.join(shots, 'phone-320-listen-build.png') }); await page.setViewportSize({ width: 390, height: 800 });
+    for (let n = await page.evaluate(() => BS.q[0].ans.length); n > 0; n--) await page.click('#bsLine .bsw');   // every word out again
+    await tap(o1); await page.click('#bsCheck'); await page.waitForSelector('#bsNext', { timeout: 5000 }); await page.waitForTimeout(150);
+    a.fixed = await page.evaluate(() => BS.q[0].res + ' | ' + document.querySelector('#bsFull').innerText.includes(BS.q[0].text));
+    await page.screenshot({ path: path.join(shots, 'phone-listen-build-right.png') });
+    // 2: a double tap on "Next" does not show the next answer; then "Show the answer". The others: right the first time.
+    a.double = await page.evaluate(() => { document.querySelector('#bsNext').click(); document.querySelector('#bsShowA').click(); return BS.i !== 1 || BS.q[1].over; });
+    await page.waitForTimeout(450); await page.click('#bsShowA'); await page.waitForSelector('#bsNext');
+    for (let i = 2; i < a.n; i++) { await page.click('#bsNext'); await page.waitForSelector('#bsBank'); await tap(await order()); await page.click('#bsCheck'); await page.waitForSelector('#bsNext'); }
+    await page.click('#bsNext'); await page.waitForSelector('#bsEnd', { timeout: 5000 }); await page.waitForTimeout(450);
+    await page.screenshot({ path: path.join(shots, 'phone-listen-build-result.png') });
+    a.end = await page.evaluate(() => ({ text: document.querySelector('#bsEnd').innerText.replace(/\s+/g, ' '), res: BS.q.map(x => x.res).join(','), mist: Object.keys(mistakes).filter(k => k[0] === 's').length, days: activity.days[todayKey()] || 0, link: !!document.querySelector('#bsBody #mistGo'), over: document.documentElement.scrollWidth - innerWidth }));
+    await page.click('#bsAgain'); await page.waitForSelector('#bsBank', { timeout: 5000 });
+    a.last = await page.evaluate(() => { const again = BS.i === 0 && BS.q.every(x => !x.res); mode = 'teacher'; renderHome(); const teacher = !!document.querySelector('#bsGo'); mode = 'student'; renderProgress(); return { again, teacher, progress: !!document.querySelector('#bsGo') }; });
+    if (!a.none || !/Listen and build/.test(a.home) || a.n !== 4 || !a.bank || !a.check0 || a.fit.over > 1 || a.fit.small || a.fit320.over > 1 || a.fit320.small
+      || !a.wrong.no || !/Not yet/.test(a.wrong.fb) || a.wrong.mist !== 1 || a.wrong.over || a.fixed !== 'fixed | true' || a.double
+      || !new RegExp(`${a.n - 2} of ${a.n} right the first time`).test(a.end.text) || a.end.res !== 'fixed,shown' + ',ok'.repeat(a.n - 2) || a.end.mist !== 2 || a.end.days < 1 || !a.end.link || a.end.over > 1
+      || !a.last.again || a.last.teacher || !a.last.progress)
+      problems.push('listen and build: the round, the marks, the result or the link is wrong ' + JSON.stringify(a));
+  } catch (e) { problems.push('listen and build: could not finish — ' + e.message.split('\n')[0]); }
+  await ctx.close();
+}
+
 // The whole Voice level test with a fake microphone and a pretend speech recogniser. First the recogniser hears nothing: the student
 // must be told at once and get the same question again. Then it hears words, the test is finished, and "← Back" on the result works.
 {
@@ -777,4 +832,4 @@ for (const screen of SCREENS) {
 
 await browser.close(); stop();
 if (problems.length) { console.log('SMOKE TEST FAILED\n' + [...new Set(problems)].map(p => ' ✗ ' + p).join('\n')); process.exit(1); }
-console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match and every listening exercise on a phone, accounts (welcome page, visitor sample, two students on one device, sign-up, two tabs, teacher account), voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);
+console.log(`Smoke test passed: ${SCREENS.length} screen sizes, ${ROUTES.length + TEACHER_ROUTES.length} pages each, placement test, lesson, practise my mistakes, mixed match, listen and build and every listening exercise on a phone, accounts (welcome page, visitor sample, two students on one device, sign-up, two tabs, teacher account), voice test finished, a whole pronounce letter, test your speaking, pronounce with the speech service, students voice column, filter and history checked, "Try again" states checked. Screenshots: ${shots}`);

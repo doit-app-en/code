@@ -179,7 +179,7 @@ function renderProgress(arrived) {
       ${p.placement ? `<p class="pgplace">🎯 Placement test level: <b>${esc(p.placement)}</b></p>` : ''}
     </div>
   </div>
-  ${mistLinkHTML()}${mixLinkHTML()}
+  ${mistLinkHTML()}${mixLinkHTML()}${bsLinkHTML()}
   <div class="pggrid">
     <div class="panel"><h3 class="sec-t" style="font-size:22px">🎧 Listening <span style="color:${pcol(p.listening)}">${p.listening}%</span></h3>
       <p class="hint" style="margin:0 0 10px">${p.listenDone} of ${p.listenTotal} exercises done</p>

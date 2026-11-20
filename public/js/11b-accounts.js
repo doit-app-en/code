@@ -374,7 +374,7 @@ function authFinishPage() {
   draw();
 }
 function authGatePage(page) {
-  const names = {pronounce: 'Pronounce', listening: 'Listening', speaking: 'Test your speaking', voicetest: 'the Voice level test', progress: 'My progress', mistakes: 'Practise my mistakes', mixmatch: 'Mixed match', lesson: 'this lesson', students: 'the Students page'};
+  const names = {pronounce: 'Pronounce', listening: 'Listening', speaking: 'Test your speaking', voicetest: 'the Voice level test', progress: 'My progress', mistakes: 'Practise my mistakes', mixmatch: 'Mixed match', build: 'Listen and build', lesson: 'this lesson', students: 'the Students page'};
   app.innerHTML = `<div class="acctpage"><div class="panel acctcard" style="text-align:center"><div class="acctlock">🔒</div><h2 class="baloo">Create a free account to open ${names[page] || 'this page'}</h2>
     <p class="hint">As a visitor you can try the placement test and the first lesson of each level. With a free account everything opens and your progress is saved.</p>
     <div class="wl-cta" style="justify-content:center"><a class="btn sun" href="#/register">Create a free account</a><a class="btn ghost" href="#/login">Sign in</a></div>

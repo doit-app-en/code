@@ -1398,3 +1398,28 @@ body.acct-front .navlinks a.hide-sm,body.acct-front .tabbar{display:none!importa
   .acctform .btn,.acctg,.acctcard .wl-cta .btn{min-height:48px;padding:0 14px}
 }
 @media(max-width:360px){.wl-in h1{font-size:29px}.wl-in .chip{font-size:12px}}
+
+/* Listen and build (09d-listen-build.js): the link, the round at #/build and its result */
+.mistk.bsk{background:#e8f6fd;border-color:#bfe4f5}.mistk.bsk>i{background:var(--sky)}.mistk.bsk>em{color:#0d6990}
+.bsintro{margin-top:0}.bsintro .btn{min-width:200px;min-height:48px;font-size:18px}.bstip{font-size:16px;color:#0d6990}
+.bsbar i{background:#1787b8}
+.bsq{text-align:center}.bshear{justify-content:center}.bshear .btn{min-height:48px;min-width:130px}
+.bsline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;min-height:68px;margin:16px 0 14px;padding:10px;border:2px dashed #c9d3e6;border-radius:16px;background:#fbfcff}
+.bsline.done{border-style:solid;border-color:#bfe4f5;background:#f1fafe}
+.bsline .ph{color:var(--muted);font-weight:700}
+.bsbank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.bsw{min-height:44px;min-width:44px;padding:8px 14px;border-radius:12px;border:2px solid #bfe4f5;background:#fff;font:inherit;font-weight:800;font-size:17px;color:var(--navy);cursor:pointer;box-shadow:0 3px 0 #bfe4f5}
+.bsw:active{transform:translateY(2px);box-shadow:none}.bsw.used,.bsw.used:active{color:transparent;background:#f4f6fa;border-style:dashed;border-color:#dde3ee;box-shadow:none;transform:none;cursor:default}
+.bsline .bsw{box-shadow:none;border-color:#c9d3e6}
+.bsline .bsw.ok{background:#e3f8ec;border-color:#8ed6ad;color:#12683c}.bsline .bsw.no{background:#ffecec;border-color:#f3a6a6;color:#b93232}
+.bsgap{display:grid;place-items:center;min-width:44px;min-height:44px;border-radius:12px;border:2px dashed #f3a6a6;color:#b93232;font-weight:800;font-size:18px}
+.bsfull{border:0;background:none;font:inherit;font-weight:800;font-size:22px;line-height:1.3;color:var(--navy);cursor:pointer;min-height:44px;padding:4px 8px}
+.bsk-no{color:#b93232;font-weight:800}
+.bsnav{flex-wrap:wrap;gap:10px}.bsnav .btn:disabled{opacity:.45;cursor:default}
+.bsend .btn{min-height:48px}
+@media(max-width:640px){
+  #bsBody{padding:14px 12px}.bsintro{padding:20px 12px}.bsintro .btn{width:100%}
+  .bshear .btn{flex:1}.bsline{margin:12px 0;padding:8px;gap:6px}.bsbank{gap:6px}
+  .bsw{padding:8px 11px;font-size:16px}.bsfull{font-size:19px}
+  .bsnav .btn{min-width:0;flex:1 1 100%}.bsend .row .btn{flex:1 1 100%}
+}
