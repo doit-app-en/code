@@ -282,7 +282,7 @@ function authLoginPage() {
       <div class="err" id="acctFErr" role="alert"></div>
       <button class="btn sun" type="submit" id="acctGo">Sign in</button></form>
     ${authGoogleBtn('Sign in')}
-    <p class="acctalt">New here? <a href="#/register">Create a free account</a> · <a href="#/join">I have a class code</a></p>`);
+    <p class="acctalt"><span>New here?</span><a href="#/register">Create a free account</a><a href="#/join">I have a class code</a></p>`);
   const f = $('#acctForm');
   f.onsubmit = async e => {
     e.preventDefault(); const v = Object.fromEntries(new FormData(f)), err = $('#acctFErr'), b = $('#acctGo');
@@ -378,7 +378,7 @@ function authGatePage(page) {
   app.innerHTML = `<div class="acctpage"><div class="panel acctcard" style="text-align:center"><div class="acctlock">🔒</div><h2 class="baloo">Create a free account to open ${names[page] || 'this page'}</h2>
     <p class="hint">As a visitor you can try the placement test and the first lesson of each level. With a free account everything opens and your progress is saved.</p>
     <div class="wl-cta" style="justify-content:center"><a class="btn sun" href="#/register">Create a free account</a><a class="btn ghost" href="#/login">Sign in</a></div>
-    <p class="acctalt"><a href="#/">← Back to the sample</a> · <a href="#/join">I have a class code</a></p></div></div>`;
+    <p class="acctalt"><a href="#/">← Back to the sample</a><a href="#/join">I have a class code</a></p></div></div>`;
 }
 
 /* ---------- teacher: my classes (on top of the Students page) ---------- */

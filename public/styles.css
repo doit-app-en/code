@@ -1366,3 +1366,35 @@ body.acct-front .navlinks a.hide-sm,body.acct-front .tabbar{display:none!importa
 .lcard:focus-visible,.lsbody .mcard:focus-visible,.lsbody .mwords .chip:focus-visible,.lsbody .pchip:focus-visible,.lsbody .phr:focus-visible{outline:3px solid var(--navy);outline-offset:3px}
 /* Several emoji typed as one picture: smaller and on one line (imgHTML). */
 .emo .emx{font-size:.62em;white-space:nowrap}.emo .emx.m3{font-size:.42em}
+/* ---------- accounts pages: welcome, sign in, sign up, join, the gate — tidy forms and phone layout (designer, 2026-11-20) ---------- */
+.acctpage>.backbtn{align-items:center;min-height:44px;padding:0 16px;margin:0 0 12px;border-radius:12px;background:#fff;border:1.5px solid #d5dce8;color:var(--navy);font-weight:800;text-decoration:none}
+.acctcard h2{line-height:1.2;margin-bottom:6px}.acctcard .hint{margin-bottom:0;line-height:1.4}
+.acctform .in{min-height:48px;font-size:16px}
+.acctform .err:empty,.acctinfo:empty{display:none}   /* no empty gap above the button while there is nothing to say */
+.acctform .err{min-height:0;line-height:1.35}.acctinfo{line-height:1.4}
+.acctrole a,.acctrole button{display:flex;align-items:center;justify-content:center;min-height:44px}
+.acctalt{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 18px;margin-top:10px;line-height:1.3}
+.acctform .in.acctbig{font-size:26px;min-height:58px}.acctcard .hint+.wl-cta{margin-top:16px}
+.acctalt a{display:inline-flex;align-items:center;min-height:44px}
+.wl-code{display:inline-flex;align-items:center;min-height:44px;margin-top:8px}
+/* Join your class: once the code is right, "Create my account" is the one yellow button */
+.acctform:has(~ #acctNext:not([hidden])) #acctGo{background:#fff;color:var(--navy);border:1.5px solid #d5dce8;box-shadow:none}
+@media(min-width:561px) and (max-width:860px){
+  .wl-roles,.wl-feats{grid-template-columns:repeat(3,1fr)}.wl-role{padding:18px 16px}.wl-role b{font-size:18px}.wl-role span,.wl-feats span{font-size:14px}
+}
+@media(max-width:560px){
+  .welcome{gap:12px}.wl-hero{border-radius:22px}.wl-in{padding:24px 20px 18px}
+  .wl-in h1{font-size:34px;margin:12px 0 10px}.wl-in p{font-size:15px;line-height:1.5;margin-bottom:16px}
+  .wl-cta .btn{min-height:48px;padding:0 16px}.wl-code{font-size:15px;line-height:1.3;margin-top:6px}
+  /* one slim row for each choice: picture on the left, words on the right — all three fit under the photo */
+  .wl-roles{gap:10px}
+  .wl-role{display:grid;grid-template-columns:44px 1fr;column-gap:12px;row-gap:2px;align-items:start;padding:14px 16px;border-radius:18px;width:100%}
+  .wl-role i{grid-row:1/4;font-size:32px;line-height:44px;text-align:center}.wl-role b{font-size:18px;line-height:1.25}
+  .wl-role span{font-size:14px;line-height:1.4}.wl-role em{margin-top:4px;font-size:15px}
+  .wl-feats{gap:6px;margin-top:4px}
+  .wl-feats div{display:grid;grid-template-columns:44px 1fr;column-gap:12px;row-gap:2px;padding:8px 16px}
+  .wl-feats i{grid-row:1/3;font-size:26px;line-height:40px;text-align:center}.wl-feats b{font-size:16px}.wl-feats span{font-size:14px;line-height:1.4}
+  .acctpage{margin-top:0}.acctcard h2{font-size:25px}.acctcard .hint{font-size:15px}.acctlock{font-size:40px;line-height:1.1}
+  .acctform .btn,.acctg,.acctcard .wl-cta .btn{min-height:48px;padding:0 14px}
+}
+@media(max-width:360px){.wl-in h1{font-size:29px}.wl-in .chip{font-size:12px}}
