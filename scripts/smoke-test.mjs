@@ -199,6 +199,12 @@ for (const screen of SCREENS) {
       const ed = await page.evaluate(() => ({ at: document.activeElement.dataset.ef, val: document.activeElement.value, tag: !!document.querySelector('#smokeX') }));
       if (ed.at !== 'title' || !/ 2$/.test(ed.val)) problems.push(L + `: the teacher's editor loses the box he clicked after a change (now in "${ed.at || 'nothing'}", "${ed.val || ''}")`);
       if (ed.tag) problems.push(L + ': a "<" typed by a teacher in a picture box is drawn as HTML, not as text');
+      // A space typed just before the page is drawn again after a save must stay (the save is held back here so that it always lands between the space and the next letter).
+      await page.evaluate(() => { const real = window._put = DB.put, gate = new Promise(r => window._go = r); DB.put = async (...a) => { await gate; return real.apply(DB, a); }; });
+      await page.fill('#lsEd [data-ef="qs.1.o.0"]', 'x'); await page.click('#lsEd [data-ef="title"]'); await page.keyboard.press('End'); await page.keyboard.type(' ');
+      await page.evaluate(() => window._go()); await page.waitForFunction(() => lexs()[LS_.n - 1].qs[1].o[0] === 'x' && !document.querySelector('#smokeX'), null, { timeout: 5000 }); await page.waitForTimeout(250); await page.keyboard.type('3');
+      const sp = await page.evaluate(() => { DB.put = window._put; return { at: document.activeElement.dataset.ef, val: document.activeElement.value }; });
+      if (sp.at !== 'title' || !/ 2 3$/.test(sp.val)) problems.push(L + `: a space typed in the teacher's editor while a change was being saved is lost (now in "${sp.at || 'nothing'}", "${sp.val || ''}")`);
       await page.evaluate(() => { mode = 'student'; setModeButtons(); location.hash = '#/'; }); await page.waitForTimeout(200); }
   } catch (e) { problems.push('practice flows: could not finish — ' + e.message.split('\n')[0]); }
   await ctx.close();

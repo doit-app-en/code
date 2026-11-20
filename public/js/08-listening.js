@@ -1211,7 +1211,10 @@ function bindLsEditor(ex, n) {
     stopAll(); LS_ = lsNew(n); const y = window.scrollY; renderListenEx(n); window.scrollTo(0, y);
     const el = sel && document.querySelector(sel); if (!el) return;
     el.focus({preventScroll: true});
-    if (typed !== null && el.value.trim() !== typed.trim()) { el.value = typed; el.addEventListener('blur', () => { if (el.isConnected) el.dispatchEvent(new Event('change')); }, {once: true}); }   // letters typed while the last change was being saved
+    if (typed !== null && el.value !== typed) {   // letters typed while the last change was being saved; a space at the end is kept too (the next letter used to stick to the word before it)
+      const more = el.value.trim() !== typed.trim(); el.value = typed;
+      if (more) el.addEventListener('blur', () => { if (el.isConnected) el.dispatchEvent(new Event('change')); }, {once: true});
+    }
     try { if (c0 !== null && el.matches('input:not([type=radio])')) el.setSelectionRange(c0, c1); } catch (e) {}
   };
   const items = () => (ex.qs || ex.steps);
